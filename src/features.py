@@ -5,6 +5,8 @@ for nouns and verbs in Tira.
 
 from pynini.lib import features
 
+# class prefixes
+
 CLASS_PREFIXES = [
     "j",
     "g",
@@ -18,6 +20,8 @@ CLASS_PREFIXES = [
 ]
 CLASS_AGREE = features.Feature("class", *CLASS_PREFIXES)
 
+# verb features
+
 TAM = features.Feature(
     "tam",
     "imperfective",
@@ -29,3 +33,10 @@ TAM = features.Feature(
 DEIXIS = features.Feature("deixis", "ventive", "itive")
 
 INFLECTED_VERB = features.Category(TAM, DEIXIS, CLASS_AGREE)
+
+# verb feature bundles
+
+IPFV_IT = features.FeatureVector(INFLECTED_VERB, "tam=imperfective", "deixis=itive")
+IPFV_VENT = features.FeatureVector(INFLECTED_VERB, "tam=imperfective", "deixis=ventive")
+PFV_IT = features.FeatureVector(INFLECTED_VERB, "tam=perfective", "deixis=itive")
+PFV_VENT = features.FeatureVector(INFLECTED_VERB, "tam=perfective", "deixis=ventive")
