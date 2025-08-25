@@ -37,5 +37,21 @@ TIRA_SYMBOL_TABLE
 C = pynini.union(*TIRA_CONSONANTS).optimize()
 V = pynini.union(*TIRA_VOWELS).optimize()
 T = pynini.union(*TIRA_TONES).optimize()
-SIGMASTAR = pynini.union(C,V,T).closure().optimize()
-STEM = paradigms.make_byte_star_except_boundary()
+SIGMASTAR = pynini.union(C,V,T,BOUNDARY).closure().optimize()
+STEM = paradigms.make_byte_star_except_boundary(BOUNDARY)
+
+# phonological processes
+
+HTONE_SYLL = (C.closure() + V + pynutil.insert(HIGH_TONE) + C.closure()).optimize()
+LTONE_SYLL = (C.closure() + V + pynutil.insert(LOW_TONE) + C.closure()).optimize()
+
+HLSTAR = (HTONE_SYLL + LTONE_SYLL.closure()).optimize()
+ALL_HIGH_TONE = HTONE_SYLL.closure().optimize()
+ALL_LOW_TONE = LTONE_SYLL.closure().optimize()
+
+DELETE_SCHWA_BEFORE_VOWEL = pynini.cdrewrite(
+    tau=pynutil.delete("ə"+T),
+    l='',
+    r=BOUNDARY.ques+V,
+    sigma_star=SIGMASTAR,
+).optimize()
