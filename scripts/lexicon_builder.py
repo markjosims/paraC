@@ -68,7 +68,7 @@ def apply_roots_to_excel() -> int:
     excel_df[ROOT_COL]=excel_df[OLD_ROOT_COL].map(root2merge)
     print("Adding senses and FV labels to Excel data...")
     excel_df[SENSE_COL]=excel_df[ROOT_COL].map(root2sense)
-    excel_df[FV_COL]=excel_df[ROOT_COL].map(root2sense)
+    excel_df[FV_COL]=excel_df[ROOT_COL].map(root2fv)
 
     excel_df.to_excel(EXCEL_VERBS_PATH, sheet_name=EXCEL_SHEET_NAME, index=False)
 
