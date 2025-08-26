@@ -132,12 +132,3 @@ def inflect_random_verb(fv_class: Optional[str]=None):
     root = random.choice(get_roots_for_class(fv_class))
     print(root, fv_class)
     print_forms(root, FV2PARADIGM[fv_class])
-
-for verb_root, fv_class in get_all_verb_roots_and_fvs():
-    if fv_class not in FV_CLASSES:
-        continue
-    paradigm = FV2PARADIGM[fv_class]
-    try:
-        print_forms(verb_root, paradigm, return_wordforms=True)
-    except:
-        print(verb_root, fv_class)
