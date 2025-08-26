@@ -5,7 +5,7 @@ stems to glosses and to principal parts.
 
 import pynini
 import pandas as pd
-from constants import VERB_ROOTS_PATH, ROOT2FV_FST_PATH, ROOT2GLOSS_FST_PATH
+from src.constants import VERB_ROOTS_PATH, ROOT2FV_FST_PATH, ROOT2GLOSS_FST_PATH
 from typing import *
 
 VERBS_DF = pd.read_csv(VERB_ROOTS_PATH)

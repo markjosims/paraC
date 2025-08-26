@@ -5,9 +5,9 @@ of nouns and verbs in Tira.
 
 import pynini
 from pynini.lib import features, paradigms, rewrite, pynutil
-from phoneme_inventory import *
-from features import *
-from lexicon import get_roots_for_class, get_all_verb_roots_and_fvs
+from src.phoneme_inventory import *
+from src.features import *
+from src.lexicon import get_roots_for_class, get_all_verb_roots_and_fvs
 from typing import *
 import random
 
