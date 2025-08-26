@@ -50,7 +50,8 @@ C = pynini.union(*TIRA_CONSONANTS).optimize()
 V = pynini.union(*TIRA_VOWELS).optimize()
 T = pynini.union(*TIRA_TONES).optimize()
 TBU = pynini.union(*TIRA_TBUS).optimize()
-SIGMASTAR = pynini.union(C,V,T,BOUNDARY).closure().optimize()
+SIGMA = pynini.union(C,V,T,BOUNDARY).optimize()
+SIGMASTAR = SIGMA.closure().optimize()
 STEM = paradigms.make_byte_star_except_boundary(BOUNDARY)
 
 # phonological processes
