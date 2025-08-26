@@ -68,12 +68,15 @@ def make_verb_slots(fv_class: str) -> Dict[str, List[Tuple[pynini.Fst, features.
     o_morphome = CLASS2FV[fv_class]["o_morphome"]
     e_morphome = CLASS2FV[fv_class]["e_morphome"]
     
-    prepare_root_for_inflection = REMOVE_HOMOPHONE_TAG
+    prepare_root_for_inflection = REMOVE_HOMOPHONE_TAG@ADD_PLACEHOLDER_TBU
+    finalize_form = FLOAT_TONE_RULE
+
+    compose_stem = lambda stem_rule: prepare_root_for_inflection@stem_rule@finalize_form
 
     ipfv_it_suffix=f"-{a_morphome}{LOW_TONE}"
-    ipfv_it_stem = prepare_root_for_inflection@IPFV_AUX(HLSTAR)
+    ipfv_it_stem = compose_stem(IPFV_AUX(HLSTAR))
     ipfv_vent_suffix=f"-{o_morphome}{HIGH_TONE}"
-    ipfv_vent_stem = prepare_root_for_inflection@IPFV_AUX(ALL_LOW_TONE)
+    ipfv_vent_stem = compose_stem(IPFV_AUX(ALL_LOW_TONE))
     ipfv_slots = [
         (paradigms.suffix(ipfv_it_suffix, ipfv_it_stem), IPFV_IT),
         (paradigms.suffix(ipfv_vent_suffix, ipfv_vent_stem), IPFV_VENT),
@@ -81,9 +84,9 @@ def make_verb_slots(fv_class: str) -> Dict[str, List[Tuple[pynini.Fst, features.
     ipfv_slots = add_class_prefixes_to_slots(ipfv_slots)
 
     pfv_it_suffix = f"-{e_morphome}{LOW_TONE}"
-    pfv_it_stem = prepare_root_for_inflection@PFV_IT_AUX(HLSTAR)
+    pfv_it_stem = compose_stem(PFV_IT_AUX(HLSTAR))
     pfv_vent_suffix = ipfv_vent_suffix
-    pfv_vent_stem = prepare_root_for_inflection@ALL_LOW_TONE
+    pfv_vent_stem = compose_stem(ALL_LOW_TONE)
     pfv_slots = [
         (paradigms.suffix(pfv_it_suffix, pfv_it_stem), PFV_IT),
         (paradigms.suffix(pfv_vent_suffix, pfv_vent_stem), PFV_VENT),
@@ -92,7 +95,7 @@ def make_verb_slots(fv_class: str) -> Dict[str, List[Tuple[pynini.Fst, features.
 
     inf_suffix = f"-{a_morphome}{HIGH_TONE}"
     inf_class = 'ð'
-    inf_stem = prepare_root_for_inflection@add_class_prefix(ALL_HIGH_TONE, inf_class)
+    inf_stem = compose_stem(add_class_prefix(ALL_HIGH_TONE, inf_class))
     inf_slot = [(paradigms.suffix(inf_suffix, inf_stem), INFINITIVE)]
 
     slots = [*ipfv_slots, *pfv_slots, *inf_slot]

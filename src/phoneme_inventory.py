@@ -30,13 +30,15 @@ TIRA_VOWELS = [
 ]
 
 TIRA_CONSONANTS = TIRA_STOPS + TIRA_FRICATIVES + TIRA_GLIDES + TIRA_NASALS + TIRA_SONORANTS
-TIRA_TBUS = TIRA_VOWELS + TIRA_NASALS + TIRA_SONORANTS
 
 HIGH_TONE = '\u0301'
 LOW_TONE = '\u0300'
 FALL_TONE = '\u0306'
 RISE_TONE = '\u030c'
 TIRA_TONES = [HIGH_TONE, LOW_TONE, FALL_TONE, RISE_TONE]
+
+PLACEHOLDER_TBU = 'x'
+TIRA_TBUS = TIRA_VOWELS + TIRA_NASALS + TIRA_SONORANTS + [PLACEHOLDER_TBU]
 
 BOUNDARY_STR = '-'
 BOUNDARY=pynini.accep(BOUNDARY_STR)
@@ -50,7 +52,7 @@ C = pynini.union(*TIRA_CONSONANTS).optimize()
 V = pynini.union(*TIRA_VOWELS).optimize()
 T = pynini.union(*TIRA_TONES).optimize()
 TBU = pynini.union(*TIRA_TBUS).optimize()
-SIGMA = pynini.union(C,V,T,BOUNDARY).optimize()
+SIGMA = pynini.union(C,V,T,BOUNDARY,PLACEHOLDER_TBU).optimize()
 SIGMASTAR = SIGMA.closure().optimize()
 STEM = paradigms.make_byte_star_except_boundary(BOUNDARY)
 
@@ -69,3 +71,28 @@ DELETE_SCHWA_BEFORE_VOWEL = pynini.cdrewrite(
     r=BOUNDARY.ques+V,
     sigma_star=SIGMASTAR,
 ).optimize()
+
+ADD_PLACEHOLDER_TBU = pynini.cdrewrite(
+    tau=pynutil.insert(PLACEHOLDER_TBU),
+    l=C.plus,
+    r='[EOS]',
+    sigma_star=SIGMASTAR,
+).optimize()
+
+FLOAT_TONE_RULE = SIGMASTAR.copy()
+for tone in TIRA_TONES:
+    dock_floating_tone = pynini.cdrewrite(
+        tau=pynutil.insert(tone),
+        l=PLACEHOLDER_TBU+tone+C.closure()+TBU,
+        r='',
+        sigma_star=SIGMASTAR
+    )
+    delete_floating_tone = pynini.cdrewrite(
+        tau=pynutil.delete(PLACEHOLDER_TBU+tone),
+        l='',
+        r='',
+        sigma_star=SIGMASTAR
+    )
+    rule = dock_floating_tone@delete_floating_tone
+    FLOAT_TONE_RULE = FLOAT_TONE_RULE@rule
+FLOAT_TONE_RULE = FLOAT_TONE_RULE.optimize()
