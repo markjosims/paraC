@@ -32,6 +32,14 @@ def get_roots_for_class(fv_class: str) -> List[str]:
     roots = VERBS_DF.loc[fv_mask, 'verb_root'].tolist()
     return roots
 
+def get_all_verb_roots() -> List[str]:
+    return VERBS_DF['verb_root'].tolist()
+
+def get_all_verb_roots_and_fvs() -> List[Tuple[str, str]]:
+    verb_roots = VERBS_DF['verb_root'].tolist()
+    verb_fvs = VERBS_DF['root_fv'].tolist()
+    return list(zip(verb_roots, verb_fvs))
+
 def main() -> int:
     root2gloss = get_root2gloss_fst()
     root2gloss.write(ROOT2GLOSS_FST_PATH)
