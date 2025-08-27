@@ -168,7 +168,8 @@ def main():
     for stem, fv_class in get_all_verb_roots_and_fvs():
         if fv_class=='IRREG':
             continue
-        rows.extend(generate_forms(stem, FV2PARADIGM[fv_class], return_wordforms=True))
+        wordforms = generate_forms(stem, FV2PARADIGM[fv_class], action='return', parse=True)
+        rows.extend(wordforms)
     df = pd.DataFrame(rows)
     df.to_csv(INFLECTED_VERBS_PATH, index=False)
 
