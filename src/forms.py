@@ -5,10 +5,12 @@ of nouns and verbs in Tira.
 
 import pynini
 from pynini.lib import features, paradigms, rewrite, pynutil
+import pandas as pd
 from src.phoneme_inventory import *
 from src.features import *
 from src.lexicon import get_roots_for_class, get_all_verb_roots_and_fvs
 from src.glossing import REMOVE_HOMOPHONE_TAG
+from src.constants import INFLECTED_VERBS_PATH
 from typing import *
 import random
 
@@ -156,3 +158,15 @@ def inflect_random_verb(fv_class: Optional[str]=None):
     root = random.choice(get_roots_for_class(fv_class))
     print(root, fv_class)
     print_forms(root, FV2PARADIGM[fv_class])
+
+def main():
+    rows = []
+    for stem, fv_class in get_all_verb_roots_and_fvs():
+        if fv_class=='IRREG':
+            continue
+        rows.extend(print_forms(stem, FV2PARADIGM[fv_class], return_wordforms=True))
+    df = pd.DataFrame(rows)
+    df.to_csv(INFLECTED_VERBS_PATH, index=False)
+
+if __name__ == '__main__':
+    main()
