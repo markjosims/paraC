@@ -1,7 +1,7 @@
 import pynini
 from pynini.lib import pynutil
 import string
-from src.phoneme_inventory import SIGMA
+from src.phonology import SIGMA
 from typing import *
 import re
 

@@ -6,7 +6,7 @@ of nouns and verbs in Tira.
 import pynini
 from pynini.lib import features, paradigms, rewrite, pynutil
 import pandas as pd
-from src.phoneme_inventory import *
+from src.phonology import *
 from src.features import *
 from src.lexicon import get_roots_for_class, get_all_verb_roots_and_fvs
 from src.glossing import REMOVE_HOMOPHONE_TAG, feature_str_to_dict
