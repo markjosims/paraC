@@ -72,6 +72,12 @@ REMOVE_TBU_MARKER_AFTER_ONSET_C = pynini.cdrewrite(
     r=V,
     sigma_star=SIGMASTAR,
 )
+REMOVE_TBU_MARKER_AFTER_CODA_C = pynini.cdrewrite(
+    tau=pynutil.delete(PLACEHOLDER_TBU),
+    l=PLACEHOLDER_TBU+C@TBU,
+    r='',
+    sigma_star=SIGMASTAR,
+)
 CLEAN_TBU_MARKERS = pynini.cdrewrite(
     tau=pynutil.delete(PLACEHOLDER_TBU),
     l='',
