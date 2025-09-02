@@ -21,4 +21,8 @@ lexicon = [
 ]
 
 def test_edit_factors():
-    left_factor, right_factor = get_edit_factors(inserts=inserts, substitutions=substitutions, deletions=deletions)
+    left_factor, right_factor = get_edit_factors(
+        inserts=inserts,
+        substitutions=substitutions,
+        deletions=deletions
+    )
