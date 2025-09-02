@@ -37,3 +37,15 @@ def test_edit_factors():
     assert len(strings)==1
     string = strings.pop()
     assert string == target
+
+def test_searchable_lexicon():
+    left_factor, searchable_lexicon = get_searchable_lexicon(
+        lexicon=lexicon,
+        insertions=insertions,
+        substitutions=substitutions,
+        deletions=deletions,
+        sigma=sigma,
+    )
+    query = "ta"
+    output_fst = query@left_factor@searchable_lexicon
+    assert rewrite.lattice_to_strings(output_fst)

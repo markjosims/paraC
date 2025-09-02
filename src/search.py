@@ -5,31 +5,30 @@ from pynini.lib.edit_transducer import (
     DEFAULT_SUBSTITUTE_COST,
     DEFAULT_DELETE_COST
 )
+from typing import *
 
 INSERT = EditTransducer.INSERT
 DELETE = EditTransducer.DELETE
 SUBSTITUTE = EditTransducer.SUBSTITUTE
 
 def get_searchable_lexicon(
-        lexicon,
-        insertions,
-        substitutions,
-        deletions,
-        sigma,
-        insert_cost=DEFAULT_INSERT_COST,
-        sub_cost=DEFAULT_SUBSTITUTE_COST,
-        delete_cost=DEFAULT_DELETE_COST,
+        lexicon: Union[List[str], pynini.FstLike],
+        **edit_factor_kwargs,
     ):
-    ...
+    if type(lexicon) is list:
+        lexicon = pynini.union(*lexicon)
+    left_factor, right_factor = get_edit_factors(**edit_factor_kwargs)
+    searchable_lexicon = right_factor@lexicon
+    return left_factor, searchable_lexicon
 
 def get_edit_factors(
-        insertions,
-        substitutions,
-        deletions,
-        sigma,
-        insert_cost=DEFAULT_INSERT_COST,
-        sub_cost=DEFAULT_SUBSTITUTE_COST,
-        delete_cost=DEFAULT_DELETE_COST,
+        insertions: List[Tuple[pynini.FstLike, pynini.WeightLike]],
+        substitutions: List[Tuple[pynini.FstLike, pynini.FstLike, pynini.WeightLike]],
+        deletions: List[Tuple[pynini.FstLike, pynini.WeightLike]],
+        sigma: pynini.FstLike,
+        insert_cost: float=DEFAULT_INSERT_COST,
+        sub_cost: float=DEFAULT_SUBSTITUTE_COST,
+        delete_cost: float=DEFAULT_DELETE_COST,
     ):
     insert_graph = _get_insertion_graph(insertions, insert_cost, sigma)
     delete_graph = _get_deletion_graph(deletions, delete_cost, sigma)
@@ -59,6 +58,3 @@ def _get_deletion_graph(deletions, delete_cost, sigma) -> pynini.Fst:
 def _get_substitution_graph(substitutions, sub_cost, sigma) -> pynini.Fst:
     sub_graph = pynini.cross(sigma, pynini.accep(DELETE, sub_cost))
     return sub_graph
-
-def get_matches(query, left_factor, lexicon):
-    ...
