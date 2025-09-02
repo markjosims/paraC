@@ -6,7 +6,7 @@ consonant = pynini.union(*"ptk")
 substitutions = [
     (vowel, "ə", 0.5),
 ]
-inserts = [
+insertions = [
     ("ə", 0.5),
 ]
 deletions = [
@@ -22,7 +22,11 @@ lexicon = [
 
 def test_edit_factors():
     left_factor, right_factor = get_edit_factors(
-        inserts=inserts,
+        insertions=insertions,
         substitutions=substitutions,
         deletions=deletions
     )
+    query = "tə"
+    target = "ta"
+    output_fst = (query@left_factor)@(right_factor@target)
+    assert output_fst.string() == target
