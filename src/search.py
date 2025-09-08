@@ -69,6 +69,7 @@ def _get_insertion_graph(
         sigma: pynini.Fst,
     ) -> pynini.Fst:
     """
+    Arguments:
         insertions:     list of tuples of strings and custom insert weights per string
         insert_cost:    default weight for insertion
         sigma:          FSA of alphabet
@@ -95,6 +96,7 @@ def _get_deletion_graph(
         sigma: pynini.Fst,
     ) -> pynini.Fst:
     """
+    Arguments:
         deletions: list of tuples of strings and custom deletion weights per string
         delete_cost: default weight for deletion
         sigma: FSA of alphabet
@@ -121,6 +123,7 @@ def _get_substitution_graph(
         sigma: pynini.Fst,
     ) -> pynini.Fst:
     """
+    Arguments:
         substitutions: list of tuples of strings and custom sub weights per string
         sub_cost: default weight for substitution
         sigma: FSA of alphabet
@@ -162,6 +165,7 @@ def _get_substitution_graph(
 
 def get_min_path_weight(f: pynini.Fst) -> float:
     """
+    Arguments:
         f:  FST to calculate path weight for
     Returns:
         path_weight: float indicating weight of shortest path.
