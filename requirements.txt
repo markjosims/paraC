@@ -7,3 +7,4 @@ openpyxl
 pynini
 ipykernel
 pytest
+graphviz
