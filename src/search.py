@@ -11,7 +11,16 @@ from src.constants import (
 def get_searchable_lexicon(
         lexicon: Union[List[str], pynini.FstLike],
         **edit_factor_kwargs,
-    ):
+    ) -> Tuple[pynini.Fst, pynini.Fst]:
+    """
+    Arguments:
+        lexicon:                List of strings or Pynini FST representing lexicon to search
+        edit_factor_kwargs:     Arguments for `get_edit_factors`
+    Returns:
+        (left_factor, searchable_lexicon):    FST to compile with queries; pre-compiled FST right_factor@lexicon
+
+    Wraps `get_edit_factors` and compiles right factor with lexicon.
+    """
     if type(lexicon) is list:
         lexicon = fst(lexicon)
     left_factor, right_factor = get_edit_factors(**edit_factor_kwargs)
@@ -27,7 +36,29 @@ def get_edit_factors(
         sub_cost: float=DEFAULT_SUBSTITUTE_COST,
         delete_cost: float=DEFAULT_DELETE_COST,
         bound: Optional[int]=None,
-    ):
+    ) -> Tuple[pynini.Fst, pynini.Fst]:
+    """
+    Arguments:
+        insertions:     List of couples (insertion_element, insertion_cost) where `insertion_element`
+                        is a str or FST and `insertion_cost` is a weight for inserting the element
+        substitutions:  List of triples (sub_intab, sub_outtab, sub_cost) where `sub_intab` and `sub_outtab`
+                        is the pair of strs or FSTs to substitute and `sub_cost` is a weight associated with
+                        the substitution. Note `sub_intab` refers to elements in the **query** and `sub_outtab`
+                        to elements in the **lexicon**.
+        deletions:      List of couples (deletion_element, deletion_cost) where `deletion_element` is a str
+                        or FST and `deletion_cost` is a weight for deleting the element
+        sigma:          FST representing the alphabet of the lexicon.
+        insert_cost:    Default cost for inserting any element not specified in `insertions`.
+        delete_cost:    Default cost for deleting any element not specified in `deletions`.
+        sub_cost:       Default cost for substituting any element not specified in `substiutions`.
+        bound:          Integer indicating the number of edits allowed when searching. Defaults to unbounded (infinite edits allowed)
+
+    Returns:
+        (left_factor, right_factor):    FSTs for the left and right factors.
+
+    Compiles FSTs representing an edit transducer allowing for custom weights for particular edits, as specified in `insertions`,
+    `deletions` and `substitutions`. Returns left and right factors for searching. Usage for searching is `query@left_factor@right_factor@lexicon`.
+    """
     insert_graph_left, insert_graph_right = _get_insertion_graph(insertions, insert_cost, sigma)
     delete_graph_left, delete_graph_right = _get_deletion_graph(deletions, delete_cost, sigma)
     sub_graph_left, sub_graph_right = _get_substitution_graph(substitutions, sub_cost, sigma)
