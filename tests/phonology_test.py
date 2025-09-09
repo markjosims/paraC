@@ -1,5 +1,6 @@
 import pytest
 from src.phonology import *
+from src.fst_helpers import *
 from pynini.lib import rewrite
 
 @pytest.mark.parametrize("fst_input,fst_output", [

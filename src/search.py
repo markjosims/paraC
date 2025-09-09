@@ -2,7 +2,7 @@ import pynini
 from pynini.lib import pynutil
 
 from typing import *
-from src.phonology import fst
+from src.fst_helpers import fst
 from src.constants import (
     INSERT, DELETE, SUBSTITUTE,
     DEFAULT_INSERT_COST, DEFAULT_DELETE_COST, DEFAULT_SUBSTITUTE_COST,  
@@ -103,12 +103,13 @@ def _get_deletion_graph(
     weight defined by `deletions` if applicable else `delete_cost`.
     Builds the right factor as a simple FST mapping the deletion symbol to epsilon, weight semiring Zero.
     """
-    delete_inputs = pynini.union(*[delete[0] for delete in deletions])
+    delete_inputs = fst([delete[0] for delete in deletions])
     sigma_except_custom = sigma-delete_inputs
     delete_symbol = f"[{DELETE}]"
-    delete_graph_left = pynini.cross(sigma_except_custom, pynini.accep(delete_symbol, delete_cost))
+    delete_graph_left = pynini.cross(sigma_except_custom, fst(delete_symbol, delete_cost))
     for (delete_str, cost) in deletions:
-        delete_graph_left=delete_graph_left|pynini.cross(delete_str, pynini.accep(delete_symbol, cost))
+        delete_fst = fst(delete_str, delete_symbol, cost)
+        delete_graph_left=delete_graph_left|delete_fst
 
     delete_graph_right = pynutil.delete(delete_symbol)
     return delete_graph_left, delete_graph_right
@@ -146,16 +147,24 @@ def _get_substitution_graph(
     Note that custom substitutions must have a weight strictly less than the default substitution weight,
     otherwise they will be overridden by \sigma --> \sigma arc.
     """
-    intabs = pynini.union(*[sub[0] for sub in substitutions])
+    intabs = fst([sub[0] for sub in substitutions])
+    outtabs = fst([sub[1] for sub in substitutions])
     sigma_except_intabs = sigma-intabs
+    sigma_except_outtabs = sigma-outtabs
     sub_symbol = f"[{SUBSTITUTE}]"
-    sub_graph_left = pynini.cross(sigma_except_intabs, pynini.accep(sub_symbol, sub_cost))
-    sub_graph_right = pynini.cross(sub_symbol, sigma_except_intabs)
+    sub_acceptor_weighted = fst(sub_symbol, sub_cost)
+    sub_acceptor = fst(sub_symbol)
+    sub_graph_left = pynini.cross(sigma_except_intabs, sub_acceptor_weighted)
+    sub_graph_right = pynini.cross(sub_acceptor, sigma_except_outtabs)
     for i, sub in enumerate(substitutions):
         intab, outtab, cost = sub
         sub_symbol_i = f"[{SUBSTITUTE.removesuffix('>')}{i}>]"
-        sub_graph_left=sub_graph_left|pynini.cross(intab, pynini.accep(sub_symbol_i, cost))
-        sub_graph_right=sub_graph_right|pynini.cross(sub_symbol_i, outtab)
+
+        sub_fst_left = fst(intab, sub_symbol_i, cost)
+        sub_fst_right = fst(sub_symbol_i, outtab)
+
+        sub_graph_left=sub_graph_left|sub_fst_left
+        sub_graph_right=sub_graph_right|sub_fst_right
 
     return sub_graph_left, sub_graph_right
 

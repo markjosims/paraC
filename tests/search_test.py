@@ -2,16 +2,15 @@ import pynini
 from pynini.lib import rewrite
 from src.search import *
 import pytest
+from src.fst_helpers import fst, get_decoded_strings
+from src.phonology import V, SIGMA
 
-vowel = pynini.union(*"aeiouə")
-consonant = pynini.union(*"ptkʔ")
-sigma = pynini.union(vowel, consonant)
 substitutions = [
-    ("ə", vowel-"ə", 0.5),
+    ("ə", V-fst("ə"), 0.5),
     ("p", "k", 0.9),
 ]
 insertions = [
-    ("ʔ", 0.5),
+    ("ɾ", 0.5),
 ]
 deletions = [
     ("ə", 0.5),
@@ -20,7 +19,7 @@ deletions = [
 lexicon = [
     "ta",
     "ka",
-    "ʔa",
+    "ɾa",
     "ko",
     "patə",
     "pə",
@@ -31,7 +30,7 @@ def test_edit_factors():
         insertions=insertions,
         substitutions=substitutions,
         deletions=deletions,
-        sigma=sigma,
+        sigma=SIGMA,
         bound=10,
     )
     query = "tə"
@@ -46,12 +45,12 @@ def test_searchable_lexicon():
         insertions=insertions,
         substitutions=substitutions,
         deletions=deletions,
-        sigma=sigma,
+        sigma=SIGMA,
         bound=10,
     )
     query = "po"
     output_fst = query@left_factor@searchable_lexicon
-    strings = rewrite.lattice_to_strings(output_fst)
+    strings = get_decoded_strings(output_fst)
     strings = set(strings)
     assert strings == set(lexicon)
 
@@ -62,7 +61,7 @@ def test_searchable_lexicon():
 
 @pytest.mark.parametrize("query,top_string,top_n_strings", [
     ("tka", "ka", ["ta", "ka"]),      # cheaper to delete /t/ than /k/
-    ("a", "ʔa", ["ʔa", "ka", "ta"]),  # cheaper to insert /ʔ/ than /k/ or /t/
+    ("a", "ɾa", ["ɾa", "ka", "ta"]),  # cheaper to insert /ɾ/ than /k/ or /t/
     ("tə", "ta", ["ta", "pə"]),       # cheaper to substitute a>ə than t>p
 ])
 def test_edit_weight(query, top_string, top_n_strings):
@@ -71,7 +70,7 @@ def test_edit_weight(query, top_string, top_n_strings):
         insertions=insertions,
         substitutions=substitutions,
         deletions=deletions,
-        sigma=sigma,
+        sigma=SIGMA,
         bound=10,
     )
     output_fst = query@left_factor@searchable_lexicon
