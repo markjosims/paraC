@@ -2,7 +2,7 @@ import pynini
 from pynini.lib import rewrite
 from src.search import *
 import pytest
-from src.fst_helpers import fst, get_decoded_strings
+from src.fst_helpers import fst, get_decoded_strings, draw_svg, decode_fst_string
 from src.phonology import V, SIGMA
 
 substitutions = [
@@ -35,8 +35,8 @@ def test_edit_factors():
     )
     query = "tə"
     target = "ta"
-    output_fst = (query@left_factor)@(right_factor@target)
-    string = pynini.shortestpath(output_fst).string()
+    output_fst = (fst(query)@left_factor)@(right_factor@fst(target))
+    string = decode_fst_string(pynini.shortestpath(output_fst))
     assert string == target
 
 def test_searchable_lexicon():
@@ -49,12 +49,12 @@ def test_searchable_lexicon():
         bound=10,
     )
     query = "po"
-    output_fst = query@left_factor@searchable_lexicon
+    output_fst = (fst(query)@left_factor)@searchable_lexicon
     strings = get_decoded_strings(output_fst)
     strings = set(strings)
     assert strings == set(lexicon)
 
-    best_string = pynini.shortestpath(output_fst).string()
+    best_string = decode_fst_string(pynini.shortestpath(output_fst))
     
     # p>k preferred over other consonant changes
     assert best_string == "ko"
@@ -73,9 +73,9 @@ def test_edit_weight(query, top_string, top_n_strings):
         sigma=SIGMA,
         bound=10,
     )
-    output_fst = query@left_factor@searchable_lexicon
-    predicted_top_string = pynini.shortestpath(output_fst).string()
+    output_fst = (fst(query)@left_factor)@searchable_lexicon
+    predicted_top_string = decode_fst_string(pynini.shortestpath(output_fst))
     assert predicted_top_string == top_string
 
-    predicted_top_n_strings = rewrite.top_rewrites(query@left_factor, searchable_lexicon, nshortest=len(top_n_strings))
+    predicted_top_n_strings = get_decoded_strings(fst(query)@left_factor@searchable_lexicon, nshortest=len(top_n_strings))
     assert set(predicted_top_n_strings) == set(top_n_strings)

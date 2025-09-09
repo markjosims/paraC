@@ -2,7 +2,7 @@ import pynini
 from pynini.lib import pynutil
 
 from typing import *
-from src.fst_helpers import fst
+from src.fst_helpers import *
 from src.constants import (
     INSERT, DELETE, SUBSTITUTE,
     DEFAULT_INSERT_COST, DEFAULT_DELETE_COST, DEFAULT_SUBSTITUTE_COST,  
@@ -78,12 +78,13 @@ def _get_insertion_graph(
     """
     insert_inputs = fst([insert[0] for insert in insertions])
     sigma_except_custom = sigma-insert_inputs
-    sigma_except_custom_weighted = sigma_except_custom + pynini.accep('', insert_cost)
+    sigma_except_custom_weighted = sigma_except_custom + fst('', weight=insert_cost)
     insert_symbol = f"[{INSERT}]"
-    insert_graph_left = pynutil.insert(insert_symbol, insert_cost)
-    insert_graph_right = pynini.cross(insert_symbol, sigma_except_custom_weighted)
+    insert_graph_left = insert_fst(insert_symbol, insert_cost)
+    insert_graph_right = fst(insert_symbol, sigma_except_custom_weighted)
     for (insert_str, cost) in insertions:
-        insert_graph_right=insert_graph_right|pynini.cross(insert_symbol, pynini.accep(insert_str, cost))
+        insertion_fst = fst(insert_symbol, insert_str, cost)
+        insert_graph_right=insert_graph_right|insertion_fst
     return insert_graph_left, insert_graph_right
 
 def _get_deletion_graph(
@@ -106,12 +107,12 @@ def _get_deletion_graph(
     delete_inputs = fst([delete[0] for delete in deletions])
     sigma_except_custom = sigma-delete_inputs
     delete_symbol = f"[{DELETE}]"
-    delete_graph_left = pynini.cross(sigma_except_custom, fst(delete_symbol, weight=delete_cost))
+    delete_graph_left = fst(sigma_except_custom, delete_symbol, weight=delete_cost)
     for (delete_str, cost) in deletions:
-        delete_fst = fst(delete_str, delete_symbol, cost)
-        delete_graph_left=delete_graph_left|delete_fst
+        deletion_fst = fst(delete_str, delete_symbol, cost)
+        delete_graph_left=delete_graph_left|deletion_fst
 
-    delete_graph_right = pynutil.delete(delete_symbol)
+    delete_graph_right = delete_fst(delete_symbol)
     return delete_graph_left, delete_graph_right
     
 def _get_substitution_graph(
@@ -121,7 +122,7 @@ def _get_substitution_graph(
     ) -> pynini.Fst:
     """
     Arguments:
-        substitutions: list of tuples of strings and custom sub weights per string
+        substitutions: list of tuples of strings and custom sub weights per string, e.g.
         sub_cost: default weight for substitution
         sigma: FSA of alphabet
 
@@ -130,60 +131,45 @@ def _get_substitution_graph(
 
     Builds the left factor as an FST mapping each element on the alphabet to the substitution symbol,
     where the default symbol is used for any pair of elements not specified in `substitutions`.
-    Else, for each intab in `substitutions` map to a unique symbol (by adding an index to the original symbol).
+    Else, for each intab in `substitutions` map to a sequence of the substitution symbol and the intab.
     Builds the right factor as an FST mapping the default symbol to any element on the alphabet and each
     special symbol to its appropriate outtab, i.e.:
 
         Left factor                     Right factor
-        \sigma  --> <substitution>      --> \sigma
-        d       --> <substitution_1>    --> e
-        f       --> <substitution_2>    --> g
+        \sigma  --> [<substitution>]    --> \sigma
+        d       --> [<substitution>d]   --> e
+        f       --> [<substitution>f]   --> g
 
     If d>e and f>g are specifically defined in the custom substitutions.
 
     Weight values from `substitutions` or `sub_cost` are used for the left factor.
     Arcs on the right factor use semiring Zero.
-
-    Note that custom substitutions must have a weight strictly less than the default substitution weight,
-    otherwise they will be overridden by \sigma --> \sigma arc.
     """
-    intabs = fst([sub[0] for sub in substitutions])
-    outtabs = fst([sub[1] for sub in substitutions])
-    sigma_except_intabs = sigma-intabs
-    sigma_except_outtabs = sigma-outtabs
+    intabs = [sub[0] for sub in substitutions]
+    intab_fst = fst(intabs)
+    sigma_except_intabs = sigma-intab_fst
     sub_symbol = f"[{SUBSTITUTE}]"
     sub_acceptor_weighted = fst(sub_symbol, weight=sub_cost)
     sub_acceptor = fst(sub_symbol)
-    sub_graph_left = pynini.cross(sigma_except_intabs, sub_acceptor_weighted)
-    sub_graph_right = pynini.cross(sub_acceptor, sigma_except_outtabs)
-    for i, sub in enumerate(substitutions):
-        intab, outtab, cost = sub
-        sub_symbol_i = f"[{SUBSTITUTE.removesuffix('>')}{i}>]"
-
-        sub_fst_left = fst(intab, sub_symbol_i, cost)
-        sub_fst_right = fst(sub_symbol_i, outtab)
-
+    sub_graph_left = fst(sigma_except_intabs, sub_acceptor_weighted)
+    sub_graph_right = fst(sub_acceptor, sigma)
+    for intab in set(intabs):
+        intab_sub_symbol = f"[{SUBSTITUTE}{intab}]"
+        subs_w_intab = [sub for sub in substitutions if sub[0]==intab]
+        
+        outtabs_for_element = [sub[1] for sub in subs_w_intab]
+        outtabs_fst = fst(outtabs_for_element)
+        remaining_outtabs = sigma-outtabs_fst
+        sub_fst_left = fst(intab, intab_sub_symbol)
         sub_graph_left=sub_graph_left|sub_fst_left
-        sub_graph_right=sub_graph_right|sub_fst_right
+
+        sub_fst_right = fst(intab_sub_symbol, remaining_outtabs, sub_cost)
+        sub_graph_right = sub_graph_right|sub_fst_right
+
+        for sub in subs_w_intab:
+            _, outtab, cost = sub
+            sub_fst_right = fst(intab_sub_symbol, outtab, cost)
+
+            sub_graph_right=sub_graph_right|sub_fst_right
 
     return sub_graph_left, sub_graph_right
-
-def get_min_path_weight(f: pynini.Fst) -> float:
-    """
-    Arguments:
-        f:  FST to calculate path weight for
-    Returns:
-        path_weight: float indicating weight of shortest path.
-    """
-    f_shortest = pynini.shortestpath(f)
-    path_weight = 0
-    for state in f_shortest.states():
-        state_arcs = list(f_shortest.arcs(state))
-        assert len(state_arcs)<=1
-        for arc in state_arcs:
-            path_weight+=float(arc.weight)
-        final_weight = f_shortest.final(state)
-        weight_type = f_shortest.weight_type()
-        if final_weight != pynini.Weight.zero(weight_type):
-            path_weight+=float(final_weight)
-    return path_weight

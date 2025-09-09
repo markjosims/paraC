@@ -42,7 +42,7 @@ def encode_fst_string(input_string: Union[str, Sequence[str]]) -> Union[str, Lis
     return str_w_collapsed_dentals
 
 def decode_fst_string(
-        input_string: Union[str, Sequence[str], pynini.Fst]
+        input_string: Union[str, Sequence[str], pynini.Fst],
     ) -> Union[str, List[str]]:
     """
     Condense all separated characters, replaces `WORD_BOUNDARY_STR` symbol (default "|")
@@ -79,9 +79,9 @@ def fst(
     if type(fst_input) is str:
         f = pynini.accep(encode_fst_string(fst_input), token_type=TIRA_SYMBOL_TABLE, weight=weight)
     elif type(fst_input) is pynini.Fst:
-        f = fst_input
+        f = fst_input + fst('', weight=weight)
     else:
-        f = pynini.union(*[fst(fst_element) for fst_element in fst_input])
+        f = pynini.union(*[fst(fst_element, weight=weight) for fst_element in fst_input])
     
     if fst_output is None:
         # no output, just return acceptor
@@ -136,19 +136,23 @@ def get_decoded_strings(
         lattice: pynini.Fst,
         project_type: Literal['input', 'output']='output',
         unique_only: bool=True,
+        nshortest: Optional[int]=None,
     ) -> List[str]:
     """
-    Wraps `pynini.lib.rewrite.lattice_to_strings`. Sets `TIRA_SYMBOL_TABLE`
-    and calls `decode_fst_string` on output.
+    Wraps `rewrite.lattice_to_strings`. Sets `TIRA_SYMBOL_TABLE`
+    and calls `decode_fst_string` on output. If `nshortest` is passed,
+    call `rewrite.lattice_to_nshortest` first.
     """
     lattice = pynini.project(lattice, project_type=project_type)
+    if nshortest is not None:
+        lattice = rewrite.lattice_to_nshortest(lattice, nshortest=nshortest)
     tokenized_strings =  rewrite.lattice_to_strings(lattice, token_type=TIRA_SYMBOL_TABLE)
     decoded_strings = decode_fst_string(tokenized_strings)
     if unique_only:
         return list(set(decoded_strings))
     return decoded_strings
 
-def draw_svg(fst: pynini.Fst, filepath: str = 'tmp.svg', title: Optional[str]=None):
+def draw_svg(fst: pynini.Fst, filepath: str = 'tmp/tmp.svg', title: Optional[str]=None):
     basename = os.path.basename(filepath)
     dotfile = basename+'.dot'
     fst.draw(
@@ -161,3 +165,23 @@ def draw_svg(fst: pynini.Fst, filepath: str = 'tmp.svg', title: Optional[str]=No
     )
     graph = pydot.graph_from_dot_file(dotfile)[0]
     graph.write_svg(filepath)
+
+def get_min_path_weight(f: pynini.Fst) -> float:
+    """
+    Arguments:
+        f:  FST to calculate path weight for
+    Returns:
+        path_weight: float indicating weight of shortest path.
+    """
+    f_shortest = pynini.shortestpath(f)
+    path_weight = 0
+    for state in f_shortest.states():
+        state_arcs = list(f_shortest.arcs(state))
+        assert len(state_arcs)<=1
+        for arc in state_arcs:
+            path_weight+=float(arc.weight)
+        final_weight = f_shortest.final(state)
+        weight_type = f_shortest.weight_type()
+        if final_weight != pynini.Weight.zero(weight_type):
+            path_weight+=float(final_weight)
+    return path_weight
