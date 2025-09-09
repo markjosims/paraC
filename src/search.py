@@ -80,7 +80,7 @@ def _get_insertion_graph(
     sigma_except_custom = sigma-insert_inputs
     sigma_except_custom_weighted = sigma_except_custom + fst('', weight=insert_cost)
     insert_symbol = f"[{INSERT}]"
-    insert_graph_left = insert_fst(insert_symbol, insert_cost)
+    insert_graph_left = insert_fst(insert_symbol)
     insert_graph_right = fst(insert_symbol, sigma_except_custom_weighted)
     for (insert_str, cost) in insertions:
         insertion_fst = fst(insert_symbol, insert_str, cost)
