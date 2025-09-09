@@ -21,10 +21,10 @@ def tone2symbol(tone_str: str) -> str:
         tone_str = tone_str.replace(tone_diac, tone_symbol)
     return tone_str
 
-def collapse_dental_bridge(encoded_string: str) -> str:
-    for dental_consonant in DENTAL_T, DENTAL_D:
-        expanded_dental_consonant = ' '.join(dental_consonant)
-        encoded_string = encoded_string.replace(expanded_dental_consonant, dental_consonant)
+def collapse_multichar_tokens(encoded_string: str) -> str:
+    for token in MULTICHAR_TOKENS:
+        expanded_token = ' '.join(token)
+        encoded_string = encoded_string.replace(expanded_token, token)
     return encoded_string
 
 def encode_fst_string(input_string: Union[str, Sequence[str]]) -> Union[str, List[str]]:
@@ -38,7 +38,7 @@ def encode_fst_string(input_string: Union[str, Sequence[str]]) -> Union[str, Lis
     str_w_word_boundaries = input_string.replace(' ', WORD_BOUNDARY_STR)
     tokenized_str = " ".join(str_w_word_boundaries)
     str_w_tone_symbols = tone2symbol(tokenized_str)
-    str_w_collapsed_dentals = collapse_dental_bridge(str_w_tone_symbols)
+    str_w_collapsed_dentals = collapse_multichar_tokens(str_w_tone_symbols)
     return str_w_collapsed_dentals
 
 def decode_fst_string(
