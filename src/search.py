@@ -106,7 +106,7 @@ def _get_deletion_graph(
     delete_inputs = fst([delete[0] for delete in deletions])
     sigma_except_custom = sigma-delete_inputs
     delete_symbol = f"[{DELETE}]"
-    delete_graph_left = pynini.cross(sigma_except_custom, fst(delete_symbol, delete_cost))
+    delete_graph_left = pynini.cross(sigma_except_custom, fst(delete_symbol, weight=delete_cost))
     for (delete_str, cost) in deletions:
         delete_fst = fst(delete_str, delete_symbol, cost)
         delete_graph_left=delete_graph_left|delete_fst
@@ -152,7 +152,7 @@ def _get_substitution_graph(
     sigma_except_intabs = sigma-intabs
     sigma_except_outtabs = sigma-outtabs
     sub_symbol = f"[{SUBSTITUTE}]"
-    sub_acceptor_weighted = fst(sub_symbol, sub_cost)
+    sub_acceptor_weighted = fst(sub_symbol, weight=sub_cost)
     sub_acceptor = fst(sub_symbol)
     sub_graph_left = pynini.cross(sigma_except_intabs, sub_acceptor_weighted)
     sub_graph_right = pynini.cross(sub_acceptor, sigma_except_outtabs)
