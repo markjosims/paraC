@@ -69,8 +69,8 @@ DELETE = edit_transducer.EditTransducer.DELETE
 SUBSTITUTE = edit_transducer.EditTransducer.SUBSTITUTE
 BRACKETS = ['[', ']', '(', ')']
 
-TONE_SLOT_STR = 'x'
-TONE_PLACEHOLDER_STR = 'y'
+TONE_SLOT_STR = '<TBU>'
+TONE_PLACEHOLDER_STR = '<FLOAT>'
 BOUNDARY_STR = '-'
 WORD_BOUNDARY_STR = '|'
 EPSILON_SYMBOL = '<eps>'
