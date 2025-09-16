@@ -81,7 +81,8 @@ SPECIAL_SYMBOLS = [
     BOUNDARY_STR, WORD_BOUNDARY_STR, TONE_SLOT_STR, TONE_PLACEHOLDER_STR,
     INSERT, DELETE, SUBSTITUTE, BOS_SYMBOL, EOS_SYMBOL, *BRACKETS, *digits
 ]
-MULTICHAR_TOKENS = [symbol for symbol in SPECIAL_SYMBOLS if len(symbol)>1]
+MULTICHAR_TOKENS = [symbol for symbol in SPECIAL_SYMBOLS if len(symbol)>1]\
+    + [DENTAL_D, DENTAL_T]
 
 ################
 # symbol table #
