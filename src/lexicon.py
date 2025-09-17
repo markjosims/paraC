@@ -6,6 +6,7 @@ stems to glosses and to principal parts.
 import pynini
 import pandas as pd
 from src.constants import VERB_ROOTS_PATH, ROOT2FV_FST_PATH, ROOT2GLOSS_FST_PATH
+from src.fst_helpers import fst
 from typing import *
 
 VERBS_DF = pd.read_csv(VERB_ROOTS_PATH)
@@ -27,9 +28,11 @@ def get_root2fv_fst() -> pynini.Fst:
     root2fv = pynini.string_map(root2fv_strs)
     return root2fv
 
-def get_roots_for_class(fv_class: str) -> List[str]:
+def get_roots_for_class(fv_class: str, wrap_w_fsa: bool=False) -> List[str]:
     fv_mask = VERBS_DF['root_fv']==fv_class
     roots = VERBS_DF.loc[fv_mask, 'verb_root'].tolist()
+    if wrap_w_fsa:
+        roots = [fst(root) for root in roots]
     return roots
 
 def get_all_verb_roots() -> List[str]:

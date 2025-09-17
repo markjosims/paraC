@@ -135,7 +135,7 @@ def get_paradigm_for_class(fv_class: str):
         name=f"{fv_class} class",
         slots=slots,
         lemma_feature_vector=INFINITIVE,
-        stems=get_roots_for_class(fv_class),
+        stems=get_roots_for_class(fv_class, wrap_w_fsa=True),
         boundary=BOUNDARY_STR,
     )
     return fv_paradigm
