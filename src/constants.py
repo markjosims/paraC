@@ -152,6 +152,9 @@ for phone in TIRA_CONSONANTS+TIRA_VOWELS+TIRA_TONE_SYMBOLS:
     TIRA_SYMBOL_TABLE.add_symbol(phone)
 TIRA_SYMBOL_TABLE
 
+rule = pynini.cdrewrite(...)
+pynini.accep("input string", token_type=TIRA_SYMBOL_TABLE)@rule
+
 #########################
 # edit transducer costs #
 #########################
