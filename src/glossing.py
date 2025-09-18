@@ -2,7 +2,7 @@ import pynini
 from pynini.lib import pynutil
 import string
 from src.phonology import SIGMA
-from src.fst_helpers import fst, delete_fst
+from src.fst_helpers import *
 from typing import *
 import re
 
@@ -16,13 +16,16 @@ REMOVE_HOMOPHONE_TAG = pynini.cdrewrite(
     sigma_star=SIGMASTAR_W_TAG,
 ).optimize()
 
-def feature_str_to_dict(feature_str: str) -> Dict[str, str]:
+def feature_str_to_dict(feature_str: str, decode_stem: bool=True) -> Dict[str, str]:
     """
     Parses a feature string of form "stem[feature=value][feature=value]..." into a dict
-    of shape {"stem": stem, "feature": value, ...}
+    of shape {"stem": stem, "feature": value, ...}.
+    If `decode_stem` is True, call `decode_byte_str` on stem.
     """
     items = feature_str.split(sep='[')
     stem = items[0]
+    if decode_stem:
+        stem = decode_byte_str(stem)
     feature_dict = {"stem": stem}
     for item in items[1:]:
         item = item.removesuffix(']')
