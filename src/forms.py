@@ -16,14 +16,18 @@ import random
 
 # helper functions
 
-def generate_forms(stem: str, paradigm: paradigms.Paradigm, action: Literal['print', 'return']='print', parse: bool=False):
+def generate_forms(
+        stem: str,
+        paradigm: paradigms.Paradigm,
+        action: Literal['print', 'return']='print',
+        parse: bool=False
+):
     lattice = rewrite.rewrite_lattice(
         fst(stem),
         paradigm.stems_to_forms @ paradigm.feature_label_rewriter,
-        token_type=TIRA_SYMBOL_TABLE,
     )
     wordforms = []
-    for wordform in rewrite.lattice_to_strings(lattice, token_type=TIRA_SYMBOL_TABLE):
+    for wordform in rewrite.lattice_to_strings(lattice):
         if action=='return' and parse:
             parsed_wordform = feature_str_to_dict(wordform)
             wordforms.append(parsed_wordform)
