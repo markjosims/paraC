@@ -160,15 +160,15 @@ FV2PARADIGM = {
     "ɔi": OI_PARADIGM,
 }
 
-def debug_paradigm(stem, paradigm):
+def debug_paradigm(root, paradigm):
     if type(paradigm) is str:
         paradigm = FV2PARADIGM[paradigm]
     for rule, feature_vector in paradigm.slots:
         try:
-            form = decode_fst_string(fst(stem)@rule)
-            print(f"Successfully generated {form} from stem {stem} with values {feature_vector.values}")
+            form = decode_fst_string(fst(root)@rule)
+            print(f"Successfully generated {form} from root {root} with values {feature_vector.values}")
         except:
-            print(f"Error when generating {stem} with values {feature_vector.values}")
+            print(f"Error when generating {root} with values {feature_vector.values}")
 
 def inflect_random_verb(fv_class: Optional[str]=None):
     if fv_class is None:
@@ -176,6 +176,19 @@ def inflect_random_verb(fv_class: Optional[str]=None):
     root = random.choice(get_roots_for_class(fv_class))
     print(root, fv_class)
     generate_forms(root, FV2PARADIGM[fv_class])
+
+def inflect_verb_with_features(
+        root: str,
+        paradigm: Union[paradigms.Paradigm, str],
+        features: Dict[str, str]
+    ) -> str:
+    if type(paradigm) is str:
+        paradigm = FV2PARADIGM[paradigm]
+    slot_for_features = [slot for slot in paradigm.slots if slot[1].values == features][0]
+    rule, features = slot_for_features
+    form = decode_fst_string(fst(root)@rule)
+
+    return form
 
 def main():
     rows = []
