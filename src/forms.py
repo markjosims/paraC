@@ -276,6 +276,11 @@ def parse_inflected_verb(
     """
     if type(paradigm) is str:
         paradigm = FV2PARADIGM[paradigm]
+    root, feature_vec = paradigm.lemmatize(fst(form))[0]
+    root = decode_byte_str(root)
+    parse = feature_vec.values
+    parse['root'] = root
+    return parse
     
 
 def main():
