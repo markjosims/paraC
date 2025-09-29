@@ -127,6 +127,9 @@ DEIXIS_VALUES = ["ventive", "itive"]
 DEIXIS = features.Feature("deixis", "unmarked", *DEIXIS_VALUES)
 
 INFLECTED_VERB = features.Category(TAM, DEIXIS, CLASS_AGREE)
+VERB_FEATURE_VALUES = {
+    feature.name: feature.values for feature in INFLECTED_VERB.features
+}
 
 VERB_PARADIGM_SIZE = len(SUBJECT_AND_DEIXIS_MARKED_TAM)*len(CLASS_PREFIXES)*len(DEIXIS_VALUES) +\
     len(DEIXIS_MARKED_TAM)*len(DEIXIS_VALUES)+\
