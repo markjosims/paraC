@@ -10,3 +10,4 @@ pytest
 graphviz
 pydot
 flask
+gunicorn
