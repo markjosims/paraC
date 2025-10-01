@@ -4,7 +4,6 @@ from src.forms import parse_inflected_verb, inflect_verb_with_features, FV_CLASS
 from src.lexicon import get_all_verb_data
 from src.constants import VERB_FEATURE_VALUES
 
-# --- Flask Application ---
 app = Flask(__name__)
 
 TEMPLATE_DEFAULTS = {
