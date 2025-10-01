@@ -1,39 +1,14 @@
-<h2 class="text-2xl font-semibold mb-4 border-b pb-2">2. Inflect Verb Root</h2>
+<h2 class="text-2xl font-semibold mb-4 border-b pb-2">Inflect Verb Root</h2>
 <form method="post">
-    <div class="mb-4">
-        <label for="verb_root" class="block text-sm font-medium text-gray-700 mb-1">Enter Verb Root:</label>
-            <select id="verb_root" name="verb_root"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-                {% for verb_row in verb_lexicon %}
-                    <option
-                        value="{{ " ".join(verb_row) }}"
-                        {% if inflect_input.get("verb_root") == " ".join(verb_row) %}
-                            selected
-                        {% endif %}
-                    >
-                    {{ " ".join(verb_row) }}
-                    </option>
-                {% endfor %}
-            </select>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-        {% for feature, options in feature_options.items() %}
-        <div>
-            <label for="{{ feature }}" class="block text-sm font-medium text-gray-700 mb-1 capitalize">{{ feature }}:</label>
-            <select id="{{ feature }}" name="{{ feature }}"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-                {% for option in options %}
-                    <option
-                        value="{{ option }}"
-                        {% if inflect_input.get(feature) == option %}selected{% endif %}
-                    >
-                    {{ option.capitalize() }}
-                    </option>
-                {% endfor %}
-            </select>
-        </div>
-        {% endfor %}
-    </div>
+    {% include '_verb_root_dropdown.html' %}
+    {% include '_verb_feature_dropdowns.html' %}
+
+    {% if mode == "test" %}
+
+
+
+    {% endif %}
+
     <button type="submit"
             name="submit_inflect"
             class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700 transition duration-300 ease-in-out">

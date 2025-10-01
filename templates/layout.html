@@ -28,12 +28,17 @@
 <body class="bg-gray-50 text-gray-800">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header class="mb-8">
-            <h1 class="text-4xl font-bold text-gray-700">Tira Morphological Parser</h1>
+            <div class="flex justify-between items-center">
+                <h1 class="text-4xl font-bold text-gray-700">Tira Morphological Parser</h1>
+                {% if mode == 'test' %}
+                    <a href="/" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700">Switch to Normal Mode</a>
+                {% else %}
+                    <a href="/?mode=test" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700">Switch to Test Mode</a>
+                {% endif %}
+            </div>
             <nav class="mt-4 bg-white shadow-sm rounded-lg p-4">
                 <a href="/" class="mr-6 font-semibold text-blue-600 hover:text-blue-800">Home</a>
                 <a href="/lexicon" class="mr-6 font-semibold text-blue-600 hover:text-blue-800">View Lexicon</a>
-                <a href="/test-parse" class="mr-6 font-semibold text-blue-600 hover:text-blue-800">Test Parse</a>
-                <a href="/test-inflect" class="mr-6 font-semibold text-blue-600 hover:text-blue-800">Test Inflect</a>
             </nav>
         </header>
         

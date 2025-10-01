@@ -1,8 +1,12 @@
-<h2 class="text-2xl font-semibold mb-4 border-b pb-2">1. Parse Inflected Form</h2>
+<h2 class="text-2xl font-semibold mb-4 border-b pb-2">Parse Inflected Form</h2>
 <form method="post">
     <div class="mb-4">
-        <label for="inflected_form" class="block text-sm font-medium text-gray-700 mb-1">Enter Verb Form:</label>
-        <input type="text" id="inflected_form" name="inflected_form"
+        <label
+            for="parse_input"
+            class="block text-sm font-medium text-gray-700 mb-1">
+            Enter Verb Form:
+        </label>
+        <input type="text" id="parse_input" name="parse_input"
                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                placeholder="e.g., lə̀və̀lɛ̀ðɔ́">
     </div>
@@ -14,4 +18,12 @@
             class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 ease-in-out">
         Parse
     </button>
+
+    {% if mode == 'test' %}
+
+    <hr><h3 class="text-lg font-medium">Expected Output:</h3>
+    {% include '_verb_root_dropdown.html' %}
+    {% include '_verb_feature_dropdowns.html' %}
+
+    {% endif %}
 </form>
