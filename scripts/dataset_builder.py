@@ -296,6 +296,13 @@ def perform_textnorm(
     print(expected_char_str)
     preproc_steps.append(expected_char_str)
 
+    tira_words_normalized = set()
+    df['text'].str.split().apply(tira_words_normalized.update)
+
+    tira_words_nmzd_path = os.path.join(DATA_DIR, "tira_words_normalized.txt")
+    with open(tira_words_nmzd_path, 'w', encoding='utf8') as f:
+        f.writelines(['\n'.join(tira_words_normalized)])
+
     return df, preproc_steps
 
 def associate_tiers(
