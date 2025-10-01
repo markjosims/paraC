@@ -1,0 +1,9 @@
+{% extends "layout.html" %}
+
+{% block main_class %}bg-white p-6 rounded-lg shadow max-w-2xl mx-auto{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-semibold mb-4">Test Inflector Output</h2>
+<p class="mb-6 text-gray-600">Enter a root, select features, and provide the expected inflected form. The app will run the inflector and tell you if the output matches.</p>
+
+{% include '_inflect_verb.html' %}

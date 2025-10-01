@@ -1,5 +1,5 @@
 <h2 class="text-2xl font-semibold mb-4 border-b pb-2">1. Parse Inflected Form</h2>
-<form action="/parse" method="post">
+<form method="post">
     <div class="mb-4">
         <label for="inflected_form" class="block text-sm font-medium text-gray-700 mb-1">Enter Verb Form:</label>
         <input type="text" id="inflected_form" name="inflected_form"
@@ -10,6 +10,7 @@
         {% include '_fv_dropdown.html' %}
     </div>
     <button type="submit"
+            name="submit_parse"
             class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 ease-in-out">
         Parse
     </button>

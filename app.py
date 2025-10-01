@@ -3,6 +3,7 @@ from flask import Flask, render_template, request
 from src.forms import parse_inflected_verb, inflect_verb_with_features, FV_CLASSES
 from src.lexicon import get_all_verb_data
 from src.constants import VERB_FEATURE_VALUES
+import pynini
 
 app = Flask(__name__)
 
@@ -12,48 +13,61 @@ TEMPLATE_DEFAULTS = {
     "verb_lexicon": get_all_verb_data(),
 }
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
     """Renders the main page."""
-    return render_template("index.html", **TEMPLATE_DEFAULTS)
+    parse_input = ""
+    parse_result = None
+    inflect_input = {}
+    inflect_result = ""
 
-@app.route('/parse', methods=['POST'])
-def handle_parse():
+    if request.method == 'POST':
+        if 'submit_parse' in request.form:
+            parse_result = handle_parse(request.form)
+
+        elif 'submit_inflect' in request.form:
+            inflect_result, verb_row, features = handle_inflect(request.form)
+            inflect_input = {"verb_root": verb_row, **features}
+
+    form_state = {
+        "parse_input": parse_input,
+        "parse_result": parse_result,
+        "inflect_result": inflect_result,
+        "inflect_input": inflect_input,
+    }
+
+    return render_template("index.html", **TEMPLATE_DEFAULTS, **form_state)
+
+def handle_parse(form):
     """Handles the parsing form submission."""
-    inflected_form = request.form.get('inflected_form', '')
-    fv_class = request.form.get('fv_class')
+    inflected_form = form.get('inflected_form', '')
+    fv_class = form.get('fv_class')
     if not inflected_form:
         result = {"error": "Please enter a verb form."}
     else:
         result = parse_inflected_verb(inflected_form, fv_class)
     result['form']=inflected_form
-    return render_template(
-        "index.html",
-        parse_result=result,
-        **TEMPLATE_DEFAULTS,
-    )
+    return result
 
-@app.route('/inflect', methods=['POST'])
-def handle_inflect():
+def handle_inflect(form):
     """Handles the inflection form submission."""
-    verb_row = request.form.get('verb_root', '')
+    verb_row = form.get('verb_root', '')
     verb_root, fv, _ = verb_row.split()
     features = {
-        'tam': request.form.get('tam'),
-        'deixis': request.form.get('deixis'),
-        'class': request.form.get('class')
+        'tam': form.get('tam'),
+        'deixis': form.get('deixis'),
+        'class': form.get('class')
     }
     
     if not verb_root:
         result = "Please enter a verb root."
     else:
-        result = inflect_verb_with_features(verb_root, fv, features)
+        try:
+            result = inflect_verb_with_features(verb_root, fv, features)
+        except:
+            result = "Invalid feature combination."
 
-    return render_template(
-        "index.html",
-        inflect_result=result,
-        **TEMPLATE_DEFAULTS,
-    )
+    return result, verb_row, features
 
 @app.route('/lexicon')
 def lexicon_page():

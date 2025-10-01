@@ -1,39 +1,19 @@
 {% extends "layout.html" %}
 
+{% block main_class %}grid md:grid-cols-2 gap-8{% endblock %}
+
 {% block content %}
     <!-- Parsing Section -->
     <div class="bg-white p-6 rounded-xl shadow-lg">
         {% include '_parse_verb.html' %}
+        {% include '_parse_verb_result.html' %}
 
-        {% if parse_result %}
-        <div class="mt-6">
-            <h3 class="font-semibold text-lg">Parsing Result:</h3>
-            <div class="bg-gray-50 p-4 rounded-md mt-2 result-box border">
-                {% if parse_result.error %}
-                    <p class="text-red-600">{{ parse_result.error }}</p>
-                {% else %}
-                    <ul class="space-y-1">
-                        {% for key, value in parse_result.items() %}
-                            <li><strong class="capitalize">{{ key }}:</strong> <span class="font-mono bg-gray-200 px-2 py-1 rounded">{{ value }}</span></li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
     </div>
 
     <!-- Inflection Section -->
     <div class="bg-white p-6 rounded-xl shadow-lg">
         {% include '_inflect_verb.html' %}
+        {% include '_inflect_verb_result.html' %}
 
-        {% if inflect_result %}
-        <div class="mt-6">
-            <h3 class="font-semibold text-lg">Inflection Result:</h3>
-            <div class="bg-gray-50 p-4 rounded-md mt-2 result-box border flex items-center justify-center">
-                <p class="font-mono text-xl bg-gray-200 px-3 py-1 rounded">{{ inflect_result }}</p>
-            </div>
-        </div>
-        {% endif %}
     </div>
 {% endblock %}

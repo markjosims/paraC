@@ -1,0 +1,16 @@
+{% if parse_result %}
+<div class="mt-6">
+    <h3 class="font-semibold text-lg">Parsing Result:</h3>
+    <div class="bg-gray-50 p-4 rounded-md mt-2 result-box border">
+        {% if parse_result.error %}
+            <p class="text-red-600">{{ parse_result.error }}</p>
+        {% else %}
+            <ul class="space-y-1">
+                {% for key, value in parse_result.items() %}
+                    <li><strong class="capitalize">{{ key }}:</strong> <span class="font-mono bg-gray-200 px-2 py-1 rounded">{{ value }}</span></li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
