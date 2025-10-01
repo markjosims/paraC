@@ -107,7 +107,7 @@ def handle_test_inflect(form):
         'deixis': form.get('deixis'),
         'class': form.get('class')
     }
-    expected = form.get('inflected_form', '').strip()
+    expected = form.get('expected_inflected_form', '').strip()
     actual = inflect_verb_with_features(verb_root, fv, features)
 
     if actual == expected:
@@ -124,7 +124,8 @@ def handle_test_inflect(form):
         'inflect_input': {
             'verb_root': verb_row,
             **features,
-        }
+        },
+        'expected_inflected_form': expected,
     }
 
 @app.route('/lexicon')

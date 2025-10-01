@@ -1,4 +1,20 @@
-{% if inflect_result %}
+{% if mode == 'test' and test_inflect_result %}
+<div class="mt-6 p-4 rounded-lg border {% if test_inflect_result.status == 'Success' %}bg-green-50 border-green-300{% else %}bg-red-50 border-red-300{% endif %}">
+    <h3 class="font-bold text-xl {% if test_inflect_result.status == 'Success' %}text-green-800{% else %}text-red-800{% endif %}">Test Result: {{ test_inflect_result.status }}</h3>
+    {% if test_inflect_result.status == 'Failure' %}
+        <div class="mt-4 grid grid-cols-2 gap-4 text-center">
+            <div>
+                <h4 class="font-semibold">Expected:</h4>
+                <p class="text-lg font-mono mt-1 bg-gray-200 p-2 rounded">{{ test_inflect_result.expected }}</p>
+            </div>
+            <div>
+                <h4 class="font-semibold">Actual:</h4>
+                <p class="text-lg font-mono mt-1 p-2 rounded bg-red-100 text-red-800">{{ test_inflect_result.actual }}</p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% elif inflect_result %}
 <div class="mt-6">
     <h3 class="font-semibold text-lg">Inflection Result:</h3>
     <div class="bg-gray-50 p-4 rounded-md mt-2 result-box border flex items-center justify-center">

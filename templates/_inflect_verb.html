@@ -5,7 +5,19 @@
 
     {% if mode == "test" %}
 
-
+    <div class="mb-4">
+        <label for="expected_inflected_form" class="block font-medium text-gray-700">Expected Inflected Form:</label>
+        <input
+            type="text"
+            id="expected_inflected_form"
+            name="expected_inflected_form"
+            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+            required
+        {% if expected_inflected_form %}
+            value="{{ expected_inflected_form }}"
+        {% endif %}
+        >
+    </div>
 
     {% endif %}
 
