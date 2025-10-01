@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+
+{% block content %}
+    <h2>Verb Lexicon</h2>
+    <p>A list of all verb roots and their associated data from the lexicon.</p>
+    
+    <table class="result-table">
+        <thead>
+            <tr>
+                <th>Verb Root</th>
+                <th>FV Class</th>
+                <th>Root Sense</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for root, fv_class, sense in verb_lexicon %}
+            <tr>
+                <td><span class="result-code">{{ root }}</span></td>
+                <td>{{ fv_class }}</td>
+                <td>{{ sense }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="3">The lexicon is empty.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+{% endblock %}
