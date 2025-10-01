@@ -428,6 +428,16 @@ def main() -> int:
     print("Merging annotations into dataframe...")
     df = pd.merge(df, annotation_df, how='left', on='text')
 
+    # drop non-annotated rows and model output rows
+    model_mask = df['eaf_basename'].str.lower().str.contains('model')
+    no_gloss_mask = df['Gloss']==''
+    no_translation_mask = df['Translation']==''
+    rows_to_drop = model_mask|no_gloss_mask|no_translation_mask
+    df=df[~rows_to_drop]
+    invalid_row_str = f"- {len(df)} valid rows after dropping unannotated and ASR-generated transcriptions"
+    print(invalid_row_str)
+    PREPROCESSING_STEPS.append(invalid_row_str)
+
     prev_len = len(df)
     excel_df = ingress_excel_verbs()
     df['source']='elan'
