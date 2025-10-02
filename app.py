@@ -159,13 +159,14 @@ def paradigms_page():
         context['inflect_input']=verb_row
     return render_template('paradigms.html', **TEMPLATE_DEFAULTS, **context)
 
-@app.route('/analyze')
-def analyze_page():
+@app.route('/sentences')
+def sentences_page():
     """
-    Handles the analysis page, displaying sentences from the database.
+    Handles the sentences page,
+    displaying sentences from the database.
     """
     sentences_data = get_elan_analyses()
-    return render_template('analyze.html', sentences=sentences_data)
+    return render_template('sentences.html', sentences=sentences_data)
 
 if __name__ == '__main__':
     app.run(debug=True)
