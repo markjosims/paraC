@@ -28,8 +28,8 @@
                         <thead class="bg-gray-100">
                             <tr>
                                 <th class="p-3 text-left font-semibold text-gray-700">TAM</th>
-                                <th class="p-3 text-left font-semibold text-gray-700">Ventive</th>
                                 <th class="p-3 text-left font-semibold text-gray-700">Itive</th>
+                                <th class="p-3 text-left font-semibold text-gray-700">Ventive</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -40,12 +40,12 @@
                                 <td class="p-3 font-medium text-gray-600">{{ tam | capitalize }}</td>
                                 
                                 {% if tam == 'infinitive' %}
-                                    <td colspan="2" class="p-3 text-center">
+                                    <td colspan="2" class="p-3">
                                         <code class="bg-gray-200 p-1 rounded">{{ paradigm.infinitive }}</code>
                                     </td>
                                 {% else %}
+                                <td class="p-3"><code class="bg-gray-200 p-1 rounded">{{ paradigm[tam].itive }}</code></td>
                                     <td class="p-3"><code class="bg-gray-200 p-1 rounded">{{ paradigm[tam].ventive }}</code></td>
-                                    <td class="p-3"><code class="bg-gray-200 p-1 rounded">{{ paradigm[tam].itive }}</code></td>
                                 {% endif %}
                             </tr>
                             {% endfor %}
