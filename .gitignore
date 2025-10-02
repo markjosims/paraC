@@ -211,3 +211,6 @@ __marimo__/
 
 # Mac system files
 .DS_Store
+
+# tmp files
+tmp/
