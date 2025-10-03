@@ -35,12 +35,12 @@ def ingest_data(df: pd.DataFrame, db: Session):
                     db.flush()
                 wordform_cache[word_str] = wordform
         
-        sentence_word_link = SentenceWord(
-            sentence_id=new_sentence.id,
-            wordform_id=wordform.id,
-            position=word_i,
-        )
-        db.add(sentence_word_link)
+            sentence_word_link = SentenceWord(
+                sentence_id=new_sentence.id,
+                wordform_id=wordform.id,
+                position=word_i,
+            )
+            db.add(sentence_word_link)
     db.commit()
     print("Data ingestion successful")
 
