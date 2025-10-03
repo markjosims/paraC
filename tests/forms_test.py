@@ -42,12 +42,12 @@ def test_gold_forms2features(gold_verb):
 
     predicted_parse = parse_inflected_verb(form, fv)
     assert root == predicted_parse.pop('root')
-    assert predicted_parse == gold_verb
+    assert predicted_parse == gold_verb_filtered
     
 @pytest.mark.parametrize("inflected_paradigm", get_gold_paradigms())
 def test_gold_paradigms(inflected_paradigm):
-    root = inflected_paradigm.pop('root')
-    fv = inflected_paradigm.pop('fv')
+    root = inflected_paradigm['root']
+    fv = inflected_paradigm['fv']
 
     predicted_paradigm = get_inflected_paradigm_for_verb(root, fv)
     assert predicted_paradigm == inflected_paradigm
