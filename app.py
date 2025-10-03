@@ -14,6 +14,7 @@ from unicodedata import normalize
 from sqlalchemy.orm import joinedload
 from src.database import SessionLocal
 from src.models import Sentence, SentenceWord
+import math
 
 app = Flask(__name__)
 
@@ -165,13 +166,29 @@ def paradigms_page():
 @app.route('/sentences')
 def sentences_page():
     """
-    Displays the list of all sentences from the database.
+    Displays the list of all sentences from the database with pagination.
     """
+    # Get the page number from the URL query, defaulting to 1
+    page = request.args.get('page', 1, type=int)
+    per_page = 10  # Sentences to display per page
+
     db = SessionLocal()
-    # Query all sentences, ordered by their ID.
-    sentences_data = db.query(Sentence).order_by(Sentence.id).all()
+    
+    # Get the total number of sentences to calculate total pages
+    total_sentences = db.query(Sentence).count()
+    
+    # Fetch only the sentences for the current page
+    sentences_data = db.query(Sentence).order_by(Sentence.id).limit(per_page).offset((page - 1) * per_page).all()
+    
     db.close()
-    return render_template('sentences.html', sentences=sentences_data)
+    
+    # Calculate the total number of pages
+    total_pages = math.ceil(total_sentences / per_page)
+    
+    return render_template('sentences.html', 
+                           sentences=sentences_data,
+                           page=page,
+                           total_pages=total_pages)
 
 @app.route('/analyze/<int:sentence_id>')
 def analyze_page(sentence_id):
