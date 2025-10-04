@@ -19,6 +19,11 @@ EXCEL_VERBS_PATH = os.environ.get(
     os.path.join(DATA_DIR, 'verb_paradigms.xlsx')
 )
 EXCEL_SHEET_NAME = 'Verbs'
+IPA_REP_PATH = os.path.join(DATA_DIR, 'char_replacements.json')
+with open(IPA_REP_PATH, encoding='utf8') as f:
+    IPA_REP_DICT = json.load(f)
+IPA_REP_DICT = {k: v['target'] for k, v in IPA_REP_DICT.items()}
+
 
 README_HEADER = string.Template(
 """
@@ -93,14 +98,27 @@ def remove_punct(text: str, keep: Optional[Union[str, Sequence[str]]] = None) ->
         text = text.replace(p, '')
     return text
 
-def unicode_normalize(
+def normalize_str(
         text: str,
-        unicode_format: Literal['NFC', 'NFKC', 'NFD', 'NFKD'] = 'NFKD',
+        keep_punct: Optional[Union[str, Sequence[str]]] = None 
     ) -> str:
     """
-    wraps unicodedata.normalize with default format set to NFKD
+    perform NFKD unicode normalization, convert string lower
+    and remove any punctuation not specified in `keep_punct`
     """
-    return unicodedata.normalize(unicode_format, text)
+    if not text:
+        return text
+    text = text.lower()
+    text = text.strip()
+    text = unicodedata.normalize('NFKD', text)
+    text = remove_punct(text, keep=keep_punct)
+    return text
+
+def normalize_ipa(ipa_str: str):
+    if not ipa_str:
+        return ipa_str
+    normalized_ipa_str = make_replacements(ipa_str, IPA_REP_DICT)
+    return normalized_ipa_str
 
 def unicode_description(char: str):
     unicode_name = unicodedata.name(char, 'No unicode name found')
@@ -111,7 +129,7 @@ def unicode_description(char: str):
     }
 
 def has_diac(text: str, tone_only: bool = False) -> str:
-    text = unicode_normalize(text)
+    text = normalize_str(text)
     for diac_name, diac in COMBINING.items():
         if tone_only and diac_name not in TONE_DIACS:
             continue
@@ -185,9 +203,7 @@ def perform_textnorm(
 
     # basic string normalization
     print("String normalization...")
-    df[norm_col] = df[norm_col].apply(unicode_normalize)
-    df[norm_col] = df[norm_col].str.lower()
-    df[norm_col] = df[norm_col].apply(lambda s: remove_punct(s, keep=keep_punct))
+    df[norm_col] = df[norm_col].apply(lambda s: normalize_str(s, keep_punct=keep_punct))
     nfkd_str = f"- applied NFKD unicode normalization to text, set to lowercase and removed punctuation"
     print(nfkd_str)
     preproc_steps.append(nfkd_str)
@@ -251,7 +267,6 @@ def perform_textnorm(
 
     # normalize IPA charset
     print("Normalizing IPA character set...")
-    char_rep_json_path = os.path.join(DATA_DIR, 'char_replacements.json')
     # # Uncomment to overwrite `char_rep_json`
     # unique_chars = set()
     # df[norm_col].apply(unique_chars.update)
@@ -264,10 +279,6 @@ def perform_textnorm(
     # }
     # with open(char_rep_json_path, 'w', encoding='utf8') as f:
     #     json.dump(rep_dict, f, ensure_ascii=True, indent=2)
-    with open(char_rep_json_path, encoding='utf8') as f:
-        rep_dict = json.load(f)
-    rep_dict = {k: v['target'] for k, v in rep_dict.items()}
-    normalize_ipa = lambda s: make_replacements(s, rep_dict)
     # apply twice since some diacritics may interfere with replacing digraphs
     df[norm_col]=df[norm_col].apply(normalize_ipa)
     df[norm_col]=df[norm_col].apply(normalize_ipa)
