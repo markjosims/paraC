@@ -5,8 +5,14 @@ from typing import *
 from src.fst_helpers import *
 from src.constants import (
     INSERT, DELETE, SUBSTITUTE,
-    DEFAULT_INSERT_COST, DEFAULT_DELETE_COST, DEFAULT_SUBSTITUTE_COST,  
+    DEFAULT_INSERT_COST, DEFAULT_DELETE_COST, DEFAULT_SUBSTITUTE_COST,
 )
+from src.phonology import SIGMA, INSERTION_COSTS, DELETION_COSTS, SUBSTITUTION_COSTS
+from src.forms import FV2PARADIGM
+
+# ----------------------------------- #
+# functions for building search graph #
+# ----------------------------------- #
 
 def get_searchable_lexicon(
         lexicon: Union[List[str], pynini.FstLike],
@@ -180,12 +186,17 @@ def _get_substitution_graph(
     intab_fst = fst(intabs)
     sigma_except_intabs = sigma-intab_fst
     sub_symbol = f"[{SUBSTITUTE}]"
-    sub_acceptor_weighted = fst(sub_symbol, weight=sub_cost)
     sub_acceptor = fst(sub_symbol)
-    sub_graph_left = fst(sigma_except_intabs, sub_acceptor_weighted)
-    sub_graph_right = fst(sub_acceptor, sigma)
-    for intab in set(intabs):
-        intab_sub_symbol = f"[{SUBSTITUTE}{intab}]"
+    sub_graph_left = fst(sigma_except_intabs, sub_acceptor)
+    sub_graph_right = fst(sub_acceptor, sigma, weight=sub_cost)
+    
+    # cache all intabs that have been accounted for
+    # can't call `set` on intabs since pynini.Fst in unhashable
+    used_intabs = []
+    for i, intab in enumerate(intabs):
+        if intab in used_intabs:
+            continue
+        intab_sub_symbol = f"[{SUBSTITUTE}{i}]"
         subs_w_intab = [sub for sub in substitutions if sub[0]==intab]
         
         outtabs_for_element = [sub[1] for sub in subs_w_intab]
@@ -204,3 +215,58 @@ def _get_substitution_graph(
             sub_graph_right=sub_graph_right|sub_fst_right
 
     return sub_graph_left, sub_graph_right
+
+# ------------------------------- #
+# functions for performing search #
+# ------------------------------- #
+
+def search_verb_form(
+        verb_form: str,
+        num_hits: int = 5,
+        edit_bound: int = 5,
+    ) -> List[Tuple[Dict[str, Any], float]]:
+    """
+    Arguments:
+        verb_form:  str of verb form to query parses for
+        num_hits:   int, number of parses to return
+    Returns:
+        parses:     list of tuples, each of shape `(parse: dict, prob: float)`
+    
+    Performs fuzzy search mapping a queried verb form to possible parses
+    as defined by verb paradigm FSTs. Returns list of couples of (`parse`, `prob`).
+    `parse` is output of `parse_inflected_verb`
+    and `prob` is a normalized weight indicating the probability
+    of the given parse relative to other parses, calculated using
+    a softmax over the inverse cost of each hit. List is sorted
+    by probability in descending order so that most likely hit is the first item.
+    """
+
+    hits = []
+    left_factor, right_factor = get_edit_factors(
+        sigma=SIGMA,
+        insertions=INSERTION_COSTS,
+        substitutions=SUBSTITUTION_COSTS,
+        deletions=DELETION_COSTS,
+        bound=edit_bound,
+    )
+    query_fst = fst(verb_form)@left_factor
+    query_fst.optimize()
+    for fv, paradigm in FV2PARADIGM.items():
+        # since we cannot know ahead of time what paradigm nbest hits will come from
+        # get nbest hits for each paradigm individually, then filter later
+        paradigm_lattice = paradigm.lemmatizer
+        paradigm_lattice = pynini.project(paradigm_lattice, 'input')
+        paradigm_lattice.optimize()
+        search_lattice = query_fst@right_factor@paradigm_lattice
+        search_lattice.optimize()
+        hits_for_paradigm = get_nbest_strs_and_weights(
+            search_lattice,
+            n=num_hits,
+            return_input_strs=False,
+            use_byte_tokens=True,
+        )
+        
+        hits.extend([(hit, fv, weight) for hit, weight in hits_for_paradigm])
+    hits.sort(key=lambda hit_tuple: hit_tuple[-1])
+    nbest_hits = hits[:num_hits]
+    return nbest_hits
