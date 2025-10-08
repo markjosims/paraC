@@ -6,6 +6,7 @@ from src.fst_helpers import *
 from src.constants import (
     INSERT, DELETE, SUBSTITUTE,
     DEFAULT_INSERT_COST, DEFAULT_DELETE_COST, DEFAULT_SUBSTITUTE_COST,
+    DEFAULT_EDIT_BOUND,
 )
 from src.phonology import SIGMA, INSERTION_COSTS, DELETION_COSTS, SUBSTITUTION_COSTS
 from src.verb_forms import FV2PARADIGM
@@ -216,6 +217,18 @@ def _get_substitution_graph(
 
     return sub_graph_left, sub_graph_right
 
+# -------------------------------------------------------- #
+# left and right factors with default edit costs and bound #
+# -------------------------------------------------------- #
+
+LEFT_FACTOR, RIGHT_FACTOR = get_edit_factors(
+        sigma=SIGMA,
+        insertions=INSERTION_COSTS,
+        substitutions=SUBSTITUTION_COSTS,
+        deletions=DELETION_COSTS,
+        bound=DEFAULT_EDIT_BOUND,
+)
+
 # ------------------------------- #
 # functions for performing search #
 # ------------------------------- #
@@ -239,14 +252,18 @@ def search_verb_form(
     by weight in ascending order so that least costly hit is the first item.
     """
 
+    left_factor, right_factor = LEFT_FACTOR, RIGHT_FACTOR
+    if edit_bound != DEFAULT_EDIT_BOUND:
+        # recompile left and right factors if edit bound is not default
+        left_factor, right_factor = get_edit_factors(
+            sigma=SIGMA,
+            insertions=INSERTION_COSTS,
+            substitutions=SUBSTITUTION_COSTS,
+            deletions=DELETION_COSTS,
+            bound=edit_bound,
+        )
+
     hits = []
-    left_factor, right_factor = get_edit_factors(
-        sigma=SIGMA,
-        insertions=INSERTION_COSTS,
-        substitutions=SUBSTITUTION_COSTS,
-        deletions=DELETION_COSTS,
-        bound=edit_bound,
-    )
     query_fst = fst(verb_form)@left_factor
     query_fst.optimize()
     for fv, paradigm in FV2PARADIGM.items():
