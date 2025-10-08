@@ -89,6 +89,11 @@ def get_noun_lemmata(wrap_w_fsa: bool=False) -> List[str]:
         lemmata = [fst(lemma) for lemma in lemmata]
     return lemmata
 
+def get_gloss_for_noun(lemma: str) -> str:
+    lemma_mask = NOUNS_DF['lemma']==lemma
+    gloss = NOUNS_DF.loc[lemma_mask, 'gloss'].item()
+    return gloss
+
 def main() -> int:
     root2gloss = get_root2gloss_fst()
     root2gloss.write(ROOT2GLOSS_FST_PATH)
