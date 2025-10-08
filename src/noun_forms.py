@@ -5,8 +5,8 @@ from src.fst_helpers import *
 from src.lexicon import NOUNS_DF, get_noun_lemmata, get_gloss_for_noun
 from src.constants import (
     NOUN_FEATURE_ABBREVIATION_TO_VECTOR,
+    NOUN_ROOT,
     NOUN,
-    NOMSG,
     BOUNDARY_STR,
 )
 from typing import *
@@ -30,11 +30,14 @@ def build_noun_forms():
                 feature_fsts.append(fst(lemma, subform))
         feature_fst = pynini.union(*feature_fsts).optimize()
         slots.append((feature_fst, feature_vec))
+    lemma_acceptor = pynini.union(*get_noun_lemmata(wrap_w_fsa=True)).optimize()
+    slots.append((lemma_acceptor, NOUN_ROOT))
+
     noun_paradigm = paradigms.Paradigm(
         category=NOUN,
         name='Nouns',
         slots=slots,
-        lemma_feature_vector=NOMSG,
+        lemma_feature_vector=NOUN_ROOT,
         stems=get_noun_lemmata(wrap_w_fsa=True),
         boundary=fst(BOUNDARY_STR),
     )
