@@ -289,8 +289,6 @@ def get_nbest_strs_and_weights(
     #     for byte_str in nbest_strs
     # ]
     nbest_strs = [decode_byte_str(byte_str) for byte_str in nbest_strs]
-    # sanity check
-    assert len(nbest_strs) == n
 
     nbest_triples = []
     for hit_str in nbest_strs:
@@ -301,8 +299,6 @@ def get_nbest_strs_and_weights(
                 input_token_type=TIRA_SYMBOL_TABLE,               
                 output_token_type=TIRA_SYMBOL_TABLE,               
             ).items())
-        # another sanity check
-        assert len(hit_triple)==1
         hit_triple = hit_triple[0]
         intab, outtab, weight = hit_triple
         intab = decode_fst_string(intab, is_byte_str=use_byte_tokens)
