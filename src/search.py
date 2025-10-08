@@ -10,6 +10,7 @@ from src.constants import (
 )
 from src.phonology import SIGMA, INSERTION_COSTS, DELETION_COSTS, SUBSTITUTION_COSTS
 from src.verb_forms import FV2PARADIGM
+from src.noun_forms import NOUN_PARADIGM
 
 # ----------------------------------- #
 # functions for building search graph #
@@ -281,6 +282,57 @@ def search_verb_form(
         )
         
         hits.extend([(hit, fv, weight) for hit, weight in hits_for_paradigm])
+    hits.sort(key=lambda hit_tuple: hit_tuple[-1])
+    nbest_hits = hits[:num_hits]
+    return nbest_hits
+
+def search_noun_form(
+        noun_form: str,
+        num_hits: int = 5,
+        edit_bound: int = 5,
+    ) -> List[Tuple[Dict[str, Any], float]]:
+    """
+    Arguments:
+        noun_form:  str of noun form to query parses for
+        num_hits:   int, number of parses to return
+    Returns:
+        parses:     list of tuples, each of shape `(parse: dict, prob: float)`
+    
+    Performs fuzzy search mapping a queried noun form to possible parses
+    as defined by noun paradigm FSTs. Returns list of couples of (`parse`, `weight`).
+    `parse` is output of `parse_inflected_noun`
+    and `weight` is the number of edits per hit. List is sorted
+    by weight in ascending order so that least costly hit is the first item.
+    """
+
+    left_factor, right_factor = LEFT_FACTOR, RIGHT_FACTOR
+    if edit_bound != DEFAULT_EDIT_BOUND:
+        # recompile left and right factors if edit bound is not default
+        left_factor, right_factor = get_edit_factors(
+            sigma=SIGMA,
+            insertions=INSERTION_COSTS,
+            substitutions=SUBSTITUTION_COSTS,
+            deletions=DELETION_COSTS,
+            bound=edit_bound,
+        )
+
+    query_fst = fst(noun_form)@left_factor
+    query_fst.optimize()
+
+    paradigm_lattice = NOUN_PARADIGM.lemmatizer
+    paradigm_lattice = pynini.project(paradigm_lattice, 'input')
+    paradigm_lattice.optimize()
+
+    search_lattice = query_fst@right_factor@paradigm_lattice
+    search_lattice.optimize()
+    
+    hits = get_nbest_strs_and_weights(
+        search_lattice,
+        n=num_hits,
+        return_input_strs=False,
+        use_byte_tokens=True,
+    )
+        
     hits.sort(key=lambda hit_tuple: hit_tuple[-1])
     nbest_hits = hits[:num_hits]
     return nbest_hits
