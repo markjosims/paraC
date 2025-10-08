@@ -173,6 +173,7 @@ NOUN_FEATURE_ABBREVIATION_TO_VECTOR = {
     "acc.sg": ACCSG,
     "acc.pl": ACCPL,
 }
+NOUN_FEATURE_ABBREVIATIONS = list(NOUN_FEATURE_ABBREVIATION_TO_VECTOR.keys())
 
 ################
 # symbol table #
