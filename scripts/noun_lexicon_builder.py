@@ -52,6 +52,8 @@ def main() -> int:
     for feature in ['acc.sg', 'nom.pl', 'acc.pl']:
         no_lemma = df['lemma']==''
         df.loc[no_lemma, 'lemma']=df.loc[no_lemma, feature]
+    # where lemma has multiple forms, take the first one
+    df['lemma']=df['lemma'].str.split().apply(lambda l: l[0])
 
     df.to_csv(NOUN_CSV_PATH, index=False)
     return 0
