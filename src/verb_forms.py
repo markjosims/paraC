@@ -338,6 +338,7 @@ def parse_inflected_verb(
     parse = feature_vec.values
     parse['root'] = root
     parse['analyzed_form'] = analyzed_form
+    parse['form'] = form
     if add_gloss:
         parse['gloss']=get_gloss_for_verb(root)
     return parse
