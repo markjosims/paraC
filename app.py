@@ -1,6 +1,6 @@
 import flask
 from flask import Flask, render_template, request
-from src.forms import (
+from src.verb_forms import (
     parse_inflected_verb,
     inflect_verb_with_features,
     get_inflected_paradigm_for_verb,

@@ -118,3 +118,17 @@ def test_search_verb_form(gold_verb):
     top_form, top_fv, _ = hits[0]
     assert top_form == gold_form
     assert top_fv == gold_fv
+
+@pytest.mark.parametrize("gold_noun", get_all_gold_forms())
+def test_search_verb_form(gold_noun):
+    gold_form = gold_noun['form']
+    gold_form = gold_form.replace('-', '')
+    fuzzy_form = gold_noun['fuzzy_form']
+    num_hits = 5
+    
+    hits = search_verb_form(fuzzy_form, num_hits=num_hits)
+
+    assert len(hits) == num_hits
+    top_form, top_fv, _ = hits[0]
+    assert top_form == gold_form
+    assert top_fv == gold_fv

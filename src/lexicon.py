@@ -11,6 +11,7 @@ from src.constants import (
     ROOT2GLOSS_FST_PATH,
     GOLD_VERBS_PATH,
     GOLD_PARADIGMS_PATH,
+    NOUNS_PATH,
 )
 from src.fst_helpers import fst
 from typing import *

@@ -8,7 +8,7 @@ from src.constants import (
     DEFAULT_INSERT_COST, DEFAULT_DELETE_COST, DEFAULT_SUBSTITUTE_COST,
 )
 from src.phonology import SIGMA, INSERTION_COSTS, DELETION_COSTS, SUBSTITUTION_COSTS
-from src.forms import FV2PARADIGM
+from src.verb_forms import FV2PARADIGM
 
 # ----------------------------------- #
 # functions for building search graph #

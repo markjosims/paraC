@@ -1,5 +1,5 @@
 import pytest
-from src.forms import *
+from src.verb_forms import *
 from src.lexicon import get_all_verb_roots_and_fvs, get_all_gold_forms, get_gold_paradigms
 from src.constants import VERB_FEATURE_VALUES
 

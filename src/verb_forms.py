@@ -1,6 +1,5 @@
 """
-WIP: Script that builds FSTs for generating various inflectional forms
-of nouns and verbs in Tira.
+Script that builds FSTs for generating various inflectional forms of verbs in Tira.
 """
 
 import pynini
