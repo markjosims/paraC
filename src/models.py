@@ -29,6 +29,9 @@ class Lexeme(Base):
     gloss = Column(Text, nullable=True)
     lexical_info = Column(JSONB, nullable=True)
 
+    source = Column(String, default="CSV")
+    checked_by_pi = Column(Boolean, default=False)
+
 class Parse(Base):
     __tablename__ = 'parses'
     id = Column(Integer, primary_key=True, index=True)
