@@ -5,15 +5,15 @@
 {% block content %}
     <!-- Parsing Section -->
     <div class="bg-white p-6 rounded-xl shadow-lg">
-        {% include '_parse_verb.html' %}
-        {% include '_parse_verb_result.html' %}
+        {% include 'partials/parse_verb.html' %}
+        {% include 'partials/parse_verb_result.html' %}
 
     </div>
 
     <!-- Inflection Section -->
     <div class="bg-white p-6 rounded-xl shadow-lg">
-        {% include '_inflect_verb.html' %}
-        {% include '_inflect_verb_result.html' %}
+        {% include 'partials/inflect_verb.html' %}
+        {% include 'partials/inflect_verb_result.html' %}
 
     </div>
 {% endblock %}

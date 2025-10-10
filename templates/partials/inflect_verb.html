@@ -1,7 +1,7 @@
 <h2 class="text-2xl font-semibold mb-4 border-b pb-2">Inflect Verb Root</h2>
 <form method="post">
-    {% include '_verb_root_dropdown.html' %}
-    {% include '_verb_feature_dropdowns.html' %}
+    {% include 'partials/verb_root_dropdown.html' %}
+    {% include 'partials/verb_feature_dropdowns.html' %}
 
     {% if mode == "test" %}
 
@@ -11,7 +11,7 @@
             type="text"
             id="expected_inflected_form"
             name="expected_inflected_form"
-            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+            class="input-field"
             required
         {% if expected_inflected_form %}
             value="{{ expected_inflected_form }}"
@@ -23,7 +23,7 @@
 
     <button type="submit"
             name="submit_inflect"
-            class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700 transition duration-300 ease-in-out">
+            class="btn-primary">
         Inflect
     </button>
 </form>

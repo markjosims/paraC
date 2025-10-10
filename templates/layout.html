@@ -23,6 +23,23 @@
         .result-table { width: 100%; border-collapse: collapse; }
         .result-table th, .result-table td { text-align: center; padding: 8px; border-bottom: 1px solid #ddd; }
         .result-table th { background-color: #f2f2f2; }
+        
+    </style>
+    <style type="text/tailwindcss">
+        @layer components {
+            .btn-primary {
+                @apply px-4 py-2 bg-blue-600 text-white font-bold rounded-md shadow-sm hover:bg-blue-700 transition-colors;
+            }
+            .btn-secondary {
+                @apply px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-md hover:bg-gray-300 transition-colors;
+            }
+            .card {
+                @apply bg-white p-6 rounded-lg shadow;
+            }
+            .input-field {
+                @apply mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
