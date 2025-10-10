@@ -1,6 +1,6 @@
 import pytest
-from src.form_helpers import generate_forms
-from src.verb_forms import *
+from src.form_builders.form_helpers import generate_forms
+from src.form_builders.verb_forms import *
 from src.lexicon import get_all_verb_roots_and_fvs, get_gold_verbs, get_gold_paradigms
 from src.constants import VERB_FEATURE_VALUES
 

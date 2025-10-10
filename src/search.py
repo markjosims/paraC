@@ -9,8 +9,8 @@ from src.constants import (
     DEFAULT_EDIT_BOUND,
 )
 from src.phonology import SIGMA, INSERTION_COSTS, DELETION_COSTS, SUBSTITUTION_COSTS, INSERT_HYPHEN_RULE
-from src.verb_forms import FV2PARADIGM, parse_inflected_verb
-from src.noun_forms import NOUN_PARADIGM, parse_noun
+from src.form_builders.verb_forms import FV2PARADIGM, parse_inflected_verb
+from src.form_builders.noun_forms import NOUN_PARADIGM, parse_noun
 
 # ----------------------------------- #
 # functions for building search graph #

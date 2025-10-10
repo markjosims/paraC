@@ -1,8 +1,8 @@
 from src.constants import NOUNS_PATH, VERB_ROOTS_PATH, NOUN_FEATURE_ABBREVIATIONS
-from src.database import engine, SessionLocal, Base
+from src.database.database import engine, SessionLocal, Base
 from tqdm import tqdm
 import pandas as pd
-from src.models import Lexeme
+from src.database.models import Lexeme
 from sqlalchemy.orm import Session
 
 def ingest_verbs(df: pd.DataFrame, db: Session):

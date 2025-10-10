@@ -5,7 +5,7 @@ Script that builds FSTs for generating various inflectional forms of verbs in Ti
 import pynini
 from pynini.lib import features, paradigms
 import pandas as pd
-from src.form_helpers import add_class_prefix, add_class_prefixes_to_slots, generate_forms
+from src.form_builders.form_helpers import add_class_prefix, add_class_prefixes_to_slots, generate_forms
 from src.phonology import *
 from src.fst_helpers import *
 from src.lexicon import get_roots_for_class, get_all_verb_roots_and_fvs, get_gloss_for_verb

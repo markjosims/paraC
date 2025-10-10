@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, ForeignKey, JSON, Boolean,
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
-from src.database import Base
+from src.database.database import Base
 
 class Sentence(Base):
     __tablename__ = 'sentences'

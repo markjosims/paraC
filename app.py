@@ -1,6 +1,6 @@
 import flask
 from flask import Flask, jsonify, render_template, request
-from src.verb_forms import (
+from src.form_builders.verb_forms import (
     parse_inflected_verb,
     inflect_verb_with_features,
     get_inflected_paradigm_for_verb,
@@ -12,8 +12,8 @@ from src.sentences import get_elan_analyses
 import pynini
 from unicodedata import normalize
 from sqlalchemy.orm import joinedload, selectinload
-from src.database import SessionLocal
-from src.models import Sentence, SentenceWord, Wordform
+from src.database.database import SessionLocal
+from src.database.models import Sentence, SentenceWord, Wordform
 import math
 
 app = Flask(__name__)

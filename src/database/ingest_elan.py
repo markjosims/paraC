@@ -1,7 +1,7 @@
 import pandas as pd
-from src.database import engine, SessionLocal, Base
+from src.database.database import engine, SessionLocal, Base
 from src.constants import SENTENCES_PATH
-from src.models import Sentence, Wordform, SentenceWord, Parse, Lexeme
+from src.database.models import Sentence, Wordform, SentenceWord, Parse, Lexeme
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 from src.search import search_parse
