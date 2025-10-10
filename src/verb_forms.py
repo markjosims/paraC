@@ -3,60 +3,16 @@ Script that builds FSTs for generating various inflectional forms of verbs in Ti
 """
 
 import pynini
-from pynini.lib import features, paradigms, rewrite, pynutil
+from pynini.lib import features, paradigms
 import pandas as pd
+from src.form_helpers import add_class_prefix, add_class_prefixes_to_slots, generate_forms
 from src.phonology import *
 from src.fst_helpers import *
 from src.lexicon import get_roots_for_class, get_all_verb_roots_and_fvs, get_gloss_for_verb
-from src.glossing import REMOVE_HOMOPHONE_TAG, feature_str_to_dict
+from src.glossing import REMOVE_HOMOPHONE_TAG
 from src.constants import INFLECTED_VERBS_PATH, INFLECTED_VERB
 from typing import *
 import random
-
-# helper functions
-
-def generate_forms(
-        stem: str,
-        paradigm: paradigms.Paradigm,
-        action: Literal['print', 'return']='print',
-        parse: bool=False
-):
-    lattice = rewrite.rewrite_lattice(
-        fst(stem),
-        paradigm.stems_to_forms @ paradigm.feature_label_rewriter,
-    )
-    wordforms = []
-    for wordform in rewrite.lattice_to_strings(lattice):
-        if action=='return' and parse:
-            parsed_wordform = feature_str_to_dict(wordform)
-            wordforms.append(parsed_wordform)
-        elif action=='return':
-            wordforms.append(wordform)
-        else:
-            byte_word = wordform.split('[')[0]
-            word = decode_byte_str(byte_word)
-            wordform = wordform.replace(byte_word, word)
-            print(wordform)
-    if action=='return':
-        return wordforms
-
-def add_class_prefix(stem: pynini.Fst, class_agree: str, prefix_tone=LOW_TONE) -> pynini.Fst:
-    if class_agree == 'g':
-        # 'g' class phonetically realized as [k]
-        class_agree = 'k'
-    prefix_acceptor = fst(f"{class_agree}ə{prefix_tone}-")
-    return (paradigms.prefix(prefix_acceptor, stem)@DELETE_SCHWA_BEFORE_VOWEL).optimize()
-
-def add_class_prefixes_to_slots(slot_list):
-    slots_w_class_prefixes = []
-    for stem, feature_vector in slot_list:
-        category = feature_vector.category
-        feature_values = [f"{feature}={value}" for feature, value in feature_vector.values.items()]
-        for class_agree in CLASS_PREFIXES:
-            features_with_class = features.FeatureVector(category, f"class={class_agree}", *feature_values)
-            prefixed_verb = add_class_prefix(stem, class_agree)
-            slots_w_class_prefixes.append((prefixed_verb, features_with_class))
-    return slots_w_class_prefixes
 
 # FV mappings
 
