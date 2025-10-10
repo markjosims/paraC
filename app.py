@@ -13,7 +13,7 @@ import pynini
 from unicodedata import normalize
 from sqlalchemy.orm import joinedload
 from src.database import SessionLocal
-from src.models import Sentence, SentenceWord
+from src.models import Sentence, SentenceWord, Wordform
 import math
 
 app = Flask(__name__)
@@ -198,8 +198,11 @@ def analyze_page(sentence_id):
     db = SessionLocal()
     sentence = db.query(Sentence).options(
         joinedload(Sentence.words).joinedload(SentenceWord.wordform)
+    ).options(
+        joinedload(Sentence.words).joinedload(SentenceWord.wordform).joinedload(Wordform.parses)
     ).filter(Sentence.id == sentence_id).first()
     db.close()
+    print(sentence.words[0].wordform.parses)
 
     if not sentence:
         return "Sentence not found", 404
@@ -208,6 +211,7 @@ def analyze_page(sentence_id):
     print(words_in_order)
 
     return render_template('analyze.html', sentence=sentence, words=words_in_order)
+
 
 if __name__ == '__main__':
     app.run(debug=True)

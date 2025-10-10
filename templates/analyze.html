@@ -18,14 +18,24 @@
         <!-- Interactive Sentence -->
         <div id="interactive-sentence" class="p-4 bg-gray-50 border rounded-lg flex flex-wrap gap-x-2 gap-y-1 text-2xl font-mono">
             {% for word in words %}
-                <span 
-                    class="word-token p-1 rounded cursor-pointer hover:bg-blue-200 transition-colors duration-150"
-                    data-word-id="{{ word.id }}"
-                    data-word-text="{{ word.wordform.text }}"
-                    data-position="{{ word.position }}"
-                >
-                    {{ word.wordform.text }}
-                </span>
+                {% set parsable_list = [] %}
+                {% for p in word.wordform.parses %}
+                    {% set __ = parsable_list.append({
+                        'id': p.id,
+                        'updated_form': p.updated_form,
+                        'analysis': p.analysis,
+                        'source': p.source
+                    }) %}
+                {% endfor %}
+            <span 
+                class="word-token p-1 rounded cursor-pointer hover:bg-blue-200 transition-colors duration-150"
+                data-word-id="{{ word.id }}"
+                data-word-text="{{ word.wordform.text }}"
+                data-position="{{ word.position }}"
+                data-parses='{{ parsable_list | tojson }}'  {# 4. Serialize the list we just built. #}
+            >
+                {{ word.wordform.text }}
+            </span>
             {% endfor %}
         </div>
     </div>
@@ -34,6 +44,7 @@
     <div id="analysis-area" class="bg-white p-6 rounded-lg shadow min-h-[20rem]">
         <div id="word-form-container" class="text-gray-500 text-center pt-16">
             <p class="text-lg">Select a word from the sentence above to begin analysis.</p>
+
         </div>
     </div>
 
@@ -45,52 +56,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
     interactiveSentence.addEventListener('click', (event) => {
         const target = event.target;
-        // Ensure the click is on a word token itself
         if (target.classList.contains('word-token')) {
-            // Remove highlight from previously selected word
             if (selectedWordToken) {
                 selectedWordToken.classList.remove('bg-blue-300', 'text-black', 'shadow-inner');
                 selectedWordToken.classList.add('hover:bg-blue-200');
             }
-            
-            // Highlight the new word
             target.classList.add('bg-blue-300', 'text-black', 'shadow-inner');
             target.classList.remove('hover:bg-blue-200');
             selectedWordToken = target;
-
-            // Update the analysis area with the selected word's data
-            const wordId = target.dataset.wordId;
-            const wordText = target.dataset.wordText;
-            updateAnalysisForm(wordId, wordText);
+            updateAnalysisForm(target);
         }
     });
 
-    function updateAnalysisForm(wordId, wordText) {
-        // This function builds the HTML for the analysis form.
-        // In future steps, this will fetch real data via an API call.
+    function updateAnalysisForm(wordElement) {
+        const wordId = wordElement.dataset.wordId;
+        const wordText = wordElement.dataset.wordText;
         wordFormContainer.innerHTML = `
             <div class="text-left">
                 <h3 class="text-2xl font-semibold mb-4">Analyzing: <code class="bg-gray-200 p-1 rounded">${wordText}</code></h3>
-                <div class="space-y-4">
-                    <p><strong>Sentence Word ID:</strong> ${wordId}</p>
-                    
-                    <!-- Placeholder for the parse selection dropdown -->
-                    <div>
-                        <label for="parse-select" class="block font-medium text-gray-700">Choose Parse:</label>
-                        <select id="parse-select" name="parse-select" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                            <option>-- Loading suggested parses... --</option>
-                        </select>
-                    </div>
-                    
-                    <button class="text-sm text-blue-600 hover:underline">Or, create new parse...</button>
-
-                    <div class="pt-4 text-right">
-                        <button class="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">Save Analysis for this Word</button>
-                    </div>
+                <p><strong>Sentence Word ID:</strong> ${wordId}</p>
+                <div>
+                    <label for="parse-select" class="block font-medium text-gray-700">Choose Parse:</label>
+                    <select id="parse-select" name="parse-select" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"></select>
                 </div>
-            </div>
-        `;
-        // TODO: Add an API call here to fetch and populate the dropdown with parses for 'wordText'.
+            </div>`;
+
+        const selectElement = document.getElementById('parse-select');
+        const parses = JSON.parse(wordElement.dataset.parses);
+
+        if (parses.length > 0) {
+            selectElement.innerHTML = `<option value="">-- Select a parse --</option>`;
+            parses.forEach(parse => {
+                const gloss = parse.analysis.gloss || 'N/A';
+                const label = `${parse.updated_form} (${gloss}) [Source: ${parse.source}]`;
+                const option = document.createElement('option');
+                option.value = parse.id;
+                option.textContent = label;
+                selectElement.appendChild(option);
+            });
+        } else {
+            selectElement.innerHTML = `<option value="">-- No suggested parses found --</option>`;
+        }
+        const createNewOption = document.createElement('option');
+        createNewOption.value = 'new';
+        createNewOption.textContent = '— Add new parse —';
+        selectElement.appendChild(createNewOption);
     }
 });
 </script>
