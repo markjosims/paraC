@@ -14,12 +14,17 @@ DATA_DIR = os.environ.get(
     'TIRA_MORPH_DATA_DIR',
     os.path.join(os.getcwd(), 'data')
 )
+ELAN_DIR = os.path.join(DATA_DIR, 'elan')
+EXCEL_DIR = os.path.join(DATA_DIR, 'excel')
+SENTENCES_DIR = os.path.join(DATA_DIR, 'sentences')
+
 EXCEL_VERBS_PATH = os.environ.get(
     'TIRA_VERBS_EXCEL',
-    os.path.join(DATA_DIR, 'verb_paradigms.xlsx')
+    os.path.join(EXCEL_DIR, 'verb_paradigms.xlsx')
 )
 EXCEL_SHEET_NAME = 'Verbs'
-IPA_REP_PATH = os.path.join(DATA_DIR, 'char_replacements.json')
+
+IPA_REP_PATH = os.path.join(SENTENCES_DIR, 'char_replacements.json')
 with open(IPA_REP_PATH, encoding='utf8') as f:
     IPA_REP_DICT = json.load(f)
 IPA_REP_DICT = {k: v['target'] for k, v in IPA_REP_DICT.items()}
@@ -31,9 +36,17 @@ README_HEADER = string.Template(
 Dataset of unique Tira sentences for purposes of training morphological segmentation.
 Uses same textnorm steps as `tira_asr`. Contains $num_sentences unique sentences for
 a total of $num_words words ($num_word_unique unique words) averaging
-$mean_sentence_len words per sentence. Of these, $num_analyses sentences have
-morphological decompositions, for $num_word_analyzed unique analyzed words and
-$num_morphs unique morphemes.
+$mean_sentence_len words per sentence. 
+
+## Files
+- sentences.csv: final dataset of unique Tira sentences with associated glosses and translations
+- char_replacements.json: dictionary of character replacements used in text normalization
+- tira_asr_unique_chars.json: list of all expected characters in Tira IPA transcriptions
+- english_words.txt: list of all English words detected and removed during text normalization
+- tira_words.txt: list of all Tira words detected in the dataset before text normalization
+- tira_words_normalized.txt: list of all Tira words found in the dataset with text normalization applied
+
+## Preprocessing log
 """
 )
 PREPROCESSING_STEPS = []
@@ -236,8 +249,8 @@ def perform_textnorm(
     has_en_mask = df[norm_col].apply(detect_en_words)
 
     # save detected words for manual verification
-    en_words_path = os.path.join(DATA_DIR, "english_words.txt")
-    tira_words_path = os.path.join(DATA_DIR, "tira_words.txt")
+    en_words_path = os.path.join(SENTENCES_DIR, "english_words.txt")
+    tira_words_path = os.path.join(SENTENCES_DIR, "tira_words.txt")
     with open(en_words_path, 'w', encoding='utf8') as f:
         f.writelines(['\n'.join(en_words)])
     with open(tira_words_path, 'w', encoding='utf8') as f:
@@ -285,7 +298,7 @@ def perform_textnorm(
 
     print("Checking only expected chars are found in dataset...")
     expected_chars_basename = 'tira_asr_unique_chars.json'
-    expected_chars_path = os.path.join(DATA_DIR, expected_chars_basename)
+    expected_chars_path = os.path.join(SENTENCES_DIR, expected_chars_basename)
     with open(expected_chars_path, encoding='utf8') as f:
         expected_ipa_chars = json.load(f)
     if keep_punct:
@@ -413,7 +426,7 @@ def main() -> int:
     df = pd.read_csv(LIST_PATH, keep_default_na=False)
     print(len(df))
 
-    annotations_path = os.path.join(DATA_DIR, 'annotations.csv')
+    annotations_path = os.path.join(ELAN_DIR, 'annotations.csv')
     if not os.path.exists(annotations_path):
         print("Associating annotations to transcriptions...")
         annotation_df = associate_tiers(df)
@@ -484,12 +497,12 @@ def main() -> int:
         num_word_analyzed=None,
         num_morphs=None,
     )
-    readme_out = os.path.join(DATA_DIR, 'README.md')
+    readme_out = os.path.join(SENTENCES_DIR, 'README.md')
     with open(readme_out, 'w', encoding='utf8') as f:
         f.write(readme_header_str+'\n')
         f.write('\n'.join(PREPROCESSING_STEPS))
 
-    transcriptions_path = os.path.join(DATA_DIR, 'analyses.csv')
+    transcriptions_path = os.path.join(SENTENCES_DIR, 'sentences.csv')
     df.to_csv(transcriptions_path, index_label='index')
 
 if __name__ == '__main__':

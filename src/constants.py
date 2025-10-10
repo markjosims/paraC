@@ -206,13 +206,13 @@ DEFAULT_EDIT_BOUND = 5
 # paths #
 #########
 
-VERB_ROOTS_PATH = 'data/verb_roots_final.csv'
-INFLECTED_VERBS_PATH = 'data/inflected_verb_forms.csv'
-GOLD_VERBS_PATH = 'data/gold_verbs.csv'
-GOLD_PARADIGMS_PATH = 'data/gold_paradigms.json'
-ANALYSES_PATH = 'data/analyses.csv'
-NOUNS_PATH = 'data/nouns.csv'
-FUZZY_NOUNS_PATH = 'data/fuzzy_nouns.csv'
+VERB_ROOTS_PATH = 'data/lexicon/verb_roots.csv'
+INFLECTED_VERBS_PATH = 'data/lexicon/inflected_verb_forms.csv'
+GOLD_VERBS_PATH = 'data/test_cases/gold_verbs.csv'
+GOLD_PARADIGMS_PATH = 'data/test_cases/gold_paradigms.json'
+SENTENCES_PATH = 'data/sentences/sentences.csv'
+NOUNS_PATH = 'data/lexicon/nouns.csv'
+FUZZY_NOUNS_PATH = 'data/test_cases/fuzzy_nouns.csv'
 
 FST_DIR = "fst/"
 ROOT2GLOSS_FST_PATH = os.path.join(FST_DIR, "root2gloss.fst")

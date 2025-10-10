@@ -1,8 +1,8 @@
 import pandas as pd
 from dataset_builder import normalize_str, normalize_ipa, is_en_word
 
-NOUN_EXCEL_PATH = 'data/nouns_excel_raw.csv'
-NOUN_CSV_PATH = 'data/nouns.csv'
+NOUN_EXCEL_PATH = 'data/excel/nouns_excel_raw.csv'
+NOUN_CSV_PATH = 'data/lexicon/nouns.csv'
 
 FORM_COLMAPPER = {
     'SG subject form': 'nom.sg',

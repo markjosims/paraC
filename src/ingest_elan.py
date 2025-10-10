@@ -1,6 +1,6 @@
 import pandas as pd
 from src.database import engine, SessionLocal, Base
-from src.constants import ANALYSES_PATH
+from src.constants import SENTENCES_PATH
 from src.models import Sentence, Wordform, SentenceWord, Parse, Lexeme
 from sqlalchemy.orm import Session
 from tqdm import tqdm
@@ -72,8 +72,8 @@ def main() -> int:
     db = SessionLocal()
 
     try:
-        print(f"Reading ELAN data from {ANALYSES_PATH}")
-        df = pd.read_csv(ANALYSES_PATH, keep_default_na=False)
+        print(f"Reading ELAN data from {SENTENCES_PATH}")
+        df = pd.read_csv(SENTENCES_PATH, keep_default_na=False)
         elan_mask = df['source']=='elan'
         df=df[elan_mask]
         ingest_data(df, db)

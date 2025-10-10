@@ -16,15 +16,15 @@ REMOVE_HOMOPHONE_TAG = pynini.cdrewrite(
     sigma_star=SIGMASTAR_W_TAG,
 ).optimize()
 
-def feature_str_to_dict(feature_str: str, decode_stem: bool=True) -> Dict[str, str]:
+def feature_str_to_dict(feature_str: str, decode_form: bool=True) -> Dict[str, str]:
     """
-    Parses a feature string of form "stem[feature=value][feature=value]..." into a dict
-    of shape {"stem": stem, "feature": value, ...}.
-    If `decode_stem` is True, call `decode_byte_str` on stem.
+    Parses a feature string of form "form[feature=value][feature=value]..." into a dict
+    of shape {"form": form, "feature": value, ...}.
+    If `decode_form` is True, call `decode_byte_str` on form.
     """
     items = feature_str.split(sep='[')
     form = items[0]
-    if decode_stem:
+    if decode_form:
         form = decode_byte_str(form)
     feature_dict = {"form": form}
     for item in items[1:]:
