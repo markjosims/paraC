@@ -15,6 +15,7 @@ from src.constants import (
     GOLD_NOUNS_PATH,
     ADJECTIVES_PATH,
     GOLD_ADJECTIVES_PATH,
+    UNINFLECTED_WORDS_PATH,
 )
 from src.fst_helpers import fst
 from typing import *
@@ -26,6 +27,7 @@ NOUNS_DF = pd.read_csv(NOUNS_PATH, keep_default_na=False)
 GOLD_NOUNS_DF = pd.read_csv(GOLD_NOUNS_PATH, keep_default_na=False)
 ADJECTIVES_DF = pd.read_csv(ADJECTIVES_PATH, keep_default_na=False)
 GOLD_ADJECTIVES_DF = pd.read_csv(GOLD_ADJECTIVES_PATH, keep_default_na=False)
+UNINFLECTED_WORDS_DF = pd.read_csv(UNINFLECTED_WORDS_PATH, keep_default_na=False)
 
 class LexemeNotFoundError(Exception):
     """
@@ -74,15 +76,18 @@ def get_all_verb_roots_and_fvs() -> List[Tuple[str, str]]:
     verb_fvs = VERBS_DF['root_fv'].tolist()
     return list(zip(verb_roots, verb_fvs))
 
+def get_verb_gloss_and_fvs() -> List[Tuple[str, str, str]]:
+    verb_roots = VERBS_DF['verb_root'].tolist()
+    verb_fvs = VERBS_DF['root_fv'].tolist()
+    verb_glosses = VERBS_DF['root_sense'].tolist()
+    return list(zip(verb_roots, verb_fvs, verb_glosses))
+
 def get_all_verb_data(
         return_type: Union[list, pd.DataFrame]=list
 ) -> Union[pd.DataFrame, List[Tuple[Any]]]:
     if return_type == pd.DataFrame:
         return VERBS_DF
-    verb_roots = VERBS_DF['verb_root'].tolist()
-    verb_fvs = VERBS_DF['root_fv'].tolist()
-    verb_senses = VERBS_DF['root_sense'].tolist()
-    return list(zip(verb_roots, verb_fvs, verb_senses))
+    return VERBS_DF.to_dict(orient='records')
 
 def get_gold_verbs() -> List[Dict[str, str]]:
     return GOLD_VERBS_DF.to_dict(orient='records')
@@ -141,6 +146,23 @@ def get_all_adjective_data(
     if return_type == pd.DataFrame:
         return ADJECTIVES_DF
     return ADJECTIVES_DF.to_dict(orient='records')
+
+def get_uninflected_word_data(
+        return_type: Union[list, pd.DataFrame]=list
+) -> Union[pd.DataFrame, List[Tuple[Any]]]:
+    if return_type == pd.DataFrame:
+        return UNINFLECTED_WORDS_DF
+    return UNINFLECTED_WORDS_DF.to_dict(orient='records')
+
+def get_pos_and_gloss_for_uninflected_word(word: str) -> Tuple[str, str]:
+    word_mask = UNINFLECTED_WORDS_DF['word']==word
+    if word_mask.sum()==0:
+        raise LexemeNotFoundError(f"Word {word} not found in uninflected word lexicon.")
+    if word_mask.sum()>1:
+        raise LexemeNotFoundError(f"Word {word} found multiple times in uninflected word lexicon.")
+    pos = UNINFLECTED_WORDS_DF.loc[word_mask, 'part_of_speech'].item()
+    gloss = UNINFLECTED_WORDS_DF.loc[word_mask, 'gloss'].item()
+    return pos, gloss
 
 def main() -> int:
     root2gloss = get_root2gloss_fst()

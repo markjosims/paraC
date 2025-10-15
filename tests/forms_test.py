@@ -1,6 +1,7 @@
 import pytest
 from src.form_builders.adjective_forms import ADJECTIVE_PARADIGM, inflect_adjective_with_features, parse_adjective
 from src.form_builders.form_helpers import generate_forms
+from src.form_builders.uninflected_forms import parse_uninflected_word
 from src.form_builders.verb_forms import *
 from src.lexicon import *
 from src.constants import VERB_FEATURE_VALUES
@@ -77,3 +78,13 @@ def test_adjective_parsing(gold_adj):
         if k in predicted_parse
     }
     assert predicted_parse == gold_adj_filtered
+
+@pytest.mark.parametrize("uninflected_word", get_uninflected_word_data())
+def test_uninflected_forms(uninflected_word):
+    word = uninflected_word['word']
+    pos = uninflected_word['part_of_speech']
+    gloss = uninflected_word['gloss']
+
+    parsed = parse_uninflected_word(word)
+    assert parsed['part_of_speech'] == pos
+    assert parsed['gloss'] == gloss
