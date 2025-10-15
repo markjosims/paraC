@@ -6,7 +6,7 @@ from src.form_builders.verb_forms import (
     get_inflected_paradigm_for_verb,
     FV_CLASSES
 )
-from src.lexicon import get_all_verb_data
+from src.lexicon import get_verb_gloss_and_fvs
 from src.constants import VERB_FEATURE_VALUES
 from src.sentences import get_elan_analyses
 import pynini
@@ -21,7 +21,7 @@ app = Flask(__name__)
 TEMPLATE_DEFAULTS = {
     "feature_options": VERB_FEATURE_VALUES,
     "fv_classes": FV_CLASSES,
-    "verb_lexicon": get_all_verb_data(),
+    "verb_lexicon": get_verb_gloss_and_fvs(),
 }
 
 @app.route('/', methods=['GET', 'POST'])
