@@ -39,7 +39,9 @@ def add_class_prefixes_to_slots(slot_list):
     slots_w_class_prefixes = []
     for stem, feature_vector in slot_list:
         category = feature_vector.category
-        feature_values = [f"{feature}={value}" for feature, value in feature_vector.values.items()]
+        feature_dict = feature_vector.values.copy()
+        feature_dict.pop('class', None)  # remove any existing class feature
+        feature_values = [f"{feature}={value}" for feature, value in feature_dict.items()]
         for class_agree in CLASS_PREFIXES:
             features_with_class = features.FeatureVector(category, f"class={class_agree}", *feature_values)
             prefixed_verb = add_class_prefix(stem, class_agree)
