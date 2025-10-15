@@ -6,6 +6,7 @@ stems to glosses and to principal parts.
 import pynini
 import pandas as pd
 from src.constants import (
+    GOLD_UNINFLECTED_WORDS_PATH,
     VERB_ROOTS_PATH,
     ROOT2FV_FST_PATH,
     ROOT2GLOSS_FST_PATH,
@@ -28,6 +29,7 @@ GOLD_NOUNS_DF = pd.read_csv(GOLD_NOUNS_PATH, keep_default_na=False)
 ADJECTIVES_DF = pd.read_csv(ADJECTIVES_PATH, keep_default_na=False)
 GOLD_ADJECTIVES_DF = pd.read_csv(GOLD_ADJECTIVES_PATH, keep_default_na=False)
 UNINFLECTED_WORDS_DF = pd.read_csv(UNINFLECTED_WORDS_PATH, keep_default_na=False)
+GOLD_UNINFLECTED_WORDS_DF = pd.read_csv(GOLD_UNINFLECTED_WORDS_PATH, keep_default_na=False)
 
 class LexemeNotFoundError(Exception):
     """
@@ -163,6 +165,9 @@ def get_pos_and_gloss_for_uninflected_word(word: str) -> Tuple[str, str]:
     pos = UNINFLECTED_WORDS_DF.loc[word_mask, 'part_of_speech'].item()
     gloss = UNINFLECTED_WORDS_DF.loc[word_mask, 'gloss'].item()
     return pos, gloss
+
+def get_gold_uninflected_words() -> List[Dict[str, str]]:
+    return GOLD_UNINFLECTED_WORDS_DF.to_dict(orient='records')
 
 def main() -> int:
     root2gloss = get_root2gloss_fst()

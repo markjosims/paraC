@@ -225,6 +225,7 @@ ADJECTIVES_PATH = 'data/lexicon/adjectives.csv'
 GOLD_NOUNS_PATH = 'data/test_cases/gold_nouns.csv'
 GOLD_ADJECTIVES_PATH = 'data/test_cases/gold_adjectives.csv'
 UNINFLECTED_WORDS_PATH = 'data/lexicon/uninflected_words.csv'
+GOLD_UNINFLECTED_WORDS_PATH = 'data/test_cases/gold_uninflected_words.csv'
 
 FST_DIR = "fst/"
 ROOT2GLOSS_FST_PATH = os.path.join(FST_DIR, "root2gloss.fst")

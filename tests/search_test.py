@@ -4,7 +4,12 @@ from src.search import *
 import pytest
 from src.fst_helpers import *
 from src.phonology import V, SIGMA
-from src.lexicon import get_gold_nouns, get_gold_verbs
+from src.lexicon import (
+    get_gold_nouns,
+    get_gold_verbs,
+    get_gold_uninflected_words,
+    get_gold_adjectives,
+)
 import math
 
 substitutions = [
@@ -128,6 +133,32 @@ def test_search_noun_form(gold_noun):
     num_hits = 3
     
     hits = search_noun_form(fuzzy_form, num_hits=num_hits, return_parse=False)
+
+    assert len(hits) == num_hits
+    top_form = hits[0][0]['form']
+    assert top_form == gold_form
+
+@pytest.mark.parametrize("uninflected_word", get_gold_uninflected_words())
+def test_search_uninflected_word_form(uninflected_word):
+    gold_form = uninflected_word['word']
+    gold_form = gold_form.replace('-', '')
+    fuzzy_form = uninflected_word['fuzzy_form']
+    num_hits = 1
+
+    hits = search_uninflected_word(fuzzy_form, num_hits=num_hits, return_parse=False)
+
+    assert len(hits) == num_hits
+    top_form = hits[0][0]['form']
+    assert top_form == gold_form
+
+@pytest.mark.parametrize("gold_adjective", get_gold_adjectives())
+def test_search_adjective_form(gold_adjective):
+    gold_form = gold_adjective['form']
+    gold_form = gold_form.replace('-', '')
+    fuzzy_form = gold_adjective['fuzzy_form']
+    num_hits = 3
+    
+    hits = search_adjective_form(fuzzy_form, num_hits=num_hits, return_parse=False)
 
     assert len(hits) == num_hits
     top_form = hits[0][0]['form']

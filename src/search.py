@@ -2,6 +2,8 @@ import pynini
 from pynini.lib import pynutil
 
 from typing import *
+from src.form_builders.adjective_forms import ADJECTIVE_PARADIGM, parse_adjective
+from src.form_builders.uninflected_forms import UNINFLECTED_WORD_FST, parse_uninflected_word
 from src.fst_helpers import *
 from src.constants import (
     INSERT, DELETE, SUBSTITUTE,
@@ -344,10 +346,65 @@ def search_noun_form(
         hits = [({'form': hit}, weight) for hit, weight in hits]
     return hits
 
-def search_parse(
+def search_adjective_form(
+        adj_form: str,
+        num_hits: int = 5,
+        edit_bound: int = 5,
+        return_parse: bool = True,
+    ) -> List[Tuple[Dict[str, Any], float]]:
+    """
+    Arguments:
+        adj_form:   str of adjective form to query parses for
+        num_hits:   int, number of parses to return
+    Returns:
+        parses:     list of tuples, each of shape `(parse: dict, prob: float)`
+    
+    Performs fuzzy search mapping a queried adjective form to possible parses
+    as defined by adjective paradigm FSTs. Returns list of couples of (`parse`, `weight`).
+    `parse` is output of `parse_inflected_adjective`
+    and `weight` is the number of edits per hit. List is sorted
+    by weight in ascending order so that least costly hit is the first item.
+    """
+    left_factor, right_factor = LEFT_FACTOR, RIGHT_FACTOR
+    if edit_bound != DEFAULT_EDIT_BOUND:
+        # recompile left and right factors if edit bound is not default
+        left_factor, right_factor = get_edit_factors(
+            sigma=SIGMA,
+            insertions=INSERTION_COSTS,
+            substitutions=SUBSTITUTION_COSTS,
+            deletions=DELETION_COSTS,
+            bound=edit_bound,
+        )
+
+    query_fst = fst(adj_form)@left_factor
+    query_fst.optimize()
+
+    paradigm_lattice = ADJECTIVE_PARADIGM.lemmatizer
+    paradigm_lattice = pynini.project(paradigm_lattice, 'input')
+    paradigm_lattice.optimize()
+
+    search_lattice = query_fst@right_factor@paradigm_lattice
+    search_lattice.optimize()
+    
+    hits = get_nbest_strs_and_weights(
+        search_lattice,
+        n=num_hits,
+        return_input_strs=False,
+        use_byte_tokens=True,
+    )
+        
+    hits.sort(key=lambda hit_tuple: hit_tuple[-1])
+    if return_parse:
+        hits = [(parse_adjective(hit), weight) for hit, weight in hits]
+    else:
+        hits = [({'form': hit}, weight) for hit, weight in hits]
+    return hits
+
+def search_uninflected_word(
         form: str,
         num_hits: int = 5,
         edit_bound: int = 5,
+        return_parse: bool = True,
     ) -> List[Tuple[Dict[str, Any], float]]:
     """
     Arguments:
@@ -355,14 +412,84 @@ def search_parse(
         num_hits:   int, number of parses to return
     Returns:
         parses:     list of tuples, each of shape `(parse: dict, prob: float)`
+    
+    Performs fuzzy search mapping a queried uninflected form to possible parses
+    as defined by noun and verb paradigm FSTs. Returns list of couples of (`form`, `weight`).
+    `form` is the predicted uninflected form and `weight` is the number of edits per hit.
+    List is sorted by weight in ascending order so that least costly hit is the first item.
     """
-    verb_hits = search_verb_form(form, num_hits=num_hits, edit_bound=edit_bound, return_parse=True)
-    for parse, _ in verb_hits:
-        parse['part_of_speech'] = 'verb'
-    noun_hits = search_noun_form(form, num_hits=num_hits, edit_bound=edit_bound, return_parse=True)
-    for parse, _ in noun_hits:
-        parse['part_of_speech'] = 'noun'
-    all_hits = verb_hits + noun_hits
+    left_factor, right_factor = LEFT_FACTOR, RIGHT_FACTOR
+    if edit_bound != DEFAULT_EDIT_BOUND:
+        # recompile left and right factors if edit bound is not default
+        left_factor, right_factor = get_edit_factors(
+            sigma=SIGMA,
+            insertions=INSERTION_COSTS,
+            substitutions=SUBSTITUTION_COSTS,
+            deletions=DELETION_COSTS,
+            bound=edit_bound,
+        )
+
+    query_fst = fst(form)@left_factor
+    query_fst.optimize()
+
+    lattice = UNINFLECTED_WORD_FST
+    lattice = pynini.project(lattice, 'input')
+    lattice.optimize()
+
+    search_lattice = query_fst@right_factor@lattice
+    search_lattice.optimize()
+    
+    hits = get_nbest_strs_and_weights(
+        search_lattice,
+        n=num_hits,
+        return_input_strs=False,
+        use_byte_tokens=True,
+    )
+        
+    hits.sort(key=lambda hit_tuple: hit_tuple[-1])
+    if return_parse:
+        hits = [(parse_uninflected_word(hit), weight) for hit, weight in hits]
+    else:
+        hits = [({'form': hit}, weight) for hit, weight in hits]
+    return hits
+
+def search_parse(
+        form: str,
+        num_hits: int = 5,
+        edit_bound: int = 5,
+    ) -> List[Tuple[Dict[str, Any], float]]:
+    """
+    Wraps search functions for each part of speech and returns nbest hits.
+
+    Arguments:
+        form:       str of form to query parses for
+        num_hits:   int, number of parses to return
+    Returns:
+        parses:     list of tuples, each of shape `(parse: dict, prob: float)`
+    """
+    pos_search_functions = {
+        'verb': search_verb_form,
+        'noun': search_noun_form,
+        'adjective': search_adjective_form,
+        'uninflected': search_uninflected_word,
+    }
+
+    all_hits = []
+    for pos, search_function in pos_search_functions.items():
+        hits = search_function(
+            form,
+            num_hits=num_hits,
+            edit_bound=edit_bound,
+            return_parse=True,
+        )
+        if pos!='uninflected':
+            # add part_of_speech to each hit
+            hits = [(
+                {**hit[0], 'part_of_speech': pos},
+                hit[1]
+            ) for hit in hits]
+        all_hits.extend(hits)
+
     all_hits.sort(key=lambda hit_tuple: hit_tuple[-1])
     nbest_hits = all_hits[:num_hits]
     return nbest_hits
