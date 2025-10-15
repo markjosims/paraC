@@ -1,7 +1,8 @@
 import pytest
+from src.form_builders.adjective_forms import ADJECTIVE_PARADIGM, inflect_adjective_with_features, parse_adjective
 from src.form_builders.form_helpers import generate_forms
 from src.form_builders.verb_forms import *
-from src.lexicon import get_all_verb_roots_and_fvs, get_gold_verbs, get_gold_paradigms
+from src.lexicon import *
 from src.constants import VERB_FEATURE_VALUES
 
 @pytest.mark.parametrize("verb_root,fv_class", get_all_verb_roots_and_fvs())
@@ -52,3 +53,27 @@ def test_gold_paradigms(inflected_paradigm):
 
     predicted_paradigm = get_inflected_paradigm_for_verb(root, fv)
     assert predicted_paradigm == inflected_paradigm
+
+@pytest.mark.parametrize("gold_adj", get_gold_adjectives())
+def test_adjective_forms(gold_adj):
+    root = gold_adj.pop('root')
+    form = gold_adj.pop('form')
+    agree_class = gold_adj.pop('class')
+
+    predicted_form = inflect_adjective_with_features(root, agree_class)
+
+    assert form == predicted_form
+
+@pytest.mark.parametrize("gold_adj", get_gold_adjectives())
+def test_adjective_parsing(gold_adj):
+    analyzed_form = gold_adj['form']
+    gold_adj['analyzed_form']=analyzed_form
+    form = analyzed_form.replace('-', '')
+    gold_adj['form']=form
+
+    predicted_parse = parse_adjective(form)
+    gold_adj_filtered = {
+        k: v for k,v in gold_adj.items()
+        if k in predicted_parse
+    }
+    assert predicted_parse == gold_adj_filtered

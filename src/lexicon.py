@@ -13,6 +13,8 @@ from src.constants import (
     GOLD_PARADIGMS_PATH,
     NOUNS_PATH,
     GOLD_NOUNS_PATH,
+    ADJECTIVES_PATH,
+    GOLD_ADJECTIVES_PATH,
 )
 from src.fst_helpers import fst
 from typing import *
@@ -22,6 +24,8 @@ VERBS_DF = pd.read_csv(VERB_ROOTS_PATH, keep_default_na=False)
 GOLD_VERBS_DF = pd.read_csv(GOLD_VERBS_PATH, keep_default_na=False)
 NOUNS_DF = pd.read_csv(NOUNS_PATH, keep_default_na=False)
 GOLD_NOUNS_DF = pd.read_csv(GOLD_NOUNS_PATH, keep_default_na=False)
+ADJECTIVES_DF = pd.read_csv(ADJECTIVES_PATH, keep_default_na=False)
+GOLD_ADJECTIVES_DF = pd.read_csv(GOLD_ADJECTIVES_PATH, keep_default_na=False)
 
 class LexemeNotFoundError(Exception):
     """
@@ -70,11 +74,15 @@ def get_all_verb_roots_and_fvs() -> List[Tuple[str, str]]:
     verb_fvs = VERBS_DF['root_fv'].tolist()
     return list(zip(verb_roots, verb_fvs))
 
-def get_all_verb_data() -> List[Tuple[str, str, str]]:
+def get_all_verb_data(
+        return_type: Union[list, pd.DataFrame]=list
+) -> Union[pd.DataFrame, List[Tuple[Any]]]:
+    if return_type == pd.DataFrame:
+        return VERBS_DF
     verb_roots = VERBS_DF['verb_root'].tolist()
     verb_fvs = VERBS_DF['root_fv'].tolist()
-    verb_senses = VERBS_DF['root_sense']
-    return list(zip(verb_roots, verb_fvs, verb_senses)) 
+    verb_senses = VERBS_DF['root_sense'].tolist()
+    return list(zip(verb_roots, verb_fvs, verb_senses))
 
 def get_gold_verbs() -> List[Dict[str, str]]:
     return GOLD_VERBS_DF.to_dict(orient='records')
@@ -93,6 +101,13 @@ def get_noun_lemmata(wrap_w_fsa: bool=False) -> List[str]:
         lemmata = [fst(lemma) for lemma in lemmata]
     return lemmata
 
+def get_all_noun_data(
+        return_type: Union[list, pd.DataFrame]=list
+) -> Union[pd.DataFrame, List[Tuple[str, str]]]:
+    if return_type == pd.DataFrame:
+        return NOUNS_DF
+    return NOUNS_DF.to_dict(orient='records')
+
 def get_gloss_for_noun(lemma: str) -> str:
     lemma_mask = NOUNS_DF['lemma']==lemma
     if lemma_mask.sum()==0:
@@ -101,6 +116,31 @@ def get_gloss_for_noun(lemma: str) -> str:
         raise LexemeNotFoundError(f"Lemma {lemma} found multiple times in noun lexicon.")
     gloss = NOUNS_DF.loc[lemma_mask, 'gloss'].item()
     return gloss
+
+def get_adjective_roots(wrap_w_fsa: bool=False) -> List[str]:
+    roots = ADJECTIVES_DF['root'].tolist()
+    if wrap_w_fsa:
+        roots = [fst(root) for root in roots]
+    return roots
+
+def get_gloss_for_adjective(root: str) -> str:
+    root_mask = ADJECTIVES_DF['root']==root
+    if root_mask.sum()==0:
+        raise LexemeNotFoundError(f"Root {root} not found in adjective lexicon.")
+    if root_mask.sum()>1:
+        raise LexemeNotFoundError(f"Root {root} found multiple times in adjective lexicon.")
+    gloss = ADJECTIVES_DF.loc[root_mask, 'gloss'].item()
+    return gloss
+
+def get_gold_adjectives() -> List[Dict[str, str]]:
+    return GOLD_ADJECTIVES_DF.to_dict(orient='records')
+
+def get_all_adjective_data(
+        return_type: Union[list, pd.DataFrame]=list
+) -> Union[pd.DataFrame, List[Tuple[str, str]]]:
+    if return_type == pd.DataFrame:
+        return ADJECTIVES_DF
+    return ADJECTIVES_DF.to_dict(orient='records')
 
 def main() -> int:
     root2gloss = get_root2gloss_fst()
