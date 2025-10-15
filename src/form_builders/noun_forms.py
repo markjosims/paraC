@@ -1,8 +1,9 @@
+import pandas as pd
 import pynini
 from pynini.lib import features, paradigms, rewrite, pynutil
 from src.phonology import *
 from src.fst_helpers import *
-from src.lexicon import NOUNS_DF, get_noun_lemmata, get_gloss_for_noun
+from src.lexicon import NOUNS_DF, get_all_noun_data, get_noun_lemmata, get_gloss_for_noun
 from src.constants import (
     NOUN_FEATURE_ABBREVIATION_TO_VECTOR,
     NOUN_ROOT,
@@ -11,14 +12,15 @@ from src.constants import (
 )
 from typing import *
 
-def build_noun_forms():
+def build_noun_forms() -> paradigms.Paradigm:
     """
     Create Paradigm object for Tira nouns.
     """
+    nouns_df = get_all_noun_data(return_type=pd.DataFrame)
     slots = []
-    lemma_col = NOUNS_DF['lemma']
+    lemma_col = nouns_df['lemma']
     for feature_str, feature_vec in NOUN_FEATURE_ABBREVIATION_TO_VECTOR.items():
-        feature_col = NOUNS_DF[feature_str]
+        feature_col = nouns_df[feature_str]
         feature_mask = feature_col!=''
         
         feature_forms = feature_col[feature_mask].tolist()
