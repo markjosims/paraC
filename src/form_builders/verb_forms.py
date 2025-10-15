@@ -281,7 +281,7 @@ def parse_inflected_verb(
     Arguments:
         form:       str of inflected verb form
         paradigm:   Paradigm object or str of FV class shorthand e.g. 'aɔ'
-    Returns:        dict of shape {'root': root, 'feature': feature_value}
+    Returns:        dict of shape {'root': root, '$feature': feature_value}
     """
     if type(paradigm) is str:
         paradigm = FV2PARADIGM[paradigm]
