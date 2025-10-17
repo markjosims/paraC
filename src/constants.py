@@ -103,6 +103,32 @@ CLASS_PREFIXES = [
 ]
 CLASS_AGREE = features.Feature("class", *CLASS_PREFIXES+['unmarked'])
 
+PERSON_AND_NUMBER_VALUES = [
+    "1sg",
+    "2sg",
+    "3sg",
+    "1du.incl",
+    "1pl.incl",
+    "1pl.excl",
+    "2pl",
+    "3pl",
+]
+SUBJECT = 'sbj'
+OBJECT = 'obj'
+
+
+SUBJECT_PERSON_AND_NUMBER = features.Feature(
+    "subject",
+    "unmarked",
+    *PERSON_AND_NUMBER_VALUES,
+)
+OBJECT_PERSON_AND_NUMBER = features.Feature(
+    "object",
+    "unmarked",
+    *PERSON_AND_NUMBER_VALUES,
+)
+
+
 ###############
 # verb features
 ###############
