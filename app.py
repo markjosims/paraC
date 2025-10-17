@@ -250,7 +250,7 @@ def analyze_page(sentence_id):
 
     return render_template('analyze.html', sentence=sentence, words=words_in_order)
 
-@app.route('/api/sentence_words/<int:sentence_word_id>/set_parse', methods=['POST'])
+@app.route('/api/sentence_words/<int:sentence_word_id>/set_parse', methods=['PUT'])
 def set_chosen_parse(sentence_word_id):
     data = request.get_json()
     parse_id = data.get('parse_id')
