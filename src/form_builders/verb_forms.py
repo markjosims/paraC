@@ -33,21 +33,109 @@ IPFV_AUX = lambda stem: paradigms.prefix(fst("á-"), stem).optimize()
 PFV_IT_AUX = lambda stem: paradigms.prefix(fst("à-"), stem).optimize()
 INFINITIVE_PREFIX = lambda stem: paradigms.prefix(fst("ðə́-"), stem).optimize()
 
-# slots for verb paradigms
+# person marking
 
 def add_imperfective_personal_markers(
-        slots: List[tuple[pynini.Fst, features.FeatureVector]]
-    ) -> List[Tuple[pynini.Fst, features.FeatureVector]]:
+    slots: List[tuple[pynini.Fst, features.FeatureVector]]
+) -> List[Tuple[pynini.Fst, features.FeatureVector]]:
     """
     Adds personal markers to imperfective verb forms in the given slots.
     Personal markers for imperfective verbs have the following forms:
-    Subject:
+    Subject (second form is when 3sg object is present):
         1sg: íŋ-g-
         2sg: á-g-
         3sg: ŋg-
-        
-
+        1du.incl: á-l-
+        1pl.incl: á-l- -ŕ
+        1pl.excl: ɲà-l-
+        2pl: ɲá-l-
+        3pl: l-
+    Subject w/ 3sg object (takes place of or includes Aux /a/):
+        1sg: ŋg- é-
+        2sg: ng- á-
+        3sg: ŋg- á-
+        1du.incl: ŋg- ál-
+        1pl.incl: ŋg- ál- -ŕ
+        1pl.excl: ŋg- éɲâ- (blocks H-tone spreading onto verb)
+        2pl: ŋg- éɲá-
+        3pl: ŋg- á- l̀- (blocks H-tone spreading onto verb)
+    Subject w/ 3pl object (takes place of or includes Aux /a/):
+        1sg: l- é- ĺ-
+        2sg: l- á- ĺ-
+        3sg: l- á- ŋə́- ĺ-
+        1du.incl: l- á- ló-
+        1pl.incl: l- á- ló- -ŕ
+        1pl.excl: l- éɲâ- ĺ
+        2pl: l- éɲá- ĺ-
+        3pl: l- á- l̀- ló-
+    Subject w/ 3pl object:
+    Object: (takes place of Aux /a/)
+        1sg: -éŋî-
+        2sg: -áŋâ-
+        3sg: kə̀-
+        1du.incl: -átɛ́-
+        1pl.incl: -átɛ́- -ŕ
+        1pl.excl: -ɛ́ɲár-
+        2pl: -átɛ́-
+        3pl: CL-a-l(ó)-
     """
+    ...
+
+def add_perfective_personal_markers(
+    slots: List[tuple[pynini.Fst, features.FeatureVector]]
+) -> List[Tuple[pynini.Fst, features.FeatureVector]]:
+    """
+    Adds personal markers to perfective verb forms in the given slots.
+    Subject:
+        1sg: jɛ́-
+        2sg: á-
+        3sg: CL-
+        1du.incl: lə́-
+        1pl.incl: lə́- -ŕ
+        1pl.excl: ɲà-
+        2pl: ɲá-
+        3pl: CL-
+    Subject w/ 3sg object:
+        1sg: CL-  -ɛ́ŋí
+        1sg: CL-  -áŋá
+        3sg: CL-  -ŋ(ú)
+        1du.incl: CL-  -álí
+        1pl.incl: CL-  -álí -r
+        1pl.excl: CL-  -áɲâ
+        2pl: CL- -áɲá
+        3pl: CL- -ɜ́l
+    Subject w/ 3pl object:
+        1sg: CL- -ɛ́-ló
+        2sg: CL- -á-ló
+        3sg: CL- -l -ɔ́ŋ(ú)
+        1du.incl: CL- -álí
+        1pl.incl: CL- -álí -r
+        1pl.excl: CL- -áɲâ-l
+        2pl: CL- -áɲá-l
+        3pl: CL- -ɜ́l-ló
+    Object:
+        1sg: -ɛ́ŋî
+        2sg: -áŋâ
+        3sg: kə̀-, -ŋú
+        1du.incl: -átɛ́
+        1pl.incl: -átɛ́-ŕ
+        1pl.excl: -ɛ́ɲárɛ́
+        2pl: -átɛ́
+        3pl: CL-
+    """
+    ...
+
+def add_imperative_object_markers(
+    slots: List[tuple[pynini.Fst, features.FeatureVector]]
+) -> List[Tuple[pynini.Fst, features.FeatureVector]]:
+    """
+    Object:
+        3pl: -l̀
+    """
+
+    
+
+# slots for verb paradigms
 
 def make_verb_slots(fv_class: str) -> Dict[str, List[Tuple[pynini.Fst, features.FeatureVector]]]:
     root_slot = (STEM, VERB_ROOT)
