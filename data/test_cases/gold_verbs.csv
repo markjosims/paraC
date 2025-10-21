@@ -1,4 +1,4 @@
-root,form,fuzzy_form,fuzzy_edit,fv,class,deixis,tam,subject,object,unmarked,unmarked,gloss
+root,form,fuzzy_form,fuzzy_edit,fv,class,deixis,tam,subject,object,gloss
 mɛð,kə̀-mɛ̀ð-ɔ́,kə̀mə̀ðɔ́,reduction to schwa,aɔ,g,ventive,perfective,unmarked,unmarked,plait
 mɛð,lə̀-mɛ̀ð-ɔ́,lɛ̀mɛ̀ðɔ́,schwa fronting,aɔ,l,ventive,perfective,unmarked,unmarked,plait
 waj,wáj-í,wàjì,tone lowering,ai,unmarked,itive,imperative,unmarked,unmarked,wash
@@ -16,16 +16,54 @@ vɜɽ,ŋ-á-vɔ́ɽ-ɔ̀,ŋávə̀ɽɔ̀,reduction to schwa,ɔi,ŋ,itive,imper
 waj,t̪-á-wàj-í,t̪áwɜ̀jí,/a/ as [ɜ],ai,t̪,ventive,imperfective,unmarked,unmarked,wash
 ɟið,ð-á-ɟìð-í,ðáɟɪ̀ðí,/i/ as [ɪ],ɔi,ð,ventive,imperfective,unmarked,unmarked,milk
 vəlɛð,kə̀-və̀lɛ̀ð-ɛ́ŋî,kə̀vlɛ̀ðɛ́ŋî,schwa deletion,aɔ,unmarked,itive,imperfective,unmarked,1sg,pull
-vəlɛð,jə̀-və̀lɛ̀ð-ɔ́,,,aɔ,j,ventive,perfective,unmarked,unmarked,pull
 vəlɛð,jə̀-və̀lɛ̀ð-ɛ́ŋí,,,aɔ,j,ventive,perfective,1sg,3sg,pull
 vəlɛð,jə̀-və̀lɛ̀ð-áŋá,,,aɔ,j,ventive,perfective,2sg,3sg,pull
-vəlɛð,jə̀-və̀lɛ̀ð-ɜ́llí,,,aɔ,j,ventive,perfective,1.incl.dual,3sg
-vəlɛð,jə̀-və̀lɛ̀ð-ɜ́llí-ŕ,,,aɔ,j,ventive,perfective,1pl,3sg
-vəlɛð,jə̀-və̀lɛ̀ð-áɲà,,,aɔ,j,ventive,perfective,1pl.excl,3sg
-vəlɛð,jə̀-və̀lɛ̀ð-áɲá,,,aɔ,j,ventive,perfective,2pl,3sg
-vəlɛð,jə̀-və̀lɛ̀ð-ɛ́ŋì,,,aɔ,j,ventive,perfective,unmarked,1sg
-vəlɛð,jə̀-və̀lɛ̀ð-áŋà,,,aɔ,j,ventive,perfective,unmarked,2sg
-vəlɛð,jə̀-və̀lɛ̀ð-áʈɛ́,,,aɔ,j,ventive,perfective,unmarked,1.dual.incl
-vəlɛð,jə̀-və̀lɛ̀ð-áʈɛ́-ŕ,,,aɔ,j,ventive,perfective,unmarked,1pl.incl
-vəlɛð,jə̀-və̀lɛ̀ð-éɲárɛ́,,,aɔ,j,ventive,perfective,unmarked,1pl.excl
-vəlɛð,jə̀-və̀lɛ̀ð-áʈɛ́,,,aɔ,j,ventive,perfective,unmarked,2pl
+vəlɛð,jə̀-və̀lɛ̀ð-ɜ́llí,,,aɔ,j,ventive,perfective,1.incl.dual,3sg,pull
+vəlɛð,jə̀-və̀lɛ̀ð-ɜ́llí-ŕ,,,aɔ,j,ventive,perfective,1pl,3sg,pull
+vəlɛð,jə̀-və̀lɛ̀ð-áɲà,,,aɔ,j,ventive,perfective,1pl.excl,3sg,pull
+vəlɛð,jə̀-və̀lɛ̀ð-áɲá,,,aɔ,j,ventive,perfective,2pl,3sg,pull
+vəlɛð,jə̀-və̀lɛ̀ð-ɔ́,,,aɔ,j,ventive,perfective,unmarked,unmarked,pull
+vəlɛð,jə̀-və̀lɛ̀ð-ɛ́ŋì,,,aɔ,j,ventive,perfective,unmarked,1sg,pull
+vəlɛð,jə̀-və̀lɛ̀ð-áŋà,,,aɔ,j,ventive,perfective,unmarked,2sg,pull
+vəlɛð,jə̀-və̀lɛ̀ð-átɛ́,,,aɔ,j,ventive,perfective,unmarked,1.dual.incl,pull
+vəlɛð,jə̀-və̀lɛ̀ð-átɛ́-ŕ,,,aɔ,j,ventive,perfective,unmarked,1pl.incl,pull
+vəlɛð,jə̀-və̀lɛ̀ð-éɲárɛ́,,,aɔ,j,ventive,perfective,unmarked,1pl.excl,pull
+vəlɛð,jə̀-və̀lɛ̀ð-átɛ́,,,aɔ,j,ventive,perfective,unmarked,2pl,pull
+vəlɛð,j-ɛ̀ və́lɛ̀ð-ɛ̀,,,aɔ,j,itive,perfective,1sg,3sg,pull
+vəlɛð,j-à və́lɛ̀ð-ɛ̀,,,aɔ,j,itive,perfective,2sg,3sg,pull
+vəlɛð,j-ál və́lɛ̀ð-ɛ̀,,,aɔ,j,itive,perfective,1dual.incl,3sg,pull
+vəlɛð,j-ál və́lɛ̀ð-ɛ̀-ŕ,,,aɔ,j,itive,perfective,1pl.incl,3sg,pull
+vəlɛð,j-éɲâ və̀lɛ̀ð-ɛ̀,,,aɔ,j,itive,perfective,1pl.excl,3sg,pull
+vəlɛð,j-éɲá və́lɛ̀ð-ɛ̀,,,aɔ,j,itive,perfective,2pl,3sg,pull
+vəlɛð,j-à və́lɛ̀ð-ɛ̀,,,aɔ,j,itive,perfective,unmarked,unmarked,pull
+vəlɛð,j-àŋɛ̂ və̀lɛ̀ð-ɛ̀,,,aɔ,j,itive,perfective,unmarked,1sg,pull
+vəlɛð,j-àŋâ və̀lɛ̀ð-ɛ̀,,,aɔ,j,itive,perfective,unmarked,2sg,pull
+vəlɛð,j-àtɛ́ və́lɛ̀ð-ɛ̀,,,aɔ,j,itive,perfective,unmarked,1dual.incl,pull
+vəlɛð,j-àtɛ́ və́lɛ̀ð-ɛ̀-ŕ,,,aɔ,j,itive,perfective,unmarked,1pl.incl,pull
+vəlɛð,j-éɲár və́lɛ̀ð-ɛ̀,,,aɔ,j,itive,perfective,unmarked,1pl.excl,pull
+vəlɛð,j-àtɛ́ və́lɛ̀ð-ɛ̀,,,aɔ,j,itive,perfective,unmarked,2pl,pull
+vəlɛð,j-ɛ́ və́lɛ̀ð-à,,,aɔ,j,itive,imperfective,1sg,3sg,pull
+vəlɛð,á və́lɛ̀ð-à,,,aɔ,j,itive,imperfective,2sg,3sg,pull
+vəlɛð,j-ál və́lɛ̀ð-à,,,aɔ,j,itive,imperfective,1dual.incl,3sg,pull
+vəlɛð,j-ál və́lɛ̀ð-à-ŕ,,,aɔ,j,itive,imperfective,1pl.incl,3sg,pull
+vəlɛð,j-éɲâ və̀lɛ̀ð-à,,,aɔ,j,itive,imperfective,1pl.excl,3sg,pull
+vəlɛð,j-éɲá və́lɛ̀ð-à,,,aɔ,j,itive,imperfective,2pl,3sg,pull
+vəlɛð,j-áŋɛ̂ və̀lɛ̀ð-à,,,aɔ,j,itive,imperfective,3sg,1sg,pull
+vəlɛð,j-áŋâ və̀lɛ̀ð-à,,,aɔ,j,itive,imperfective,3sg,2sg,pull
+vəlɛð,j-átɛ́ və́lɛ̀ð-à,,,aɔ,j,itive,imperfective,3sg,1dual.incl,pull
+vəlɛð,j-átɛ́ və́lɛ̀ð-à-ŕ,,,aɔ,j,itive,imperfective,3sg,1pl.incl,pull
+vəlɛð,j-éɲár və́lɛ̀ð-à,,,aɔ,j,itive,imperfective,3sg,1pl.excl,pull
+vəlɛð,j-átɛ́ və́lɛ̀ð-à,,,aɔ,j,itive,imperfective,3sg,2pl,pull
+vəlɛð,j-ɛ́ və̀lɛ̀ð-ɔ́,,,aɔ,j,itive,imperfective,1sg,3sg,pull
+vəlɛð,j-á və̀lɛ̀ð-ɔ́,,,aɔ,j,itive,imperfective,2sg,3sg,pull
+vəlɛð,j-ál və́lɛ̀ð-ɔ́,,,aɔ,j,itive,imperfective,1dual.incl,3sg,pull
+vəlɛð,j-ál və́lɛ̀ð-ɔ́-ŕ,,,aɔ,j,itive,imperfective,1pl.incl,3sg,pull
+vəlɛð,j-éɲâ-və̀lɛ̀ð-ɔ́,,,aɔ,j,itive,imperfective,1pl.excl,3sg,pull
+vəlɛð,j-éɲá və́lɛ̀ð-ɔ́,,,aɔ,j,itive,imperfective,2pl,3sg,pull
+vəlɛð,j-á və̀lɛ̀ð-ɔ́,,,aɔ,j,itive,imperfective,3sg,unmarked,pull
+vəlɛð,j-áŋɛ̂ və̀lɛ̀ð-ɔ́,,,aɔ,j,itive,imperfective,3sg,1sg,pull
+vəlɛð,j-áŋâ və̀lɛ̀ð-ɔ́,,,aɔ,j,itive,imperfective,3sg,2sg,pull
+vəlɛð,j-átɛ́ və́lɛ̀ð-ɔ́,,,aɔ,j,itive,imperfective,3sg,1dual.incl,pull
+vəlɛð,j-átɛ́ və́lɛ̀ð-ɔ́-ŕ,,,aɔ,j,itive,imperfective,3sg,1pl.incl,pull
+vəlɛð,j-éɲár və́lɛ̀ð-ɔ́,,,aɔ,j,itive,imperfective,3sg,1pl.excl,pull
+vəlɛð,j-átɛ́ və́lɛ̀ð-ɔ́,,,aɔ,j,itive,imperfective,3sg,2pl,pull
