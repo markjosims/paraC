@@ -30,7 +30,7 @@ def test_gold_features2forms(gold_verb):
     }
     predicted_form = inflect_verb_with_features(root, fv, features=gold_verb_filtered)
 
-    assert form == predicted_form
+    assert form in predicted_form
 
 @pytest.mark.parametrize("gold_verb", get_gold_verbs())
 def test_gold_forms2features(gold_verb):

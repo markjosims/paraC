@@ -1,5 +1,5 @@
 import pynini
-from pynini.lib import pynutil, rewrite
+from pynini.lib import pynutil, rewrite, paradigms
 from src.constants import *
 from typing import *
 import pydot

@@ -101,7 +101,7 @@ CLASS_PREFIXES = [
     "r",
     "l",
 ]
-CLASS_AGREE = features.Feature("class", *CLASS_PREFIXES+['unmarked'])
+CLASS_AGREE = features.Feature("class", *CLASS_PREFIXES, default='unmarked')
 
 PERSON_AND_NUMBER_VALUES = [
     "1sg",
@@ -113,19 +113,16 @@ PERSON_AND_NUMBER_VALUES = [
     "2pl",
     "3pl",
 ]
-SUBJECT = 'sbj'
-OBJECT = 'obj'
-
 
 SUBJECT_PERSON_AND_NUMBER = features.Feature(
     "subject",
-    "unmarked",
     *PERSON_AND_NUMBER_VALUES,
+    default="unmarked",
 )
 OBJECT_PERSON_AND_NUMBER = features.Feature(
     "object",
-    "unmarked",
     *PERSON_AND_NUMBER_VALUES,
+    default="unmarked",
 )
 
 
@@ -147,16 +144,16 @@ NONFINITE_TAM = [
 
 TAM = features.Feature(
     "tam",
-    "unmarked",
     *SUBJECT_AND_DEIXIS_MARKED_TAM,
     *DEIXIS_MARKED_TAM,
     *NONFINITE_TAM,
+    default="unmarked",
 )
 
 DEIXIS_VALUES = ["ventive", "itive"]
 DEIXIS = features.Feature("deixis", "unmarked", *DEIXIS_VALUES)
 
-INFLECTED_VERB = features.Category(TAM, DEIXIS, CLASS_AGREE)
+INFLECTED_VERB = features.Category(TAM, DEIXIS, CLASS_AGREE, SUBJECT_PERSON_AND_NUMBER, OBJECT_PERSON_AND_NUMBER)
 VERB_FEATURE_VALUES = {
     feature.name: feature.values for feature in INFLECTED_VERB.features
 }
@@ -169,16 +166,32 @@ VERB_PARADIGM_SIZE = len(SUBJECT_AND_DEIXIS_MARKED_TAM)*len(CLASS_PREFIXES)*len(
 # verb feature bundles
 ######################
 
-INFINITIVE = features.FeatureVector(INFLECTED_VERB, "tam=infinitive", "class=ð", "deixis=unmarked")
+INFINITIVE = features.FeatureVector(INFLECTED_VERB, "tam=infinitive", "class=ð")
 IPFV_IT = features.FeatureVector(INFLECTED_VERB, "tam=imperfective", "deixis=itive")
 IPFV_VENT = features.FeatureVector(INFLECTED_VERB, "tam=imperfective", "deixis=ventive")
 PFV_IT = features.FeatureVector(INFLECTED_VERB, "tam=perfective", "deixis=itive")
 PFV_VENT = features.FeatureVector(INFLECTED_VERB, "tam=perfective", "deixis=ventive")
 DEP_IT = features.FeatureVector(INFLECTED_VERB, "tam=dependent", "deixis=itive")
 DEP_VENT = features.FeatureVector(INFLECTED_VERB, "tam=dependent", "deixis=ventive")
-IMP_IT = features.FeatureVector(INFLECTED_VERB, "tam=imperative", "deixis=itive", "class=unmarked")
-IMP_VENT = features.FeatureVector(INFLECTED_VERB, "tam=imperative", "deixis=ventive", "class=unmarked")
-VERB_ROOT = features.FeatureVector(INFLECTED_VERB, "tam=unmarked", "deixis=unmarked", "class=unmarked")
+IMP_IT = features.FeatureVector(INFLECTED_VERB, "tam=imperative", "deixis=itive")
+IMP_VENT = features.FeatureVector(INFLECTED_VERB, "tam=imperative", "deixis=ventive")
+VERB_ROOT = features.FeatureVector(INFLECTED_VERB, "tam=unmarked")
+VERB_FEATURE_BUNDLES = [
+    INFINITIVE,
+    IPFV_IT,
+    IPFV_VENT,
+    PFV_IT,
+    PFV_VENT,
+    DEP_IT,
+    DEP_VENT,
+    IMP_IT,
+    IMP_VENT,
+    VERB_ROOT,
+]
+for feature_bundle in VERB_FEATURE_BUNDLES:
+    for feature in VERB_FEATURE_VALUES.keys():
+        if feature not in feature_bundle.values:
+            feature_bundle.values[feature] = 'unmarked'
 
 ######################
 # auxiliary features #

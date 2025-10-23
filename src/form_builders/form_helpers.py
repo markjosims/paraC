@@ -7,9 +7,45 @@ from typing import *
 from src.fst_helpers import decode_byte_str, fst
 from src.constants import CLASS_PREFIXES, LOW_TONE
 from src.glossing import feature_str_to_dict
-from src.phonology import DELETE_SCHWA_BEFORE_VOWEL
+from src.phonology import DELETE_SCHWA_BEFORE_VOWEL, SIGMASTAR
 import pynini
 from pynini.lib import features, paradigms, rewrite
+
+def prefix(
+        fst_input: Union[str, Sequence[str], pynini.Fst],
+        stem: Union[str, pynini.Fst, None] = None,
+        weight: pynini.WeightLike = None,
+    ) -> pynini.Fst:
+    """
+    Arguments:
+        fst_input:  (Optional) string or list of strings to be accepted by the FST
+        stem:       (Optional) string or FST to be used as the stem
+        weight:     (Optional) weight value for FST
+    Returns:
+        f:          FST prefixing the input string(s)
+    """
+    if stem is None:
+        stem = SIGMASTAR
+    input_fsa = fst(fst_input=fst_input, weight=weight)
+    return paradigms.prefix(input_fsa, stem)
+
+def suffix(
+        fst_input: Union[str, Sequence[str], pynini.Fst],
+        stem: Union[str, pynini.Fst, None] = None,
+        weight: pynini.WeightLike = None,
+    ) -> Callable[[pynini.Fst], pynini.Fst]:
+    """
+    Arguments:
+        fst_input:  (Optional) string or list of strings to be accepted by the FST
+        stem:       (Optional) string or FST to be used as the stem
+        weight:     (Optional) weight value for FST
+    Returns:
+        f:          FST suffixing the input string(s)
+    """
+    if stem is None:
+        stem = SIGMASTAR
+    input_fsa = fst(fst_input=fst_input, weight=weight)
+    return paradigms.suffix(input_fsa, stem)
 
 
 def add_class_prefix(stem: pynini.Fst, class_agree: str, prefix_tone=LOW_TONE) -> pynini.Fst:
@@ -28,7 +64,7 @@ def add_class_prefix(stem: pynini.Fst, class_agree: str, prefix_tone=LOW_TONE) -
     return (paradigms.prefix(prefix_acceptor, stem)@DELETE_SCHWA_BEFORE_VOWEL).optimize()
 
 
-def add_class_prefixes_to_slots(slot_list, is_verb:bool=False):
+def add_class_prefixes_to_slots(slot_list, include_ng:bool=False):
     """
     Arguments:
         slot_list:  A list of (stem, feature_vector) tuples
@@ -38,7 +74,7 @@ def add_class_prefixes_to_slots(slot_list, is_verb:bool=False):
     """
     slots_w_class_prefixes = []
     prefixes = CLASS_PREFIXES
-    if is_verb:
+    if include_ng:
         prefixes.append('ŋg')
     for stem, feature_vector in slot_list:
         category = feature_vector.category
