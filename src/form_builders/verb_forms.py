@@ -41,7 +41,7 @@ def add_imperfective_personal_markers(
     """
     Adds personal markers to imperfective verb forms in the given slots.
     Personal markers for imperfective verbs have the following forms:
-    Subject (second form is when 3sg object is present):
+    Subject w/ nominal object:
         1sg: íŋ-g-
         2sg: á-g-
         3sg: ŋg-
@@ -51,7 +51,7 @@ def add_imperfective_personal_markers(
         2pl: ɲá-l-
         3pl: l-
     Subject w/ 3sg object (takes place of or includes Aux /a/):
-        1sg: ŋg- é-
+        1sg: ŋg- ɛ́-
         2sg: ng- á-
         3sg: ŋg- á-
         1du.incl: ŋg- ál-
@@ -60,7 +60,7 @@ def add_imperfective_personal_markers(
         2pl: ŋg- éɲá-
         3pl: ŋg- á- l̀- (blocks H-tone spreading onto verb)
     Subject w/ 3pl object (takes place of or includes Aux /a/):
-        1sg: l- é- ĺ-
+        1sg: l- ɛ́- ĺ-
         2sg: l- á- ĺ-
         3sg: l- á- ŋə́- ĺ-
         1du.incl: l- á- ló-
@@ -70,13 +70,59 @@ def add_imperfective_personal_markers(
         3pl: l- á- l̀- ló-
     Subject w/ 3pl object:
     Object: (takes place of Aux /a/)
-        1sg: -éŋî-
-        2sg: -áŋà-
-        3sg: kə̀-
-        1du.incl: -átɛ́-
-        1pl.incl: -átɛ́- -ŕ
+        1sg: -á-ŋɛ̀-
+        2sg: -á-ŋà-
+        3sg: CL-
+        1du.incl: -á-tɛ́-
+        1pl.incl: -á-tɛ́- -ŕ
         1pl.excl: -éɲár-
-        2pl: -átɛ́-
+        2pl: -á-tɛ́-
+        3pl: CL-a-l(ó)-
+    """
+    ...
+
+def add_perfective_itive_personal_markers(
+    form_fst: pynini.Fst,
+) -> List[Tuple[pynini.Fst, features.FeatureVector]]:
+    """
+    Adds personal markers to perfective itive verb forms in the given slots.
+    Personal markers for perfective itive verbs have the following forms:
+    Subject w/ nominal object:
+        1sg: íŋ-g-
+        2sg: á-g-
+        3sg: ŋg-
+        1du.incl: á-l-
+        1pl.incl: á-l- -ŕ
+        1pl.excl: ɲà-l-
+        2pl: ɲá-l-
+        3pl: l-
+    Subject w/ 3sg object (takes place of or includes Aux /a/):
+        1sg:  CL-ɛ̀
+        2sg:  CL-à
+        3sg:  CL-à-l̀
+        1du.incl:  CL-á-l̀
+        1pl.incl:  CL-á-l̀- -ŕ
+        1pl.excl:  CL-éɲâ (blocks H-tone spreading onto verb)
+        2pl:  CL-éɲá
+        3pl:  CL-á-l̀- (blocks H-tone spreading onto verb)
+    Subject w/ 3pl object (takes place of or includes Aux /a/):
+        1sg: l- ɛ̀- ĺ-
+        2sg: l- à- ĺ-
+        3sg: l- à- ŋə́- ĺ-
+        1du.incl: l- á- ló-
+        1pl.incl: l- á- ló- -ŕ
+        1pl.excl: l- éɲâ- ĺ
+        2pl: l- éɲá- ĺ-
+        3pl: l- á- l̀- ló-
+    Subject w/ 3pl object:
+    Object: (takes place of Aux /a/)
+        1sg: -á-ŋɛ̀-
+        2sg: -á-ŋà-
+        3sg: CL-
+        1du.incl: -á-tɛ́-
+        1pl.incl: -á-tɛ́- -ŕ
+        1pl.excl: -éɲár-
+        2pl: -á-tɛ́-
         3pl: CL-a-l(ó)-
     """
     ...
@@ -295,8 +341,8 @@ def make_verb_slots(fv_class: str) -> List[Tuple[pynini.Fst, features.FeatureVec
     else:
         pfv_vent_stem = compose_stem(ALL_LOW_TONE_RULE)
     
-    pfv_it_slots = [(paradigms.suffix(pfv_it_suffix, pfv_it_stem), PFV_IT)]
-    pfv_it_slots = add_class_prefixes_to_slots(pfv_it_slots)
+    pfv_it_form=paradigms.suffix(pfv_it_suffix, pfv_it_stem)
+    pfv_it_slots = add_perfective_itive_personal_markers(pfv_it_form)
     pfv_vent_form = paradigms.suffix(pfv_vent_suffix, pfv_vent_stem)
     pfv_vent_slots = add_perfective_ventive_personal_markers(pfv_vent_form)
 
