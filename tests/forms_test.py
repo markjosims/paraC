@@ -19,7 +19,7 @@ def test_compile_regular_paradigms(verb_root, fv_class):
         raise error
 
 @pytest.mark.parametrize("gold_verb", get_gold_verbs())
-def test_gold_features2forms(gold_verb):
+def test_verb_inflection(gold_verb):
     root = gold_verb.pop('root')
     form = gold_verb.pop('form')
     fv = gold_verb.pop('fv')
@@ -33,7 +33,7 @@ def test_gold_features2forms(gold_verb):
     assert form in predicted_form
 
 @pytest.mark.parametrize("gold_verb", get_gold_verbs())
-def test_gold_forms2features(gold_verb):
+def test_verb_parsing(gold_verb):
     analyzed_form = gold_verb['form']
     gold_verb['analyzed_form']=analyzed_form
     form = analyzed_form.replace('-', '')
