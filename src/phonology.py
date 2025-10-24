@@ -11,6 +11,7 @@ from src.fst_helpers import (
 )
 
 BOUNDARY = fst(BOUNDARY_STR)
+WORD_BOUNDARY = fst(WORD_BOUNDARY_STR)
 C = fst(TIRA_CONSONANTS)
 V = fst(TIRA_VOWELS)
 T = fst(TIRA_TONE_DIACS)
