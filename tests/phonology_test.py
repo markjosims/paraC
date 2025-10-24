@@ -92,3 +92,14 @@ def test_vowel_coalescence(uncoalesced,coalesced):
     strings = get_decoded_strings(lattice)
     assert len(strings)==1
     assert strings[0]==coalesced
+
+@pytest.mark.parametrize("pre_hts,w_hts", [
+    ("àpɾí jìcə̀lò", "àpɾí jícə̀lò"),
+    ("kə̀və̀lɛ̀ðɔ́ ðàŋàlà", "kə̀və̀lɛ̀ðɔ́ ðáŋàlà"),
+    ("jǎ ŋɔ̀mɔ̀", "jǎ ŋɔ́mɔ̀"),
+])
+def test_h_spread(pre_hts, w_hts):
+    lattice=rewrite.rewrite_lattice(fst(pre_hts), H_SPREAD_RULE)
+    strings = get_decoded_strings(lattice)
+    assert len(strings)==1
+    assert strings[0]==w_hts
