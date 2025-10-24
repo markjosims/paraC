@@ -690,17 +690,22 @@ def inflect_random_verb(fv_class: Optional[str]=None):
 def inflect_verb_with_features(
         root: str,
         paradigm: Union[paradigms.Paradigm, str],
-        features: Dict[str, str]
+        features: Dict[str, str],
+        include_aux: bool=False,
     ) -> List[str]:
     """
     Arguments:
-        root:       str indicating verb root to inflect
-        paradigm:   Paradigm object or str of FV class shorthand e.g. 'aɔ'
-        features:   dict mapping feature labels to values
+        root:           str indicating verb root to inflect
+        paradigm:       Paradigm object or str of FV class shorthand e.g. 'aɔ'
+        features:       dict mapping feature labels to values
+        include_aux:    bool indicating whether to use verb w/ aux paradigm
+                        (if paradigm is `Paradigm` object, this is ignored)
     Returns:
         form:       list of strs of root verb inflected with given features
     """
-    if type(paradigm) is str:
+    if type(paradigm) is str and include_aux:
+        paradigm = FV2PARADIGM_W_AUX[paradigm]
+    elif type(paradigm) is str and not include_aux:
         paradigm = FV2PARADIGM[paradigm]
     forms = []
     expected_keys = [feature.name for feature in INFLECTED_VERB.features]
@@ -784,21 +789,38 @@ def parse_inflected_verb(
         form: str,
         paradigm: Union[paradigms.Paradigm, str, None]=None,
         add_gloss: bool=True,
+        expected_verb_type: Literal['stem', 'aux', 'stem_and_aux', 'auto'] = 'auto',
 ) -> Dict[str, str]:
     """
     Arguments:
-        form:       str of inflected verb form
-        paradigm:   Paradigm object or str of FV class shorthand e.g. 'aɔ'
+        form:                   str of inflected verb form
+        paradigm:               Paradigm object or str of FV class shorthand e.g. 'aɔ'
+        add_gloss:              bool indicating whether to add gloss to output
+        expected_verb_type:     indicates whether to parse as 'stem' (inflected verb),
+                                'aux' (auxiliary verb), 'stem_and_aux' (both), or 'auto'
+                                (automatic detection). Default 'auto'. If paradigm is `Paradigm`
+                                object, this is ignored.
     Returns:        dict of shape {'root': root, '$feature': feature_value}
     """
     parses = []
 
-    if paradigm is None:
-        for _, paradigm in FV2PARADIGM.items():
-            parses_for_fv = parse_inflected_verb(form, paradigm, add_gloss)
+    if expected_verb_type == 'aux':
+        # only one paradigm for auxiliaries
+        paradigm = AUX_PARADIGM
+    elif paradigm is None:
+        for fv in FV2PARADIGM.keys():
+            parses_for_fv = parse_inflected_verb(form, fv, add_gloss, expected_verb_type)
             parses.extend(parses_for_fv)
-    if type(paradigm) is str:
+    if type(paradigm) is str and expected_verb_type == 'stem':
         paradigm = FV2PARADIGM[paradigm]
+    elif type(paradigm) is str and expected_verb_type == 'stem_and_aux':
+        paradigm = FV2PARADIGM_W_AUX[paradigm]
+    elif type(paradigm) is str and expected_verb_type == 'auto':
+        # try all possible verb types
+        for verb_type in ['stem', 'aux', 'stem_and_aux']:
+            parses_for_type = parse_inflected_verb(form, paradigm, add_gloss, verb_type)
+            parses.extend(parses_for_type)
+        return parses
 
     lemmata = paradigm.lemmatize(fst(form))
     analyzed_forms = paradigm.analyze(fst(form))
