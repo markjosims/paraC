@@ -581,7 +581,6 @@ def get_paradigm_for_class(fv_class: str):
         lemma_feature_vector=VERB_ROOT,
         stems=get_roots_for_class(fv_class, wrap_w_fsa=True),
         boundary=fst(BOUNDARY_STR),
-        # rules=[VOWEL_COALESCENCE_RULE],
     )
 
     return fv_paradigm
