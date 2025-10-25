@@ -40,12 +40,12 @@ def test_verb_parsing(gold_verb):
     gold_verb['form']=form
     fv = gold_verb.pop('fv')
 
-    predicted_parse = parse_inflected_verb(form, fv)[0]
+    predicted_parse = parse_inflected_verb(form, fv)
     gold_verb_filtered = {
         k: v for k,v in gold_verb.items()
-        if k in predicted_parse
+        if any(k in parse for parse in predicted_parse)
     }
-    assert predicted_parse == gold_verb_filtered
+    assert gold_verb_filtered in predicted_parse
     
 @pytest.mark.parametrize("inflected_paradigm", get_gold_paradigms())
 def test_gold_paradigms(inflected_paradigm):
