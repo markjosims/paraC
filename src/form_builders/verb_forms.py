@@ -1,63 +1,18 @@
 """
-WIP: Script that builds FSTs for generating various inflectional forms
-of nouns and verbs in Tira.
+Script that builds FSTs for generating various inflectional forms of verbs in Tira.
 """
 
 import pynini
-from pynini.lib import features, paradigms, rewrite, pynutil
+from pynini.lib import features, paradigms
 import pandas as pd
+from src.form_builders.form_helpers import add_class_prefix, add_class_prefixes_to_slots, generate_forms
 from src.phonology import *
 from src.fst_helpers import *
 from src.lexicon import get_roots_for_class, get_all_verb_roots_and_fvs, get_gloss_for_verb
-from src.glossing import REMOVE_HOMOPHONE_TAG, feature_str_to_dict
+from src.glossing import REMOVE_HOMOPHONE_TAG
 from src.constants import INFLECTED_VERBS_PATH, INFLECTED_VERB
 from typing import *
 import random
-
-# helper functions
-
-def generate_forms(
-        stem: str,
-        paradigm: paradigms.Paradigm,
-        action: Literal['print', 'return']='print',
-        parse: bool=False
-):
-    lattice = rewrite.rewrite_lattice(
-        fst(stem),
-        paradigm.stems_to_forms @ paradigm.feature_label_rewriter,
-    )
-    wordforms = []
-    for wordform in rewrite.lattice_to_strings(lattice):
-        if action=='return' and parse:
-            parsed_wordform = feature_str_to_dict(wordform)
-            wordforms.append(parsed_wordform)
-        elif action=='return':
-            wordforms.append(wordform)
-        else:
-            byte_word = wordform.split('[')[0]
-            word = decode_byte_str(byte_word)
-            wordform = wordform.replace(byte_word, word)
-            print(wordform)
-    if action=='return':
-        return wordforms
-
-def add_class_prefix(stem: pynini.Fst, class_agree: str, prefix_tone=LOW_TONE) -> pynini.Fst:
-    if class_agree == 'g':
-        # 'g' class phonetically realized as [k]
-        class_agree = 'k'
-    prefix_acceptor = fst(f"{class_agree}ə{prefix_tone}-")
-    return (paradigms.prefix(prefix_acceptor, stem)@DELETE_SCHWA_BEFORE_VOWEL).optimize()
-
-def add_class_prefixes_to_slots(slot_list):
-    slots_w_class_prefixes = []
-    for stem, feature_vector in slot_list:
-        category = feature_vector.category
-        feature_values = [f"{feature}={value}" for feature, value in feature_vector.values.items()]
-        for class_agree in CLASS_PREFIXES:
-            features_with_class = features.FeatureVector(category, f"class={class_agree}", *feature_values)
-            prefixed_verb = add_class_prefix(stem, class_agree)
-            slots_w_class_prefixes.append((prefixed_verb, features_with_class))
-    return slots_w_class_prefixes
 
 # FV mappings
 
@@ -319,25 +274,42 @@ def get_inflected_paradigm_for_verb(
 
 def parse_inflected_verb(
         form: str,
-        paradigm: Union[paradigms.Paradigm, str],
+        paradigm: Union[paradigms.Paradigm, str, None]=None,
         add_gloss: bool=True,
 ) -> Dict[str, str]:
     """
     Arguments:
         form:       str of inflected verb form
         paradigm:   Paradigm object or str of FV class shorthand e.g. 'aɔ'
-    Returns:        dict of shape {'root': root, 'feature': feature_value}
+    Returns:        dict of shape {'root': root, '$feature': feature_value}
     """
+    parses = []
+
+    if paradigm is None:
+        for _, paradigm in FV2PARADIGM.items():
+            parses_for_fv = parse_inflected_verb(form, paradigm, add_gloss)
+            parses.extend(parses_for_fv)
     if type(paradigm) is str:
         paradigm = FV2PARADIGM[paradigm]
-    root, feature_vec = paradigm.lemmatize(fst(form))[0]
-    root = decode_byte_str(root)
-    parse = feature_vec.values
-    parse['root'] = root
-    if add_gloss:
-        parse['gloss']=get_gloss_for_verb(root)
-    return parse
-    
+
+    lemmata = paradigm.lemmatize(fst(form))
+    analyzed_forms = paradigm.analyze(fst(form))
+    for lemma, analyzed_form in zip(lemmata, analyzed_forms):
+        root, feature_vec = lemma
+        root = decode_byte_str(root)
+
+        analyzed_form = analyzed_form[0]
+        analyzed_form = decode_byte_str(analyzed_form)
+
+        parse = feature_vec.values
+        parse['root'] = root
+        parse['analyzed_form'] = analyzed_form
+        parse['form'] = form
+        if add_gloss:
+            parse['gloss'] = get_gloss_for_verb(root)
+        parses.append(parse)
+    return parses
+
 
 def main():
     rows = []

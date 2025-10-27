@@ -4,6 +4,13 @@ from src.search import *
 import pytest
 from src.fst_helpers import *
 from src.phonology import V, SIGMA
+from src.lexicon import (
+    get_gold_nouns,
+    get_gold_verbs,
+    get_gold_uninflected_words,
+    get_gold_adjectives,
+)
+import math
 
 substitutions = [
     ("ə", V-fst("ə"), 0.5),
@@ -82,3 +89,89 @@ def test_edit_weight(query, top_string, expected_weight, top_n_strings):
 
     predicted_top_n_strings = get_decoded_strings(fst(query)@left_factor@searchable_lexicon, nshortest=len(top_n_strings))
     assert set(predicted_top_n_strings) == set(top_n_strings)
+
+@pytest.mark.parametrize("string_map_list,nbest", [
+    ([("ðoo", "bar", 0.5), ("bar", "bað", 0.3)], 1),
+    ([("ðoo", "bar", 1.0), ("bar", "bað", 0.3), ("bað", "baðð", 0.5)], 2),
+    ([("ðoo", "bar", 0.1), ("bar", "bað", 0.3), ("bað", "baðð", 0.5), ("bað", "barð", 1.0)], 3),
+])
+def test_nbest_strs_and_weights(string_map_list: list, nbest: int):
+    string_map_list.sort(key=lambda t:t[-1])
+    nbest_gold = string_map_list[:nbest]
+    string_map_lattice = pynini.union(*[fst(*triple) for triple in string_map_list])
+    nbest_predicted = get_nbest_strs_and_weights(string_map_lattice, nbest)
+    
+    for gold_triple, predicted_triple in zip(nbest_gold, nbest_predicted):
+        gold_intab, gold_outtab, gold_weight = gold_triple
+        predicted_intab, predicted_outtab, predicted_weight = predicted_triple
+
+        assert gold_intab == predicted_intab
+        assert gold_outtab == predicted_outtab
+        assert math.isclose(gold_weight, predicted_weight, rel_tol=0.001)
+
+@pytest.mark.parametrize("gold_verb", get_gold_verbs())
+def test_search_verb_form(gold_verb):
+    gold_form = gold_verb['form']
+    gold_form = gold_form.replace('-', '')
+    fuzzy_form = gold_verb['fuzzy_form']
+    gold_fv = gold_verb['fv']
+    num_hits = 5
+    
+    hits = search_verb_form(fuzzy_form, num_hits=num_hits, return_parse=False)
+
+    assert len(hits) == num_hits
+    top_form = hits[0][0]['form']
+    top_fv = hits[0][0]['fv']
+    assert top_form == gold_form
+    assert top_fv == gold_fv
+
+@pytest.mark.parametrize("gold_noun", get_gold_nouns())
+def test_search_noun_form(gold_noun):
+    gold_form = gold_noun['gold_noun']
+    gold_form = gold_form.replace('-', '')
+    fuzzy_form = gold_noun['fuzzy_noun']
+    num_hits = 3
+    
+    hits = search_noun_form(fuzzy_form, num_hits=num_hits, return_parse=False)
+
+    assert len(hits) == num_hits
+    top_form = hits[0][0]['form']
+    assert top_form == gold_form
+
+@pytest.mark.parametrize("uninflected_word", get_gold_uninflected_words())
+def test_search_uninflected_word_form(uninflected_word):
+    gold_form = uninflected_word['word']
+    gold_form = gold_form.replace('-', '')
+    fuzzy_form = uninflected_word['fuzzy_form']
+    num_hits = 1
+
+    hits = search_uninflected_word(fuzzy_form, num_hits=num_hits, return_parse=False)
+
+    assert len(hits) == num_hits
+    top_form = hits[0][0]['form']
+    assert top_form == gold_form
+
+@pytest.mark.parametrize("gold_adjective", get_gold_adjectives())
+def test_search_adjective_form(gold_adjective):
+    gold_form = gold_adjective['form']
+    gold_form = gold_form.replace('-', '')
+    fuzzy_form = gold_adjective['fuzzy_form']
+    num_hits = 3
+    
+    hits = search_adjective_form(fuzzy_form, num_hits=num_hits, return_parse=False)
+
+    assert len(hits) == num_hits
+    top_form = hits[0][0]['form']
+    assert top_form == gold_form
+
+@pytest.mark.parametrize("unhyphenated_str,hyphenated_str", [
+    ("katə", "ka-tə"),
+    ("katəɾa", "ka-tə-ɾa"),
+    ("katəɾapə", "ka-tə-ɾa-pə")
+])
+def test_search_for_hyphenated_form_simple(unhyphenated_str, hyphenated_str):
+    lexicon = fst(hyphenated_str)
+    hits = search_for_hyphenated_form(unhyphenated_str, lattice=lexicon)
+    assert len(hits) > 0
+    top_form, _ = hits[0]
+    assert top_form == hyphenated_str

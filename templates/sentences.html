@@ -1,0 +1,94 @@
+{% extends "layout.html" %}
+
+{% block main_class %}bg-white p-6 rounded-lg shadow{% endblock %}
+
+{% block content %}
+    <h2 class="text-2xl font-semibold mb-4">Sentence Corpus</h2>
+    <p class="mb-6 text-gray-600">This table displays all sentences from the database. Click 'Analyze' to begin parsing a specific sentence.</p>
+    
+    <!-- FILTERS -->
+    <div class="mb-6 p-4 bg-gray-50 rounded-lg border space-y-4">
+        <div class="flex items-center space-x-2">
+            <span class="font-semibold text-gray-600 w-28">Filter by Status:</span>
+            {% set active_class = 'bg-blue-600 text-white' %}
+            {% set inactive_class = 'bg-gray-200 text-gray-800 hover:bg-gray-300' %}
+            
+            <a href="{{ url_for('sentences_page') }}" class="px-3 py-1 text-sm font-medium rounded-full {{ active_class if not assigned_filter and not checked_filter else inactive_class }}">
+                Show All
+            </a>
+
+            <a href="{{ url_for('sentences_page', checked='true', assigned_to=assigned_filter) }}" class="px-3 py-1 text-sm font-medium rounded-full {{ active_class if checked_filter == 'true' else inactive_class }}">
+                Checked
+            </a>
+
+            <a href="{{ url_for('sentences_page', checked='false', assigned_to=assigned_filter) }}" class="px-3 py-1 text-sm font-medium rounded-full {{ active_class if checked_filter == 'false' else inactive_class }}">
+                Not Checked
+            </a>
+        </div>
+        <div class="flex items-center space-x-2">
+            <span class="font-semibold text-gray-600 w-28">Assigned To:</span>
+            {% for annotator in annotators %}
+                <a href="{{ url_for('sentences_page', assigned_to=annotator, checked=checked_filter) }}" class="px-3 py-1 text-sm font-medium rounded-full {{ active_class if assigned_filter == annotator else inactive_class }}">
+                    {{ annotator }}
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="result-table w-full min-w-full">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="p-3 text-left font-semibold text-gray-700">Sentence</th>
+                    <th class="p-3 text-left font-semibold text-gray-700">Gloss</th>
+                    <th class="p-3 text-left font-semibold text-gray-700">Translation</th>
+                    <th class="p-3 text-left font-semibold text-gray-700">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sentence in sentences %}
+                <tr class="border-t">
+                    <td class="p-3 font-mono align-top">
+                        <code>{{ sentence.elan_sentence }}</code>
+                    </td>
+                    <td class="p-3 align-top text-gray-600">
+                        {{ sentence.elan_gloss or 'N/A' }}
+                    </td>
+                    <td class="p-3 align-top">
+                        <em>{{ sentence.translation }}</em>
+                    </td>
+                    <td class="p-3 align-top">
+                        <a href="{{ url_for('analyze_page', sentence_id=sentence.id) }}" class="font-semibold text-blue-600 hover:underline">Analyze</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr class="border-t">
+                    <td colspan="4" class="p-3 text-center text-gray-500">No sentences found in the database.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PAGINATION -->
+    <div class="mt-6 flex justify-between items-center">
+        <div>
+            {% if page > 1 %}
+                <a href="{{ url_for('sentences_page', page=page-1, assigned_to=assigned_filter, checked=checked_filter) }}" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
+                    &larr; Previous
+                </a>
+            {% endif %}
+        </div>
+        <div class="text-gray-600">
+            Page {{ page }} of {{ total_pages }}
+        </div>
+        <div>
+            {% if page < total_pages %}
+                <a href="{{ url_for('sentences_page', page=page+1, assigned_to=assigned_filter, checked=checked_filter) }}" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
+                    Next &rarr;
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+{% endblock %}

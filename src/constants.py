@@ -15,7 +15,8 @@ TIRA_STOPS = [
     'b', DENTAL_D, 'd', 'ɟ', 'g',
 ]
 TIRA_FRICATIVES = [
-    's', 'v', 'ð',
+    'f', 's', 'ʃ','h',
+    'v', 'ð',
 ]
 TIRA_GLIDES = [
     'w', 'j',
@@ -40,23 +41,26 @@ HIGH_TONE_SYMBOL = '<H>'
 LOW_TONE_SYMBOL = '<L>'
 FALL_TONE_SYMBOL = '<HL>'
 RISE_TONE_SYMBOL = '<LH>'
+FALLRISE_TONE_SYMBOL = '<HLH>'
 
 HIGH_TONE = '\u0301'
 LOW_TONE = '\u0300'
 FALL_TONE = '\u0302'
 RISE_TONE = '\u030c'
+FALLRISE_TONE = '\u1dc9'
 
 SYMBOL2DIAC = {
     HIGH_TONE_SYMBOL: HIGH_TONE,
     LOW_TONE_SYMBOL: LOW_TONE,
     FALL_TONE_SYMBOL: FALL_TONE,
     RISE_TONE_SYMBOL: RISE_TONE,
+    FALLRISE_TONE_SYMBOL: FALLRISE_TONE,
 }
 DIAC2SYMBOL = {value:key for key, value in SYMBOL2DIAC.items()}
 
 
-TIRA_TONE_SYMBOLS = [HIGH_TONE_SYMBOL, LOW_TONE_SYMBOL, FALL_TONE_SYMBOL, RISE_TONE_SYMBOL]
-TIRA_TONE_DIACS = [HIGH_TONE, LOW_TONE, FALL_TONE, RISE_TONE]
+TIRA_TONE_SYMBOLS = [HIGH_TONE_SYMBOL, LOW_TONE_SYMBOL, FALL_TONE_SYMBOL, RISE_TONE_SYMBOL, FALLRISE_TONE_SYMBOL]
+TIRA_TONE_DIACS = [HIGH_TONE, LOW_TONE, FALL_TONE, RISE_TONE, FALLRISE_TONE]
 
 TIRA_TBUS = TIRA_VOWELS + TIRA_NASALS + TIRA_SONORANTS
 
@@ -98,6 +102,32 @@ CLASS_PREFIXES = [
     "l",
 ]
 CLASS_AGREE = features.Feature("class", *CLASS_PREFIXES+['unmarked'])
+
+PERSON_AND_NUMBER_VALUES = [
+    "1sg",
+    "2sg",
+    "3sg",
+    "1du.incl",
+    "1pl.incl",
+    "1pl.excl",
+    "2pl",
+    "3pl",
+]
+SUBJECT = 'sbj'
+OBJECT = 'obj'
+
+
+SUBJECT_PERSON_AND_NUMBER = features.Feature(
+    "subject",
+    "unmarked",
+    *PERSON_AND_NUMBER_VALUES,
+)
+OBJECT_PERSON_AND_NUMBER = features.Feature(
+    "object",
+    "unmarked",
+    *PERSON_AND_NUMBER_VALUES,
+)
+
 
 ###############
 # verb features
@@ -150,6 +180,42 @@ IMP_IT = features.FeatureVector(INFLECTED_VERB, "tam=imperative", "deixis=itive"
 IMP_VENT = features.FeatureVector(INFLECTED_VERB, "tam=imperative", "deixis=ventive", "class=unmarked")
 VERB_ROOT = features.FeatureVector(INFLECTED_VERB, "tam=unmarked", "deixis=unmarked", "class=unmarked")
 
+#################
+# noun features #
+#################
+
+NOUN_CASE_VALUES = ["nominative", "accusative"]
+NOUN_NUMBER_VALUES = ["singular", "plural"]
+
+NOUN_CASE = features.Feature("case", "unmarked", *NOUN_CASE_VALUES)
+NOUN_NUMBER = features.Feature("number", "unmarked", *NOUN_NUMBER_VALUES)
+NOUN = features.Category(NOUN_CASE, NOUN_NUMBER)
+
+NOMSG = features.FeatureVector(NOUN, "case=nominative", "number=singular")
+NOMPL = features.FeatureVector(NOUN, "case=nominative", "number=plural")
+
+ACCSG = features.FeatureVector(NOUN, "case=accusative", "number=singular")
+ACCPL = features.FeatureVector(NOUN, "case=accusative", "number=plural")
+
+NOUN_ROOT = features.FeatureVector(NOUN, "case=unmarked", "number=unmarked")
+
+NOUN_FEATURE_ABBREVIATION_TO_VECTOR = {
+    "nom.sg": NOMSG,
+    "nom.pl": NOMPL,
+    "acc.sg": ACCSG,
+    "acc.pl": ACCPL,
+}
+NOUN_FEATURE_ABBREVIATIONS = list(NOUN_FEATURE_ABBREVIATION_TO_VECTOR.keys())
+
+######################
+# adjective features #
+######################
+
+ADJECTIVE_CLASS_VALUES = CLASS_PREFIXES
+ADJECTIVE_CLASS = features.Feature("class", "unmarked", *ADJECTIVE_CLASS_VALUES)
+ADJECTIVE = features.Category(ADJECTIVE_CLASS)
+ADJECTIVE_ROOT = features.FeatureVector(ADJECTIVE, "class=unmarked")
+
 ################
 # symbol table #
 ################
@@ -169,16 +235,23 @@ TIRA_SYMBOL_TABLE
 DEFAULT_INSERT_COST = edit_transducer.DEFAULT_INSERT_COST
 DEFAULT_SUBSTITUTE_COST = edit_transducer.DEFAULT_SUBSTITUTE_COST
 DEFAULT_DELETE_COST = edit_transducer.DEFAULT_DELETE_COST
+DEFAULT_EDIT_BOUND = 5
 
 #########
 # paths #
 #########
 
-VERB_ROOTS_PATH = 'data/verb_roots_final.csv'
-INFLECTED_VERBS_PATH = 'data/inflected_verb_forms.csv'
-GOLD_VERBS_PATH = 'data/gold_verbs.csv'
-GOLD_PARADIGMS_PATH = 'data/gold_paradigms.json'
-ANALYSES_PATH = 'data/analyses.csv'
+VERB_ROOTS_PATH = 'data/lexicon/verb_roots.csv'
+INFLECTED_VERBS_PATH = 'data/lexicon/inflected_verb_forms.csv'
+GOLD_VERBS_PATH = 'data/test_cases/gold_verbs.csv'
+GOLD_PARADIGMS_PATH = 'data/test_cases/gold_paradigms.json'
+SENTENCES_PATH = 'data/sentences/sentences.csv'
+NOUNS_PATH = 'data/lexicon/nouns.csv'
+ADJECTIVES_PATH = 'data/lexicon/adjectives.csv'
+GOLD_NOUNS_PATH = 'data/test_cases/gold_nouns.csv'
+GOLD_ADJECTIVES_PATH = 'data/test_cases/gold_adjectives.csv'
+UNINFLECTED_WORDS_PATH = 'data/lexicon/uninflected_words.csv'
+GOLD_UNINFLECTED_WORDS_PATH = 'data/test_cases/gold_uninflected_words.csv'
 
 FST_DIR = "fst/"
 ROOT2GLOSS_FST_PATH = os.path.join(FST_DIR, "root2gloss.fst")

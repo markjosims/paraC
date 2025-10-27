@@ -24,7 +24,9 @@ SIGMASTAR = pynini.closure(SIGMA).optimize()
 SIGMASTAR_EXCEPT_PLACEHOLDER = pynini.closure(SIGMA_EXCEPT_PLACEHOLDER).optimize()
 STEM = paradigms.make_byte_star_except_boundary(BOUNDARY)
 
-# phonological processes
+# ---------------------- #
+# phonological processes #
+# ---------------------- #
 
 ADD_TBU_MARKER = pynini.cdrewrite(
     tau=insert_fst(TONE_SLOT_STR),
@@ -120,3 +122,73 @@ COMBINE_TONES_RULE = pynini.cdrewrite(
     r=fst(),
     sigma_star=SIGMASTAR,
 )
+
+# ---------- #
+# edit costs #
+# ---------- #
+
+REDUCED_EDIT_COST = 0.2
+
+INSERTION_COSTS = [
+    ('ə', REDUCED_EDIT_COST),
+    (V, REDUCED_EDIT_COST),
+    (T, REDUCED_EDIT_COST),
+]
+DELETION_COSTS = [
+    ('ə', REDUCED_EDIT_COST),
+    (V, REDUCED_EDIT_COST),
+    (T, REDUCED_EDIT_COST),
+]
+SUBSTITUTION_COSTS = [
+    ('ə', V, REDUCED_EDIT_COST),      # underlying vowel reduced to schwa
+    ('ɛ', 'ə', REDUCED_EDIT_COST),    # underlying schwa fronted to /ɛ/
+
+    ('ɜ', 'ɛ', REDUCED_EDIT_COST),    # ɜ~ɛ interchange
+    ('ɛ', 'ɜ', REDUCED_EDIT_COST),
+
+    ('ɜ', 'a', REDUCED_EDIT_COST),    # ɜ~a interchange
+    ('a', 'ɜ', REDUCED_EDIT_COST),
+
+    ('ɜ', 'ə', REDUCED_EDIT_COST),    # ɜ~ə interchange
+    ('ə', 'ɜ', REDUCED_EDIT_COST),
+
+    ('ɛ', 'e', REDUCED_EDIT_COST),    # ɛ~e interchange
+    ('e', 'ɛ', REDUCED_EDIT_COST),
+
+    ('ɪ', 'e', REDUCED_EDIT_COST),    # ɪ~ɛ interchange
+    ('e', 'ɪ', REDUCED_EDIT_COST),
+
+    ('o', 'u', REDUCED_EDIT_COST),    # o~u interchange
+    ('u', 'o', REDUCED_EDIT_COST),
+
+    ('ɔ', 'o', REDUCED_EDIT_COST),    # o~ɔ interchange
+    ('o', 'ɔ', REDUCED_EDIT_COST),
+
+    ('ʊ', 'o', REDUCED_EDIT_COST),    # o~ʊ interchange
+    ('o', 'ʊ', REDUCED_EDIT_COST),
+
+    ('d', DENTAL_D, REDUCED_EDIT_COST),   # dental stop written as alveolar
+    ('t', DENTAL_T, REDUCED_EDIT_COST),
+
+    ('g', 'k', REDUCED_EDIT_COST),        # g~k interchange
+    ('k', 'g', REDUCED_EDIT_COST),
+
+    ('r', 'ɾ', REDUCED_EDIT_COST),        # tap written as trill
+]
+for intab_tone in TIRA_TONE_DIACS:
+    for outtab_tone in TIRA_TONE_DIACS:
+        if intab_tone == outtab_tone:
+            continue
+        SUBSTITUTION_COSTS.append((intab_tone, outtab_tone, REDUCED_EDIT_COST))
+
+# ------------ #
+# search rules #
+# ------------ #
+
+INSERT_HYPHEN_RULE = pynini.cdrewrite(
+    tau=insert_fst('-').ques,
+    l=SIGMA,
+    r=SIGMA,
+    sigma_star=SIGMASTAR,
+)
+INSERT_HYPHEN_RULE = INSERT_HYPHEN_RULE.optimize()

@@ -15,15 +15,15 @@
         >
     </div>
     <div class="mb-4">
-        {% include '_fv_dropdown.html' %}
+        {% include 'partials/fv_dropdown.html' %}
     </div>
 
 
     {% if mode == 'test' %}
 
     <hr><h3 class="text-lg font-medium">Expected Output:</h3>
-    {% include '_verb_root_dropdown.html' %}
-    {% include '_verb_feature_dropdowns.html' %}
+    {% include 'partials/verb_root_dropdown.html' %}
+    {% include 'partials/verb_feature_dropdowns.html' %}
 
     {% endif %}
 

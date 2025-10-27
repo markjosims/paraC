@@ -59,16 +59,23 @@ def encode_fst_string(input_string: Union[str, Sequence[str]]) -> Union[str, Lis
 
 def decode_fst_string(
         input_string: Union[str, Sequence[str], pynini.Fst],
+        is_byte_str: bool=False,
     ) -> Union[str, List[str]]:
     """
     Condense all separated characters, replaces `WORD_BOUNDARY_STR` symbol (default "|")
     with a space, and changes tone symbols back to diacritics.
     If `input_string` is an FST, call `Fst.string()` first.
+    If `is_byte_str` is passed, call `decode_byte_str` first.
     """
     if type(input_string) is pynini.Fst:
         input_string = input_string.string(token_type=TIRA_SYMBOL_TABLE)
     elif type(input_string) is not str:
-        return [decode_fst_string(input_element) for input_element in input_string]
+        return [
+            decode_fst_string(input_element, is_byte_str)
+            for input_element in input_string
+        ]
+    if is_byte_str:
+        input_string = decode_byte_str(input_string)
     detokenized_str = input_string.replace(' ', '')
     str_w_word_spaces = detokenized_str.replace(WORD_BOUNDARY_STR, ' ')
     str_w_tone_diacs = tone2diac(str_w_word_spaces)
@@ -232,3 +239,70 @@ def get_min_path_weight(f: pynini.Fst) -> float:
         if final_weight != pynini.Weight.zero(weight_type):
             path_weight+=float(final_weight)
     return path_weight
+
+def get_nbest_strs_and_weights(
+        lattice: pynini.Fst,
+        n: int=5,
+        return_input_strs: bool=True,
+        use_byte_tokens: bool=False,
+    ) -> List[Tuple[str, str, float]]:
+    """
+    Arguments:
+        lattice:            pynini.Fst with multiple output strings.
+        n:                  int indicating number of strings to fetch.
+        return_input_strs:  bool indicating whether input strings ('intabs')
+                            should be returned.
+        use_byte_tokens:    bool indicating whether `lattice` uses  byte tokens
+                            or symbol table (default)
+    Returns:
+        hits:       List of tuples `[(intab?, outtab, cost), ...]`
+    
+    Finds n best strings from the output vocabulary of the given lattice
+    and returns as a list of 2/3-tuples containing the (input string?), output string
+    and cost for each path.
+
+    Finding n best unique strings from the lattice requires projecting the output
+    and then performing epsilon removal. If only output strs are requested, return
+    the strs and weight from the nbest paths from the output projection.
+    If `return_input_strs=True`, then we need to compose each output str with the lattice
+    in order to compute the shortest distance as well as the associated input str
+    which obtains the output str.
+    """
+    lattice_acceptor = pynini.project(lattice, 'output')
+    lattice_acceptor.optimize()
+    nbest_paths = pynini.shortestpath(lattice_acceptor, nshortest=n, unique=True).paths()
+    if not return_input_strs:
+        # don't need to map output strs to best input
+        nbest_couples = []
+        for _, outtab, weight in nbest_paths.items():
+            outtab = decode_fst_string(outtab, is_byte_str=use_byte_tokens)
+            weight = float(weight)
+            nbest_couples.append((outtab, weight))
+        return nbest_couples
+
+    nbest_strs = list(nbest_paths.ostrings())
+    # pass opposite value of `use_byte_tokens here`
+    # since string will be composed with the lattice directly
+    # therefore they need to be of the same type
+    # nbest_strs = [
+    #     decode_byte_str(byte_str, is_byte_str=not use_byte_tokens)
+    #     for byte_str in nbest_strs
+    # ]
+    nbest_strs = [decode_byte_str(byte_str) for byte_str in nbest_strs]
+
+    nbest_triples = []
+    for hit_str in nbest_strs:
+        hit_transducer = lattice@fst(hit_str)
+        hit_shortestpath = pynini.shortestpath(hit_transducer)
+        hit_triple = list(
+            hit_shortestpath.paths(
+                input_token_type=TIRA_SYMBOL_TABLE,               
+                output_token_type=TIRA_SYMBOL_TABLE,               
+            ).items())
+        hit_triple = hit_triple[0]
+        intab, outtab, weight = hit_triple
+        intab = decode_fst_string(intab, is_byte_str=use_byte_tokens)
+        outtab = decode_fst_string(outtab, is_byte_str=use_byte_tokens)
+        weight = float(weight)
+        nbest_triples.append((intab, outtab, weight))
+    return nbest_triples

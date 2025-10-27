@@ -11,3 +11,5 @@ graphviz
 pydot
 flask
 gunicorn
+sqlalchemy
+pyscopg2-binary

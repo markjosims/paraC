@@ -1,39 +1,273 @@
 {% extends "layout.html" %}
 
-{% block main_class %}bg-white p-6 rounded-lg shadow{% endblock %}
+{% block main_class %}space-y-8{% endblock %}
 
 {% block content %}
-    <h2 class="text-2xl font-semibold mb-4">Analyze Sentences</h2>
-    
-    <div class="overflow-x-auto">
-        <table class="result-table w-full min-w-full">
-            <thead class="bg-gray-100">
-                <tr>
-                    <th class="p-3 text-left font-semibold text-gray-700">Sentence</th>
-                    <th class="p-3 text-left font-semibold text-gray-700">Gloss</th>
-                    <th class="p-3 text-left font-semibold text-gray-700">Translation</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for sentence, translation, gloss in sentences %}
-                <tr class="border-t">
-                    <td class="p-3 font-mono align-top">
-                        <code>{{ sentence }}</code>
-                    </td>
-                    <td class="p-3 align-top">
-                        {{ gloss }}
-                    </td>
-                    <td class="p-3 align-top">
-                        <em>{{ translation }}</em>
-                    </td>
-                </tr>
-                {% else %}
-                <tr class="border-t">
-                    <td colspan="3" class="p-3 text-center text-gray-500">No sentences found.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- Section 1: Sentence Display -->
+    <div class="bg-white p-6 rounded-lg shadow">
+        <h2 class="text-2xl font-semibold mb-4">Sentence Analysis (#{{ sentence.id }})</h2>
+        <button id="toggle-checked-btn" 
+                class="px-4 py-2 text-sm font-semibold rounded-lg shadow-sm transition-colors
+                        {% if sentence.checked_by_annotator %}bg-yellow-400 hover:bg-yellow-500 text-yellow-900{% else %}bg-green-500 hover:bg-green-600 text-white{% endif %}"
+                data-sentence-id="{{ sentence.id }}">
+            {% if sentence.checked_by_annotator %}
+                Unmark as Checked
+            {% else %}
+                Mark as Checked
+            {% endif %}
+        </button>
+        <div>
+            <span class="font-semibold text-gray-500">Sentence:</span>
+            <p id="sentence-display" class="text-lg font-mono p-2 {% if sentence.checked_by_pi %}bg-green-50{% elif sentence.checked_by_annotator %}bg-blue-50 rounded-md {% else %}bg-red-50 rounded-md{% endif %}"><code>{{ sentence.updated_sentence }}</code></p>
+            <p id="sentence-display" class="text-md font-mono p-2 bg-gray-50 text-gray-400 rounded-md"><code>{{ sentence.elan_sentence }}</code></p>
+        </div>
+        <div class="mb-2">
+            <span class="font-bold">Translation:</span>
+            <em class="text-gray-700">{{ sentence.translation }}</em>
+        </div>
+        <div class="mb-4">
+            <span class="font-bold">ELAN Gloss:</span>
+            <span class="text-gray-600">{{ sentence.elan_gloss or 'N/A' }}</span>
+        </div>
+        
+        <!-- Interactive Sentence -->
+        <div id="interactive-sentence" class="p-4 bg-gray-50 border rounded-lg flex flex-wrap gap-x-2 gap-y-1 text-2xl font-mono">
+            {% for word in words %}
+                <div 
+                    class="word-slot flex flex-col items-center p-1 rounded cursor-pointer hover:bg-blue-200 transition-colors duration-150"
+                    data-word-id="{{ word.id }}"
+                    data-word-text="{{ word.wordform.text }}"
+                    data-position="{{ word.position }}"
+                    data-chosen-parse-id="{{ word.chosen_parse.id if word.chosen_parse else '' }}"
+                    data-parses='
+                        {%- set parses_list = [] -%}
+                        {%- for p in word.wordform.parses -%}
+                            {%- set _ = parses_list.append({"id": p.id, "updated_form": p.updated_form, "analysis": p.analysis, "source": p.source}) -%}
+                        {%- endfor -%}
+                        {{- parses_list | tojson -}}
+                    '
+                >
+                    {% if word.chosen_parse %}
+                    <span class="updated-form text-lg font-semibold text-gray-800 leading-tight">
+                            {{ word.chosen_parse.updated_form }}
+                    </span>
+                    <span class="original-form text-xs text-gray-400 line-through leading-tight">
+                        {{ word.wordform.text }}
+                    </span>
+                    {% else %}
+                    <span class="updated-form text-lg text-gray-400 leading-tight">
+                        {{ word.wordform.text }}
+                    </span>
+                    {% endif %}
+
+                </div>
+            {% endfor %}
+        </div>
     </div>
 
+    <!-- Section 2: Wordform Analysis Area -->
+    <div id="analysis-area" class="bg-white p-6 rounded-lg shadow min-h-[20rem]">
+        <div id="word-form-container" class="text-gray-500 text-center pt-16">
+            <p class="text-lg">Select a word from the sentence above to begin analysis.</p>
+
+        </div>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const interactiveSentence = document.getElementById('interactive-sentence');
+    const wordFormContainer = document.getElementById('word-form-container');
+    const toggleCheckedBtn = document.getElementById('toggle-checked-btn');
+    let selectedWordToken = null;
+
+    if (toggleCheckedBtn) {
+        toggleCheckedBtn.addEventListener('click', async () => {
+            const sentenceId = toggleCheckedBtn.dataset.sentenceId;
+            const initialText = toggleCheckedBtn.textContent;
+
+            // Provide immediate feedback to the user
+            toggleCheckedBtn.disabled = true;
+            toggleCheckedBtn.textContent = 'Updating...';
+
+            try {
+                const response = await fetch(`/api/sentences/${sentenceId}/toggle_checked`, {
+                    method: 'PUT',
+                });
+                if (!response.ok) {
+                    throw new Error('Server responded with an error.');
+                }
+                const result = await response.json();
+                const newStatus = result.new_status;
+
+                // Update button text and style based on the new status from the server
+                // if (newStatus) {
+                //     toggleCheckedBtn.textContent = 'Unmark as Checked';
+                //     toggleCheckedBtn.classList.remove('bg-green-500', 'hover:bg-green-600', 'text-white');
+                //     toggleCheckedBtn.classList.add('bg-yellow-400', 'hover:bg-yellow-500', 'text-yellow-900');
+                // } else {
+                //     toggleCheckedBtn.textContent = 'Mark as Checked';
+                //     toggleCheckedBtn.classList.remove('bg-yellow-400', 'hover:bg-yellow-500', 'text-yellow-900');
+                //     toggleCheckedBtn.classList.add('bg-green-500', 'hover:bg-green-600', 'text-white');
+                // }ka
+                toggleCheckedBtn.textContent = "Success! Reloading...";
+                setTimeout(() => window.location.reload(), 1500);
+
+            } catch (error) {
+                console.error('Failed to toggle checked status:', error);
+                // Revert button text on error
+                toggleCheckedBtn.textContent = initialText;
+                alert('Failed to update the sentence status. Please try again.');
+            } finally {
+                // Re-enable the button after the operation is complete
+                toggleCheckedBtn.disabled = false;
+            }
+        });
+    }
+
+    wordFormContainer.addEventListener('click', async (event) => {
+        if (event.target.id === 'set-parse-btn') {
+            const setParseBtn = event.target;
+            const selectElement = document.getElementById('parse-select');
+            const statusMessage = document.getElementById('status-message');
+            console.log('Status Message Element:', statusMessage);
+            console.log('Set Parse Button:', setParseBtn)
+
+            const wordId = wordFormContainer.dataset.currentWordId;
+            const parses = JSON.parse(wordFormContainer.dataset.currentParses);
+            const selectedParseId = selectElement.value;
+            console.log('Selected Parse ID:', selectedParseId);
+            console.log(JSON.stringify({ parse_id: selectedParseId }));
+
+            
+            if (!selectedParseId) return;
+
+            setParseBtn.disabled = true;
+            setParseBtn.textContent = 'Saving...';
+            statusMessage.textContent = '';
+
+            try {
+                const response = await fetch(`/api/sentence_words/${wordId}/set_parse`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ parse_id: selectedParseId })
+                });
+
+                if (!response.ok) throw new Error(await response.text());
+
+                const result = await response.json();
+                
+                // Update the clicked word's display
+                const selectedParse = parses.find(p => p.id == selectedParseId);
+                if (selectedParse && selectedWordToken) {
+                    selectedWordToken.innerHTML = `
+                    <span class="updated-form text-lg font-semibold text-gray-800 leading-tight">
+                            ${selectedParse.updated_form}
+                    </span>
+                    <span class="original-form text-xs text-gray-400 line-through leading-tight">
+                        ${wordFormContainer.dataset.currentWordText}
+                    </span>`;
+                    selectedWordToken.dataset.chosenParseId = selectedParseId;
+                }
+                
+                // Update the main sentence display at the top
+                const sentenceDisplay = document.getElementById('sentence-display').querySelector('code');
+                console.log('Updated Sentence:', result.updated_sentence);
+                console.log('Current Sentence Display:', sentenceDisplay.textContent);
+                sentenceDisplay.textContent = result.updated_sentence;
+
+                statusMessage.innerHTML = `<span class="text-green-600 font-semibold">Success!</span>`;
+                // statusMessage.innerHTML = `<span class="text-green-600 font-semibold">Success!</span> The page will now reload to ensure full sync.`;
+                // setTimeout(() => window.location.reload(), 1500);
+
+            } catch (error) {
+                console.error('Error setting parse:', error);
+                statusMessage.innerHTML = `<span class="text-red-600 font-semibold">Error:</span> ${error.message}`;
+                setParseBtn.disabled = false;
+                setParseBtn.textContent = 'Set as Chosen Parse';
+            }
+        }
+    });
+
+    wordFormContainer.addEventListener('change', (event) => {
+        if (event.target.id === 'parse-select') {
+            const selectElement = event.target;
+            const setParseBtn = document.getElementById('set-parse-btn');
+            if (setParseBtn) {
+                setParseBtn.disabled = !selectElement.value;
+            }
+        }
+    });
+
+    interactiveSentence.addEventListener('click', (event) => {
+        const target = event.target.closest('.word-slot');
+        if (target) {
+            if (selectedWordToken) {
+                selectedWordToken.classList.remove('bg-blue-300');
+            }
+            selectedWordToken = target;
+            selectedWordToken.classList.add('bg-blue-300');
+            updateAnalysisForm(selectedWordToken);
+        }
+    });
+
+    function getFeatureStr(parse, pos) {
+        // Construct a feature string for a given parse based on part of speech
+        let feature_str = '';
+        if (pos === 'verb') {
+            feature_str += (parse.analysis.class != 'unmarked') ? "CL" + parse.analysis.class + " " : "";
+            feature_str += (parse.analysis.tam != 'unmarked') ? parse.analysis.tam + " " : "";
+            feature_str += (parse.analysis.deixis != 'unmarked') ? parse.analysis.deixis : "";
+        }
+        else if (pos === 'noun') {
+            feature_str += (parse.analysis.number != 'unmarked') ? parse.analysis.number + " " : "";
+            feature_str += (parse.analysis.case != 'unmarked') ? parse.analysis.case : "";
+        }
+        else if (pos === 'adjective') {
+            feature_str += (parse.analysis.class != 'unmarked') ? "CL" + parse.analysis.class : "";
+        }
+        return feature_str.trim();
+    }
+
+    function updateAnalysisForm(wordElement) {
+        const wordId = wordElement.dataset.wordId;
+        const wordText = wordElement.dataset.wordText;
+        const parses = JSON.parse(wordElement.dataset.parses);
+        let chosenParseId = wordElement.dataset.chosenParseId;
+
+        wordFormContainer.dataset.currentWordId = wordId;
+        wordFormContainer.dataset.currentWordText = wordText;
+        wordFormContainer.dataset.currentParses = JSON.stringify(parses);
+
+        wordFormContainer.innerHTML = `
+            {% include 'partials/wordform_container.html' %}    
+        `;
+
+        const selectElement = document.getElementById('parse-select');
+        const setParseBtn = document.getElementById('set-parse-btn');
+
+
+        if (parses.length > 0) {
+            selectElement.innerHTML = `<option value="">-- Select a parse --</option>`;
+            parses.forEach(parse => {
+                const pos = parse.analysis.part_of_speech || 'N/A';
+                const feature_str = getFeatureStr(parse, pos);
+                const gloss = parse.analysis.gloss || 'N/A';
+                const label = `${parse.updated_form} (${gloss}) ${feature_str} [Source: ${parse.source}]`;
+                const option = document.createElement('option');
+                option.value = parse.id;
+                option.textContent = label;
+                selectElement.appendChild(option);
+            });
+        } else {
+            selectElement.innerHTML = `<option value="">-- No suggested parses found --</option>`;
+        }
+
+        // Pre-select the chosen parse if it exists
+        if (chosenParseId) {
+            selectElement.value = chosenParseId;
+        }
+        setParseBtn.disabled = !selectElement.value;
+    }
+});
+</script>
 {% endblock %}

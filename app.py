@@ -1,23 +1,33 @@
 import flask
-from flask import Flask, render_template, request
-from src.forms import (
+from flask import Flask, jsonify, render_template, request
+from sqlalchemy import or_
+from src.form_builders.verb_forms import (
     parse_inflected_verb,
     inflect_verb_with_features,
     get_inflected_paradigm_for_verb,
     FV_CLASSES
 )
-from src.lexicon import get_all_verb_data
+from src.lexicon import get_verb_gloss_and_fvs
 from src.constants import VERB_FEATURE_VALUES
-from src.database import get_elan_analyses
+from src.sentences import get_elan_analyses
 import pynini
 from unicodedata import normalize
+from sqlalchemy.orm import joinedload, selectinload
+from src.database.database import SessionLocal
+from src.database.models import Sentence, SentenceWord, Wordform
+import math
+import logging
+
+logging.basicConfig()
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
 
 app = Flask(__name__)
 
 TEMPLATE_DEFAULTS = {
     "feature_options": VERB_FEATURE_VALUES,
     "fv_classes": FV_CLASSES,
-    "verb_lexicon": get_all_verb_data(),
+    "verb_lexicon": get_verb_gloss_and_fvs(),
 }
 
 @app.route('/', methods=['GET', 'POST'])
@@ -159,13 +169,151 @@ def paradigms_page():
         context['inflect_input']=verb_row
     return render_template('paradigms.html', **TEMPLATE_DEFAULTS, **context)
 
-@app.route('/analyze')
-def analyze_page():
+@app.route('/sentences')
+def sentences_page():
     """
-    Handles the analysis page, displaying sentences from the database.
+    Displays the list of all sentences from the database with pagination.
     """
-    sentences_data = get_elan_analyses()
-    return render_template('analyze.html', sentences=sentences_data)
+    # Get the page number from the URL query, defaulting to 1
+    page = request.args.get('page', 1, type=int)
+    assigned_filter = request.args.get('assigned_to', type=str)
+    checked_filter = request.args.get('checked', type=str)
+
+    per_page = 10  # Sentences to display per page
+
+    db = SessionLocal()
+    
+    query = db.query(Sentence)
+    filters = []
+
+    if assigned_filter:
+        filters.append(Sentence.assigned_to == assigned_filter)
+    
+    if checked_filter is not None:
+        if checked_filter == 'true':
+            filters.append(Sentence.checked_by_annotator == True)
+        elif checked_filter == 'false':
+            # A sentence is "not checked" if the value is False OR NULL
+            filters.append(or_(Sentence.checked_by_annotator == False, Sentence.checked_by_annotator.is_(None)))
+
+    # Apply all collected filters to the query at once
+    if filters:
+        query = query.filter(*filters)
+
+    print(assigned_filter, checked_filter)
+
+    annotators_query = db.query(Sentence.assigned_to)\
+        .filter(Sentence.assigned_to.isnot(None)).distinct().all()
+    annotators = [a[0] for a in annotators_query]
+
+    # Get the total number of sentences to calculate total pages
+    total_sentences = query.count()
+
+
+    # Fetch only the sentences for the current page
+    sentences_data = query.order_by(Sentence.id).limit(per_page).offset((page - 1) * per_page).all()
+    
+    db.close()
+    
+    # Calculate the total number of pages
+    total_pages = math.ceil(total_sentences / per_page)
+    
+    return render_template(
+        'sentences.html', 
+        sentences=sentences_data,
+        page=page,
+        total_pages=total_pages,
+        annotators=annotators,
+        assigned_filter=assigned_filter,
+        checked_filter=checked_filter,
+    )
+
+@app.route('/analyze/<int:sentence_id>')
+def analyze_page(sentence_id):
+    """
+    Displays a single sentence for analysis.
+    """
+    db = SessionLocal()
+    sentence = db.query(Sentence).options(
+        selectinload(Sentence.words).joinedload(SentenceWord.wordform),
+        selectinload(Sentence.words).joinedload(SentenceWord.chosen_parse),
+        selectinload(Sentence.words).joinedload(SentenceWord.wordform).joinedload(Wordform.parses)
+    ).filter(Sentence.id == sentence_id).first()
+    db.close()
+
+    if not sentence:
+        return "Sentence not found", 404
+    
+    words_in_order = sorted(sentence.words, key=lambda w: w.position)
+    print(words_in_order)
+
+    return render_template('analyze.html', sentence=sentence, words=words_in_order)
+
+@app.route('/api/sentence_words/<int:sentence_word_id>/set_parse', methods=['PUT'])
+def set_chosen_parse(sentence_word_id):
+    data = request.get_json()
+    parse_id = data.get('parse_id')
+
+    if not parse_id:
+        return jsonify({"error": "parse_id is required"}), 400
+
+    db = SessionLocal()
+    
+    # Find the specific word in the sentence to update
+    sentence_word = db.query(SentenceWord).filter(SentenceWord.id == sentence_word_id).first()
+
+    if not sentence_word:
+        db.close()
+        return jsonify({"error": "SentenceWord not found"}), 404
+
+    # Update the chosen parse ID
+    sentence_word.chosen_parse_id = parse_id
+    db.flush()
+    
+    parent_sentence = db.query(Sentence).options(
+        selectinload(Sentence.words).joinedload(SentenceWord.wordform),
+        selectinload(Sentence.words).joinedload(SentenceWord.chosen_parse),
+        selectinload(Sentence.words).joinedload(SentenceWord.wordform).joinedload(Wordform.parses)
+    ).filter(Sentence.id == sentence_word.sentence_id).first()
+
+    words_in_order = sorted(parent_sentence.words, key=lambda w: w.position)
+
+    new_sentence_parts = []
+    for word in words_in_order:
+        if word.chosen_parse and word.chosen_parse.updated_form:
+            new_sentence_parts.append(word.chosen_parse.updated_form)
+        else:
+            new_sentence_parts.append(word.wordform.text)
+    
+    parent_sentence.updated_sentence = " ".join(new_sentence_parts)
+
+    db.commit()
+    
+    response_data = {"message": "Parse chosen successfully", "updated_sentence": parent_sentence.updated_sentence}
+    
+    db.close()
+
+    return jsonify(response_data), 200
+
+@app.route('/api/sentences/<int:sentence_id>/toggle_checked', methods=['PUT'])
+def toggle_sentence_checked(sentence_id):
+    """
+    Toggles the 'checked_by_annotator' status for a sentence.
+    """
+    db = SessionLocal()
+    sentence = db.query(Sentence).filter(Sentence.id == sentence_id).first()
+    if not sentence:
+        db.close()
+        return jsonify({"error": "Sentence not found"}), 404
+    
+    sentence.checked_by_annotator = not sentence.checked_by_annotator
+    
+    db.commit()
+    
+    new_status = sentence.checked_by_annotator
+    db.close()
+    
+    return jsonify({"success": True, "new_status": new_status})
 
 if __name__ == '__main__':
     app.run(debug=True)
