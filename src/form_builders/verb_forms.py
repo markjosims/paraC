@@ -13,7 +13,6 @@ from src.glossing import REMOVE_HOMOPHONE_TAG
 from src.constants import INFLECTED_VERBS_PATH, INFLECTED_VERB
 from typing import *
 import random
-import time
 
 # FV mappings
 
