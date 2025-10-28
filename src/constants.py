@@ -209,6 +209,18 @@ for feature_bundle in AUX_FEATURE_BUNDLES:
         if feature not in feature_bundle.values:
             feature_bundle.values[feature] = 'unmarked' 
 
+##################
+# verb extension #
+##################
+
+CAUS_STR = 'ij'
+PASS_STR = 'in'
+ANTIP_STR = 'ið'
+LOC_AV_STR = 'at̪'
+LOC_OV_STR = 'ɛt̪'
+LOC_AI_STR = 'ac'
+LOC_OI_STR = 'ɛc'
+
 #################
 # noun features #
 #################
