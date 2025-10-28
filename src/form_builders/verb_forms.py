@@ -606,6 +606,7 @@ def make_verb_slots(fv_class: str) -> List[Tuple[pynini.Fst, features.FeatureVec
     slots = [root_slot, *imp_slots, *ipfv_slots, *pfv_slots, *inf_slot, *dep_slots]
     return slots
 
+@paradigm_cache(__file__)
 def get_paradigm_for_class(fv_class: str):
     slots = make_verb_slots(fv_class)
 
@@ -639,6 +640,7 @@ FV2PARADIGM = {
 }
 PARADIGM2FV = {v:k for v,k in FV2PARADIGM.items()}
 
+@paradigm_cache(__file__)
 def make_aux_paradigm() -> List[Tuple[pynini.Fst, features.FeatureVector]]:
     aux_slots = []
     aux_slots.extend(build_itive_perfective_aux_forms())
@@ -662,6 +664,7 @@ def make_aux_paradigm() -> List[Tuple[pynini.Fst, features.FeatureVector]]:
 
 AUX_PARADIGM = make_aux_paradigm()
 
+@paradigm_cache(__file__)
 def make_verb_w_aux_paradigm(fv_class: str) -> paradigms.Paradigm:
     verb_w_aux_slots = []
     verb_paradigm = FV2PARADIGM[fv_class]
