@@ -929,7 +929,9 @@ def parse_inflected_verb(
         parse['root'] = root
         parse['analyzed_form'] = analyzed_form
         parse['form'] = form
-        if add_gloss:
+        if add_gloss and expected_verb_type == 'aux':
+            parse['gloss'] = 'aux'
+        elif add_gloss:
             parse['gloss'] = get_gloss_for_verb(root)
         parses.append(parse)
     return parses
