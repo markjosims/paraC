@@ -476,6 +476,7 @@ def add_imperative_object_markers(
 
 # slots for verb paradigms
 
+@output_cache(__file__)
 def make_verb_slots(fv_class: str) -> List[Tuple[pynini.Fst, features.FeatureVector]]:
     root_slot = (STEM, VERB_ROOT)
 
