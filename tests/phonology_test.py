@@ -73,6 +73,8 @@ def test_hlstar(atonal_str, tone_added_str):
     ("r̀lɛ̀ɲ", "r̀lɔ̀ɲ"),
     ("îɾcɛ́cɛ̀c", "îɾcɔ́cɔ̀c"),
     ("ɜ̌dɛ̀ŋnàt̪", "ɔ̌dɔ̀ŋnɔ̀t̪"),
+    ("vɛ̀ð-ɛ̀t̪-ɔ́", "vɔ̀ð-ɔ̀t̪-ɔ́"),
+    ("vɛ̀ð-ìt̪-ɔ́", "vɛ̀ð-ìt̪-ɔ́"), # /i/ blocks harmony
 ])
 def test_rounding_harmony(unround_str,round_str):
     lattice=rewrite.rewrite_lattice(fst(unround_str), ROUNDING_HARMONY)
