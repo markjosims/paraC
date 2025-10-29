@@ -778,14 +778,14 @@ def inflect_verb_with_features(
         root: str,
         paradigm: Union[paradigms.Paradigm, str],
         features: Dict[str, str],
-        expected_verb_type: Literal['stem', 'stem_and_aux', 'auto']='auto',
+        expected_verb_type: Literal['stem', 'stem_and_aux', 'all']='all',
     ) -> List[str]:
     """
     Arguments:
         root:           str indicating verb root to inflect
         paradigm:       Paradigm object or str of FV class shorthand e.g. 'aɔ'
         features:       dict mapping feature labels to values
-        expected_verb_type: Literal['stem', 'stem_and_aux', 'auto']='auto',
+        expected_verb_type: Literal['stem', 'stem_and_aux', 'all']='all',
                         (if paradigm is `Paradigm` object, this is ignored)
     Returns:
         form:       list of strs of root verb inflected with given features
