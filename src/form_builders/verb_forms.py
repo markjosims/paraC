@@ -674,10 +674,13 @@ def make_aux_paradigm() -> List[Tuple[pynini.Fst, features.FeatureVector]]:
 
 AUX_PARADIGM = make_aux_paradigm()
 
-@paradigm_cache(__file__)
-def make_verb_w_aux_paradigm(fv_class: str) -> paradigms.Paradigm:
+@output_cache(__file__)
+def make_verb_w_aux_paradigm(
+        verb_paradigm: Union[str, paradigms.Paradigm]
+) -> paradigms.Paradigm:
     verb_w_aux_slots = []
-    verb_paradigm = FV2PARADIGM[fv_class]
+    if type(verb_paradigm) is str:
+        verb_paradigm = FV2PARADIGM[verb_paradigm]
     for aux_rule, feature_vector in AUX_PARADIGM.slots:
         new_feature_values = feature_vector.values.copy()
         # certain pronouns can trigger H-tone spreading from aux to ventive verbs
