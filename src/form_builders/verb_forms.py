@@ -606,16 +606,26 @@ def make_verb_slots(fv_class: str) -> List[Tuple[pynini.Fst, features.FeatureVec
     slots = [root_slot, *imp_slots, *ipfv_slots, *pfv_slots, *inf_slot, *dep_slots]
     return slots
 
-@paradigm_cache(__file__)
-def get_paradigm_for_class(fv_class: str):
+@output_cache(__file__)
+def get_paradigm_for_class(
+        fv_class: str,
+        stems: Union[str, pynini.Fst, None]=None
+) -> paradigms.Paradigm:
     slots = make_verb_slots(fv_class)
+    if type(stems) is str:
+        stems = [stems]
+    
+    if type(stems) is list:
+        stems = [fst(stem) for stem in stems]
+    elif stems is None:
+        stems = get_roots_for_class(fv_class, wrap_w_fsa=True)
 
     fv_paradigm = paradigms.Paradigm(
         category=INFLECTED_VERB,
         name=f"{fv_class} class",
         slots=slots,
         lemma_feature_vector=VERB_ROOT,
-        stems=get_roots_for_class(fv_class, wrap_w_fsa=True),
+        stems=stems,
         boundary=BOUNDARY,
     )
 
