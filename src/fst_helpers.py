@@ -7,6 +7,7 @@ import pydot
 from functools import wraps
 import hashlib
 import pickle
+import unicodedata
 
 # symbol table wrappers
 
@@ -55,7 +56,8 @@ def encode_fst_string(input_string: Union[str, Sequence[str]]) -> Union[str, Lis
     """
     if type(input_string) is not str:
         return [encode_fst_string(input_element) for input_element in input_string]
-    str_w_word_boundaries = input_string.replace(' ', WORD_BOUNDARY_STR)
+    nfkd_norm = unicodedata.normalize('NFKD', input_string)
+    str_w_word_boundaries = nfkd_norm.replace(' ', WORD_BOUNDARY_STR)
     tokenized_str = " ".join(str_w_word_boundaries)
     str_w_tone_symbols = tone2symbol(tokenized_str)
     str_w_collapsed_dentals = collapse_multichar_tokens(str_w_tone_symbols)
