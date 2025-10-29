@@ -119,12 +119,13 @@ def inflect_verb_with_extension(
     paradigm_no_aux, paradigm_w_aux = build_paradigm_for_extension(
         root, fv, extension_seq
     )
+    derived_stem = paradigm_no_aux.stems[0]
     if expected_verb_type == 'stem':
-        return inflect_verb_with_features(root, paradigm_no_aux, features=features)
+        return inflect_verb_with_features(derived_stem, paradigm_no_aux, features=features)
     elif expected_verb_type == 'stem_and_aux':
-        return inflect_verb_with_features(root, paradigm_w_aux, features=features)
+        return inflect_verb_with_features(derived_stem, paradigm_w_aux, features=features)
     else:  # expected_verb_type == 'all'        
-        forms_no_aux = inflect_verb_with_features(root, paradigm_no_aux, features=features)
-        forms_w_aux = inflect_verb_with_features(root, paradigm_w_aux, features=features)
+        forms_no_aux = inflect_verb_with_features(derived_stem, paradigm_no_aux, features=features)
+        forms_w_aux = inflect_verb_with_features(derived_stem, paradigm_w_aux, features=features)
         return forms_no_aux + forms_w_aux   
    
