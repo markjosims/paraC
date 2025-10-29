@@ -341,7 +341,7 @@ DEFAULT_EDIT_BOUND = 5
 #########
 
 VERB_ROOTS_PATH = 'data/lexicon/verb_roots.csv'
-INFLECTED_VERBS_PATH = 'data/lexicon/inflected_verb_forms.csv'
+INFLECTED_VERBS_PATH = 'data/local/inflected_verb_forms.csv'
 GOLD_VERBS_PATH = 'data/test_cases/gold_verbs.csv'
 GOLD_AUXS_PATH = 'data/test_cases/gold_auxs.csv'
 GOLD_PARADIGMS_PATH = 'data/test_cases/gold_paradigms.json'
