@@ -64,11 +64,11 @@ def get_derived_stem_and_fv(
         extension_seq = [extension_seq]
     if extension_seq[0] in ABBREVIATION2EXTENSION:
         extension_seq = extension_abbreviations_to_long(extension_seq)
-    outer_fv = None
+    outer_fv = fv
     for ext in extension_seq:
         suffix = EXTENSION_MAP[ext]
         if type(suffix) is dict:
-            suffix_str, suffix_fv = suffix[fv]
+            suffix_str, suffix_fv = suffix[outer_fv]
             derived_stem = BOUNDARY_STR.join([derived_stem, suffix_str])
         else: # type(suffix) is tuple
             suffix_str, suffix_fv = suffix
