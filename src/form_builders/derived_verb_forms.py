@@ -7,11 +7,12 @@ search functions to determine if a given verb form matches a particular extensio
 
 from src.constants import EXTENSION_MAP, ABBREVIATION2EXTENSION, BOUNDARY_STR
 from src.form_builders.verb_forms import get_verb_stem_paradigm, get_verb_paradigm_w_aux, inflect_verb_with_features
+from src.phonology import LOCATIVE_ROUNDING_RULE
 from itertools import product
 from typing import *
 from pynini.lib import paradigms
 
-from src.fst_helpers import decode_fst_string
+from src.fst_helpers import decode_fst_string, fst, get_decoded_strings
 
 def get_possible_extension_seqs() -> List[Union[str, Tuple[str, str]]]:
     """
@@ -48,7 +49,7 @@ def get_derived_stem_and_fv(
         base_stem: str,
         fv: str,
         extension_seq: Union[str, Sequence[str]]
-) -> Tuple[str, str]:
+) -> Tuple[List[str], str]:
     """
     Arguments:
         base_stem: The root form of the verb.
@@ -76,6 +77,13 @@ def get_derived_stem_and_fv(
             suffix_str, suffix_fv = suffix
             derived_stem = BOUNDARY_STR.join([derived_stem, suffix_str])
         outer_fv = suffix_fv
+    
+    if extension_seq[0] == 'locative':
+        derived_stem = fst(derived_stem) @ LOCATIVE_ROUNDING_RULE
+        derived_stem = get_decoded_strings(derived_stem)
+    else:
+        derived_stem = [derived_stem]
+
     return derived_stem, outer_fv
 
 def build_paradigm_for_extension(
@@ -125,7 +133,7 @@ def inflect_verb_with_extension(
     paradigm_no_aux, paradigm_w_aux = build_paradigm_for_extension(
         root, fv, extension_seq
     )
-    derived_stem = paradigm_no_aux.stems[0]
+    derived_stem = paradigm_no_aux.stems
     derived_stem = decode_fst_string(derived_stem)
     if expected_verb_type == 'stem':
         return inflect_verb_with_features(derived_stem, paradigm_no_aux, features=features)
