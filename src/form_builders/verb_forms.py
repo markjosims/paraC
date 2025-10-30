@@ -700,7 +700,7 @@ def get_verb_stem_paradigm(
         stems = get_roots_for_class(fv_class, wrap_w_fsa=True)
 
     if paradigm_name is None:
-        paradigm_name = f"{fv_class} class"
+        paradigm_name = f"fv={fv_class}"
 
     fv_paradigm = paradigms.Paradigm(
         category=INFLECTED_VERB,
@@ -721,7 +721,7 @@ def get_verb_dstem_paradigm(
     Wraps `get_verb_stem_paradigm` to generate a verb paradigm with $d$-stem forms only.
     """
     if paradigm_name is None:
-        paradigm_name = f"{fv_class} class d-stem"
+        paradigm_name = f"fv={fv_class} stem=d-stem"
     return get_verb_stem_paradigm(fv_class, skip_suffixes=True, paradigm_name=paradigm_name)
 
 @output_cache(__file__)
@@ -738,7 +738,7 @@ def get_aux_paradigm() -> List[Tuple[pynini.Fst, features.FeatureVector]]:
 
     aux_paradigm = paradigms.Paradigm(
         category=INFLECTED_AUX,
-        name="TAMD auxiliary",
+        name="aux=true",
         slots=aux_slots,
         lemma_feature_vector=aux_lemma,
         stems=[fst("")],
@@ -795,9 +795,10 @@ def get_verb_paradigm_w_aux(
     lemma_slot = (SIGMASTAR, VERB_ROOT)
     verb_w_aux_slots.append(lemma_slot)
 
+    paradigm_name = verb_paradigm.name + " aux=true"
     verb_w_aux_paradigm = paradigms.Paradigm(
         category=INFLECTED_VERB,
-        name=f"{verb_paradigm.name} + TAMD auxiliary",
+        name=paradigm_name,
         slots=verb_w_aux_slots,
         lemma_feature_vector=VERB_ROOT,
         stems=verb_paradigm.stems,
@@ -965,6 +966,8 @@ def parse_inflected_verb(
         for fv in FV_CLASSES:
             parses_for_fv = parse_inflected_verb(form, fv, add_gloss, expected_verb_type)
             parses.extend(parses_for_fv)
+    # if paradigm is str (FV tag), get the appropriate paradigm
+    # based on expected_verb_type
     if type(paradigm) is str and expected_verb_type == 'stem':
         paradigm = get_verb_stem_paradigm(paradigm)
     elif type(paradigm) is str and expected_verb_type == 'stem_and_aux':
@@ -975,6 +978,14 @@ def parse_inflected_verb(
             parses_for_type = parse_inflected_verb(form, paradigm, add_gloss, verb_type)
             parses.extend(parses_for_type)
         return parses
+    # if paradigm is Paradigm object, infer expected_verb_type from its name
+    elif type(paradigm) is paradigms.Paradigm and expected_verb_type == 'auto':
+        if "aux=true" in paradigm.name and "stem" in paradigm.name:
+            expected_verb_type = 'stem_and_aux'
+        elif "aux=true" in paradigm.name:
+            expected_verb_type = 'aux'
+        else:
+            expected_verb_type = 'stem'
 
     try:
         lemmata = paradigm.lemmatize(fst(form))
