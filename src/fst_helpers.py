@@ -373,11 +373,11 @@ def fst_cache(current_file: str, cache_dir=".cache/") -> pynini.Fst:
             os.makedirs(cache_dir, exist_ok=True)
             try:
                 args_str = get_hashable_args_str(args, kwargs)
-            except TypeError:
+            except TypeError as e:
                 # if args are not hashable, skip caching
                 print(
                     f"Building FST for function {func.__name__} "+\
-                    f"with args {args} and kwargs {kwargs} without caching (unhashable args)"
+                    f"with args {args} and kwargs {kwargs} without caching (unhashable args): {e}"
                 )
                 f = func(*args, **kwargs)
                 return f
@@ -419,11 +419,11 @@ def output_cache(current_file: str, cache_dir=".cache/") -> Any:
             os.makedirs(cache_dir, exist_ok=True)
             try:
                 args_str = get_hashable_args_str(args, kwargs)
-            except TypeError:
+            except TypeError as e:
                 # if args are not hashable, skip caching
                 print(
                     f"Building output for function {func.__name__} "+\
-                    f"with args {args} and kwargs {kwargs} without caching (unhashable args)"
+                    f"with args {args} and kwargs {kwargs} without caching (unhashable args): {e}"
                 )
                 out = func(*args, **kwargs)
                 return out
