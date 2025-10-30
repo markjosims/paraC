@@ -250,6 +250,7 @@ VERB_FETURE_BUNDLES = [
     IMP_VENT,
     VERB_ROOT,
 ]
+FV_CLASSES = ['aɔ', 'ao', 'au', 'ai', 'ɔɔ', 'ɔi', 'ɔu']
 
 ######################
 # auxiliary features #
