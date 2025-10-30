@@ -93,7 +93,11 @@ def build_paradigm_for_extension(
     Build the full paradigm for a verb with the specified extensions applied.
     """
     derived_stem, derived_fv = get_derived_stem_and_fv(root, fv, extension_seq)
-    paradigm_no_aux = get_verb_stem_paradigm(stems=derived_stem, fv_class=derived_fv)
+    paradigm_no_aux = get_verb_stem_paradigm(
+        stems=derived_stem,
+        fv_class=derived_fv,
+        paradigm_name=derived_stem
+    )
     paradigm_w_aux = get_verb_paradigm_w_aux(paradigm_no_aux)
     return paradigm_no_aux, paradigm_w_aux
 
