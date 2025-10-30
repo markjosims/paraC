@@ -1,12 +1,12 @@
 from src.glossing import REMOVE_HOMOPHONE_TAG
-from src.fst_helpers import decode_byte_str, fst, cache_fst
+from src.fst_helpers import decode_byte_str, fst, fst_cache
 from src.lexicon import get_pos_and_gloss_for_uninflected_word, get_uninflected_word_data
 import pynini
 from pynini.lib import rewrite
 from typing import *
 import pandas as pd
 
-@cache_fst(__file__)
+@fst_cache(__file__)
 def get_uninflected_word_fst() -> pynini.Fst:
     """
     Build an FST accepting uninflected words and mapping homophones
