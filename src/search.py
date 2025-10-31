@@ -536,7 +536,7 @@ def search_parse(
         hits = search_function(
             form,
             num_hits=num_hits,
-            bound=edit_bound,
+            edit_bound=edit_bound,
             return_parse=True,
         )
         if pos!='uninflected':
