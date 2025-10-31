@@ -10,6 +10,7 @@ from src.glossing import feature_str_to_dict
 from src.phonology import DELETE_SCHWA_BEFORE_VOWEL, SIGMASTAR, REMOVE_DOUBLE_BOUNDARIES
 import pynini
 from pynini.lib import features, paradigms, rewrite
+import pandas as pd
 
 def prefix(
         fst_input: Union[str, Sequence[str], pynini.Fst],
@@ -94,8 +95,9 @@ def add_class_prefixes_to_slots(slot_list, include_ng:bool=False):
 def generate_forms(
         stem: str,
         paradigm: paradigms.Paradigm,
-        action: Literal['print', 'return', 'save_to_tmp']='save_to_tmp',
-        parse: bool=False
+        save_to_tmp: bool=False,
+        print_forms: bool=False,
+        parse: bool=False,
 ):
     """
     Arguments:
@@ -110,21 +112,21 @@ def generate_forms(
     )
     wordforms = []
     for wordform in rewrite.lattice_to_strings(lattice):
-        if action=='return' and parse:
+        if parse:
             parsed_wordform = feature_str_to_dict(wordform)
             wordforms.append(parsed_wordform)
-            continue
-
-        byte_word = wordform.split('[')[0]
-        word = decode_byte_str(byte_word)
-        wordform = wordform.replace(byte_word, word)
-        if action=='print':
-            print(wordform)
         else:
+            byte_word = wordform.split('[')[0]
+            word = decode_byte_str(byte_word)
+            wordform = wordform.replace(byte_word, word)
             wordforms.append(wordform)
-    if action=='save_to_tmp':
+        if print_forms:
+            print(wordform)
+    if save_to_tmp and not parse:
         with open(f'tmp/{stem}_forms.txt', 'w') as f:
             f.write("\n".join(wordforms))
-    elif action=='return':
-        return wordforms
+    if save_to_tmp and parse:
+        df = pd.DataFrame(wordforms)
+        df.to_csv(f'tmp/{stem}_forms.csv', index=False)
+    return wordforms
 
