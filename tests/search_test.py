@@ -57,7 +57,7 @@ def test_searchable_lexicon():
     )
     query = "po"
     output_fst = (fst(query)@left_factor)@searchable_lexicon
-    strings = get_decoded_strings(output_fst)
+    strings = decode_fst_lattice(output_fst)
     strings = set(strings)
     assert strings == set(lexicon)
 
@@ -87,7 +87,7 @@ def test_edit_weight(query, top_string, expected_weight, top_n_strings):
     predicted_weight = get_min_path_weight(output_fst)
     assert predicted_weight == expected_weight
 
-    predicted_top_n_strings = get_decoded_strings(fst(query)@left_factor@searchable_lexicon, nshortest=len(top_n_strings))
+    predicted_top_n_strings = decode_fst_lattice(fst(query)@left_factor@searchable_lexicon, nshortest=len(top_n_strings))
     assert set(predicted_top_n_strings) == set(top_n_strings)
 
 @pytest.mark.parametrize("string_map_list,nbest", [

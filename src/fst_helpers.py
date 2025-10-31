@@ -169,7 +169,7 @@ def delete_fst(
     f = set_symbols(f)
     return f
 
-def get_decoded_strings(
+def decode_fst_lattice(
         lattice: pynini.Fst,
         project_type: Literal['input', 'output']='output',
         unique_only: bool=True,

@@ -12,7 +12,7 @@ from itertools import product
 from typing import *
 from pynini.lib import paradigms
 
-from src.fst_helpers import decode_fst_string, fst, get_decoded_strings
+from src.fst_helpers import decode_fst_string, fst, decode_fst_lattice
 
 def get_possible_extension_seqs() -> List[Union[str, Tuple[str, str]]]:
     """
@@ -80,7 +80,7 @@ def get_derived_stem_and_fv(
     
     if extension_seq[0] == 'locative':
         derived_stem = fst(derived_stem) @ LOCATIVE_ROUNDING_RULE
-        derived_stem = get_decoded_strings(derived_stem)
+        derived_stem = decode_fst_lattice(derived_stem)
     else:
         derived_stem = [derived_stem]
 

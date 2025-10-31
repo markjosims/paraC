@@ -13,7 +13,7 @@ from pynini.lib import rewrite
 ])
 def test_fst_wrapper(fst_input, fst_output):
     f = fst(fst_input, fst_output)
-    input_strings = get_decoded_strings(f, 'input')
+    input_strings = decode_fst_lattice(f, 'input')
     if type(fst_input) is str:
         assert len(input_strings) == 1
         assert input_strings[0] == fst_input
@@ -23,7 +23,7 @@ def test_fst_wrapper(fst_input, fst_output):
     if fst_output is None:
         return
 
-    output_strings = get_decoded_strings(f, 'output')
+    output_strings = decode_fst_lattice(f, 'output')
     if type(fst_output) is str:
         assert len(output_strings) == 1
         assert output_strings[0] == fst_output
@@ -38,7 +38,7 @@ def test_fst_wrapper(fst_input, fst_output):
 ])
 def test_all_high_tone(atonal_str, tone_added_str):
     lattice=rewrite.rewrite_lattice(fst(atonal_str), ALL_HIGH_TONE_RULE)
-    strings = get_decoded_strings(lattice)
+    strings = decode_fst_lattice(lattice)
     assert len(strings)==1
     assert strings[0]==tone_added_str
 
@@ -50,7 +50,7 @@ def test_all_high_tone(atonal_str, tone_added_str):
 ])
 def test_all_low_tone(atonal_str, tone_added_str):
     lattice=rewrite.rewrite_lattice(fst(atonal_str), ALL_LOW_TONE_RULE)
-    strings = get_decoded_strings(lattice)
+    strings = decode_fst_lattice(lattice)
     assert len(strings)==1
     assert strings[0]==tone_added_str
 
@@ -62,7 +62,7 @@ def test_all_low_tone(atonal_str, tone_added_str):
 ])
 def test_hlstar(atonal_str, tone_added_str):
     lattice=rewrite.rewrite_lattice(fst(atonal_str), HLSTAR_RULE)
-    strings = get_decoded_strings(lattice)
+    strings = decode_fst_lattice(lattice)
     assert len(strings)==1
     assert strings[0]==tone_added_str
 
@@ -79,7 +79,7 @@ def test_hlstar(atonal_str, tone_added_str):
 ])
 def test_rounding_harmony(unround_str,round_str):
     lattice=rewrite.rewrite_lattice(fst(unround_str), ROUNDING_HARMONY)
-    strings = get_decoded_strings(lattice)
+    strings = decode_fst_lattice(lattice)
     assert len(strings)==1
     assert strings[0]==round_str
 
@@ -92,7 +92,7 @@ def test_rounding_harmony(unround_str,round_str):
 ])
 def test_vowel_coalescence(uncoalesced,coalesced):
     lattice=rewrite.rewrite_lattice(fst(uncoalesced), VOWEL_COALESCENCE_RULE)
-    strings = get_decoded_strings(lattice)
+    strings = decode_fst_lattice(lattice)
     assert len(strings)==1
     assert strings[0]==coalesced
 
@@ -103,7 +103,7 @@ def test_vowel_coalescence(uncoalesced,coalesced):
 ])
 def test_h_spread(pre_hts, w_hts):
     lattice=rewrite.rewrite_lattice(fst(pre_hts), H_SPREAD_RULE)
-    strings = get_decoded_strings(lattice)
+    strings = decode_fst_lattice(lattice)
     assert len(strings)==1
     assert strings[0]==w_hts
 
@@ -114,7 +114,7 @@ def test_h_spread(pre_hts, w_hts):
 ])
 def test_fall_blocks_h(fall_tone_str, blocked_h_str):
     lattice=rewrite.rewrite_lattice(fst(fall_tone_str), FALL_BLOCKS_H_RULE)
-    strings = get_decoded_strings(lattice)
+    strings = decode_fst_lattice(lattice)
     assert len(strings)==1
     assert strings[0]==blocked_h_str
 
@@ -127,7 +127,7 @@ def test_fall_blocks_h(fall_tone_str, blocked_h_str):
 ])
 def test_locative_rounding(unround_str,round_str,do_round):
     lattice=rewrite.rewrite_lattice(fst(unround_str), LOCATIVE_ROUNDING_RULE)
-    strings = get_decoded_strings(lattice)
+    strings = decode_fst_lattice(lattice)
     if do_round:
         assert len(strings)==2
         assert round_str in strings
