@@ -4,17 +4,21 @@ from pynini.lib import pynutil
 from typing import *
 from src.form_builders.adjective_forms import get_adjective_paradigm, parse_adjective
 from src.form_builders.uninflected_forms import get_uninflected_word_fst, parse_uninflected_word
+from src.form_builders.verb_forms import (
+    parse_inflected_verb, get_verb_stem_paradigm,
+    get_aux_paradigm, get_verb_paradigm_w_aux,
+    get_verb_dstem_paradigm, get_verb_dstem_paradigm_w_aux,
+)
 from src.fst_helpers import *
 from src.constants import (
     INSERT, DELETE, SUBSTITUTE,
     DEFAULT_INSERT_COST, DEFAULT_DELETE_COST, DEFAULT_SUBSTITUTE_COST,
-    DEFAULT_EDIT_BOUND,
+    DEFAULT_EDIT_BOUND, FV_CLASSES,
 )
 from src.phonology import (
-    SIGMA, INSERTION_COSTS, DELETION_COSTS, SUBSTITUTION_COSTS,
+    SIGMA, INSERTION_COSTS, DELETION_COSTS, SIGMASTAR, SUBSTITUTION_COSTS,
     INSERT_HYPHEN_RULE
 )
-from src.form_builders.verb_forms import parse_inflected_verb, get_verb_stem_paradigm, get_aux_paradigm, get_verb_paradigm_w_aux
 from src.form_builders.noun_forms import get_noun_paradigm, parse_noun
 
 # ----------------------------------- #
@@ -229,12 +233,32 @@ def _get_substitution_graph(
 # functions for performing search #
 # ------------------------------- #
 
+def retrieve_verb_paradigms(expected_verb_type):
+    if expected_verb_type == 'd-stem':
+        d_stem_paradigms = [lambda: get_verb_dstem_paradigm(fv) for fv in FV_CLASSES]
+        d_stem_paradigms_w_aux = [lambda: get_verb_dstem_paradigm_w_aux(fv) for fv in FV_CLASSES]
+        return [*d_stem_paradigms, *d_stem_paradigms_w_aux]
+
+    stem_paradigms = [lambda: get_verb_stem_paradigm(fv) for fv in FV_CLASSES]
+    stem_and_aux_paradigms = [lambda: get_verb_paradigm_w_aux(fv) for fv in FV_CLASSES]
+    if expected_verb_type == 'auto':
+        paradigms_to_search = [*stem_paradigms, *stem_and_aux_paradigms, get_aux_paradigm]
+    elif expected_verb_type == 'aux':
+        paradigms_to_search = [get_aux_paradigm]
+    elif expected_verb_type == 'stem_and_aux':
+        paradigms_to_search = stem_and_aux_paradigms
+    else:  # 'stem'
+        paradigms_to_search = stem_paradigms
+    return paradigms_to_search
+
 def search_verb_form(
         verb_form: str,
         num_hits: int = 5,
         edit_bound: int = 5,
         return_parse: bool = True,
-        expected_verb_type: Literal['stem', 'aux', 'stem_and_aux', 'auto']='auto',
+        expected_verb_type: Literal[
+            'stem', 'aux', 'stem_and_aux', 'auto', 'd-stem'
+        ]='auto',
     ) -> List[Tuple[Dict[str, Any], float]]:
     """
     Arguments:
@@ -255,16 +279,7 @@ def search_verb_form(
     query_fst = fst(verb_form)@left_factor
     query_fst.optimize()
 
-    stem_paradigms = [lambda: get_verb_stem_paradigm(fv) for fv in FV_CLASSES]
-    stem_and_aux_paradigms = [lambda: get_verb_paradigm_w_aux(fv) for fv in FV_CLASSES]
-    if expected_verb_type == 'auto':
-        paradigms_to_search = [*stem_paradigms, *stem_and_aux_paradigms, get_aux_paradigm]
-    elif expected_verb_type == 'aux':
-        paradigms_to_search = [get_aux_paradigm]
-    elif expected_verb_type == 'stem_and_aux':
-        paradigms_to_search = stem_and_aux_paradigms
-    else:  # 'stem'
-        paradigms_to_search = stem_paradigms
+    paradigms_to_search = retrieve_verb_paradigms(expected_verb_type)
 
     for paradigm_f in paradigms_to_search:
         paradigm = paradigm_f()
@@ -272,6 +287,8 @@ def search_verb_form(
         # get nbest hits for each paradigm individually, then filter later
         paradigm_lattice = paradigm.lemmatizer
         paradigm_lattice = pynini.project(paradigm_lattice, 'input')
+        if expected_verb_type == 'd-stem':
+            paradigm_lattice+=SIGMASTAR  # allow for d-stem extensions
         paradigm_lattice.optimize()
         search_lattice = query_fst@right_factor@paradigm_lattice
         search_lattice.optimize()
