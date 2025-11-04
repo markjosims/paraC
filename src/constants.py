@@ -378,6 +378,20 @@ for phone in TIRA_CONSONANTS+TIRA_VOWELS+TIRA_TONE_SYMBOLS:
     TIRA_SYMBOL_TABLE.add_symbol(phone)
 TIRA_SYMBOL_TABLE
 
+TIRA_NUM_SYMBOLS = TIRA_SYMBOL_TABLE.num_symbols()
+TIRA_SYMBOL_TO_CHAR = {
+    **SYMBOL2DIAC,
+    WORD_BOUNDARY_STR: ' ',
+}
+
+GENERATED_SYMBOLS = pynini.generated_symbols()
+
+UNION_TABLE = TIRA_SYMBOL_TABLE.copy()
+# used for printing FSTs with both Tira symbols
+# and feature labels
+for label, symbol in GENERATED_SYMBOLS:
+    UNION_TABLE.add_symbol(symbol, label)
+
 #########################
 # edit transducer costs #
 #########################

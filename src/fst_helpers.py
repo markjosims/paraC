@@ -214,8 +214,8 @@ def draw_svg(fst: pynini.Fst, filepath: str = 'tmp/tmp.svg', title: Optional[str
     fst.draw(
         source=dotfile,
         show_weight_one=True,
-        isymbols=fst.input_symbols(),
-        osymbols=fst.output_symbols(),
+        isymbols=input_table,
+        osymbols=output_table,
         portrait=True,
         title=title or stem,
     )
