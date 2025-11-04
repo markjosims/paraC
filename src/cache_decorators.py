@@ -56,7 +56,13 @@ def cache_is_updated(current_file: str, cache_path: str) -> bool:
     """
     Check if the cache is updated relative to the script file.
     """
-    file_date = os.path.getmtime(current_file)
+    if os.path.isdir(current_file):
+        file_date = max(
+            os.path.getmtime(os.path.join(current_file, f))
+            for f in os.listdir(current_file)
+        )
+    else:
+        file_date = os.path.getmtime(current_file)
     if os.path.exists(cache_path):
         cache_date = os.path.getmtime(cache_path)
         return cache_date >= file_date
