@@ -16,6 +16,7 @@ from src.form_builders.derived_verb_forms import get_paradigms_for_all_extension
 from src.form_builders.uninflected_forms import get_uninflected_word_fst
 from src.cache_decorators import fst_cache
 import os
+from typing import *
 
 @fst_cache(os.path.dirname(__file__))
 def get_main_parser():
@@ -42,3 +43,9 @@ def get_main_parser():
     main_verb_analyzer = pynini.union(*verb_analyzers)
     main_verb_lemmatizer.optimize()
     main_verb_analyzer.optimize()
+
+def inflect_word(word, features) -> str:
+    return 'foo'
+
+def parse_word(word) -> list[Dict[str, str]]:
+    return [{'foo': 'bar'}, {'baz': 'qux'}]
