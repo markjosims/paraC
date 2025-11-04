@@ -165,7 +165,9 @@ def feature_dict_to_vector(
     Returns:
         lexeme_vector:          FeatureVector containing lexeme-specific features
         lexical_flag_vector:    FeatureVector containing lexical flags
-    
+    Expects `feature_dict` to contain a 'pos' key to determine the category.
+    Splits features into lexeme-specific features and lexical flags and returns
+    as two FeatureVectors.
     """
     pos = feature_dict['pos']
     category = POS2CATEGORY[pos]
