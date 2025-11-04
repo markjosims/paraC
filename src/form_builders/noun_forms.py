@@ -63,6 +63,9 @@ def parse_noun(noun_form: str, add_gloss: bool=True) -> Dict[str, str]:
         root = decode_byte_str(root)
 
         parse = feature_vec.values
+        if parse['case']=='unmarked':
+            # ignore zero feature parses
+            continue
         parse['root'] = root
         parse['form'] = noun_form
         if add_gloss:

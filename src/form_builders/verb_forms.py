@@ -1021,6 +1021,9 @@ def parse_inflected_verb(
         analyzed_form = decode_byte_str(analyzed_form)
 
         parse = feature_vec.values
+        if parse['tam'] == 'unmarked':
+            # ignore zero feature parses
+            continue
         parse['root'] = root
         parse['analyzed_form'] = analyzed_form
         parse['form'] = form
