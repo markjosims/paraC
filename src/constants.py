@@ -363,8 +363,32 @@ ADJECTIVE_ROOT = features.FeatureVector(ADJECTIVE, "class=unmarked")
 # 'features' used to distinguish lexical classes
 # useful for the unified parser
 
-POS_TAG = features.Feature("pos", "unmarked", "noun", "verb", "adjective")
-POS = features.Category(POS_TAG)
+POS2CATEGORY = {
+    'noun': NOUN,
+    'verb': INFLECTED_VERB,
+    'aux': INFLECTED_AUX,
+    'adjective': ADJECTIVE,
+    'adverb': None,
+    'postposition': None,
+    'conjunction': None,
+}
+
+POS_TAG = features.Feature(
+    "pos", "unmarked", *POS2CATEGORY.keys()
+)
+
+FV_TAG = features.Feature("fv", "unmarked", *FV_CLASSES)
+
+AUX_TAG = features.Feature("aux", "unmarked", "true", "false")
+
+EXTENSION_TAG = features.Feature(
+    "extension", "unmarked", *EXTENSION2ABBREVIATION.values()
+)
+
+LEXICAL_FEATURES = [POS_TAG, FV_TAG, AUX_TAG, EXTENSION_TAG]
+LEXEME = features.Category(*LEXICAL_FEATURES)
+
+
 
 ################
 # symbol table #
