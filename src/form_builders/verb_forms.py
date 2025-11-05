@@ -887,7 +887,7 @@ def inflect_verb_with_features(
     slot_for_features = [slot for slot in paradigm.slots if slot[1].values == features_filtered]
     for slot in slot_for_features:
         rule, _ = slot
-        form = decode_fst_lattice(fst(root)@rule)
+        form = decode_fst_lattice(fst(root)@rule, strings_only=True)
         forms.extend(form)
 
     return forms
