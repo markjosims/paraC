@@ -18,6 +18,7 @@ from src.fst_helpers import (
 )
 from src.form_builders.uninflected_forms import get_uninflected_word_fst
 from src.cache_decorators import fst_cache
+from src.lexicon import get_gloss_for_root
 import os
 from typing import *
 
@@ -50,6 +51,12 @@ def get_main_parser() -> Tuple[pynini.Fst, pynini.Fst, pynini.Fst]:
         analyzers.append(paradigm.analyzer+output_lexical_flags)
         inflectors.append(paradigm.inflector+input_lexical_flags)
 
+    # uninflected words have a single FST rather than a Paradigm object
+    uninflected_word_fst = get_uninflected_word_fst()
+    lemmatizers.append(uninflected_word_fst)
+    analyzers.append(uninflected_word_fst)
+    # there is no equivalent to "inflector" for uninflected words
+
     main_lemmatizer = pynini.union(*lemmatizers)
     main_analyzer = pynini.union(*analyzers)
     main_inflector = pynini.union(*inflectors)
@@ -68,8 +75,21 @@ def inflect_word(root, features) -> str:
     return decoded_strs
 
 def parse_word(word) -> list[Dict[str, str]]:
-    main_lemmatizer, _, _ = get_main_parser()
+    main_lemmatizer, main_analyzer, _ = get_main_parser()
     input_fst = fst(word)
-    output_fst = input_fst @ main_lemmatizer
-    decoded_strs = decode_fst_lattice(output_fst)
-    return decoded_strs
+    lemmatized_lattice = input_fst @ main_lemmatizer
+    parses = decode_fst_lattice(lemmatized_lattice)
+
+    analyzed_lattice = input_fst @ main_analyzer
+    analyses = decode_fst_lattice(analyzed_lattice)
+    analyses = [analysis['form'] or analysis for analysis in analyses]
+    
+    for parse in parses:
+        parse['analyzed_form'] = analyses
+        pos = parse['pos']
+        if pos not in ['verb', 'noun', 'adjective']:
+            pos = 'uninflected'
+        gloss = get_gloss_for_root(parse['root'], pos)
+        parse['gloss'] = gloss
+
+    return parses
