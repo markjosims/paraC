@@ -22,15 +22,6 @@ def feature_str_to_dict(feature_str: str, decode_form: bool=True) -> Dict[str, s
     of shape {"form": form, "feature": value, ...}.
     If `decode_form` is True, call `decode_byte_str` on form.
     """
-    items = feature_str.split(sep='[')
-    form = items[0]
-    if decode_form:
-        form = decode_byte_str(form)
-    feature_dict = {"form": form}
-    for item in items[1:]:
-        item = item.removesuffix(']')
-        feature, value = item.split('=')
-        feature_dict[feature]=value
-    return feature_dict
+    raise DeprecationWarning
     
         
