@@ -245,6 +245,7 @@ def decode_fst_lattice(
         nshortest: Optional[int]=None,
         strings_only: bool=False,
         to_feature_vectors: bool=False,
+        word_key: str='form',
     ) -> List[
         Union[
             Dict[str,str],
@@ -267,6 +268,8 @@ def decode_fst_lattice(
                         (default False).
         to_feature_vectors:  bool indicating whether to return feature dicts
                             as FeatureVectors (default False).
+        word_key:       key to use for decoded string in feature dicts
+                        (default 'form').
     Returns:
         decoded_outputs:    List of decoded strings and feature dicts/vectors
                             from the lattice.
@@ -275,7 +278,7 @@ def decode_fst_lattice(
     Code based off `Paradigm._parse_lattice` in `pynini.lib.paradigms`.
     If `nshortest` is passed, call `rewrite.lattice_to_nshortest` first.
 
-    By default, return a list of tuples of dicts where the 'form' key
+    By default, return a list of tuples of dicts where the `word_key`
     corresponds to the decoded string and other keys correspond to features.
     If `strings_only=True`, return only the decoded strings.
     If `to_feature_vectors=True`, convert the feature dicts to FeatureVectors
