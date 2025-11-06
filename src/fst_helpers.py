@@ -286,10 +286,15 @@ def decode_fst_lattice(
         lattice = rewrite.lattice_to_nshortest(lattice, nshortest=nshortest)
 
     decoded_outputs = []
+
+    # to track unique words and features
+    decoded_words = []
+    decoded_features = []
+
     path_iter = lattice.paths()
     while not path_iter.done():
         word = ''
-        features = {}
+        feature_dict = {}
         for label in path_iter.olabels():
             if label == 0:
                 # epsilon, skip
@@ -308,19 +313,23 @@ def decode_fst_lattice(
             else:
                 feature_str = GENERATED_SYMBOLS.find(label)
                 feature, value = feature_str.split('=')
-                features[feature] = value
+                if value == 'unmarked':
+                    continue
+                feature_dict[feature] = value
         
         path_iter.next()
-        if unique_only and word in [w for w,_ in decoded_outputs]:
+        if unique_only and word in decoded_words and feature_dict in decoded_features:
             continue
         if to_feature_vectors:
-            features = vectorize_feature_dict(features)
-            decoded_outputs.append((word, *features))
+            feature_vecs = vectorize_feature_dict(feature_dict)
+            decoded_outputs.append((word, *feature_vecs))
         elif strings_only:
             decoded_outputs.append(word)
         else:
-            features['form']=word
-            decoded_outputs.append(features)
+            feature_dict[word_key]=word
+            decoded_outputs.append(feature_dict)
+        decoded_words.append(word)
+        decoded_features.append(feature_dict)
 
     return decoded_outputs
 
