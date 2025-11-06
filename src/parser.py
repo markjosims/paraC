@@ -22,6 +22,9 @@ from src.lexicon import get_gloss_for_root
 import os
 from typing import *
 
+__dir__ = os.path.dirname(os.path.abspath(__file__))
+_form_builders_dir = os.path.join(__dir__, 'form_builders')
+
 def get_verb_paradigms():
     verb_paradigms = []
     verb_paradigms.append(get_aux_paradigm())
@@ -33,7 +36,7 @@ def get_verb_paradigms():
 
     return verb_paradigms
 
-@fst_cache(os.path.dirname(__file__), num_fst=3)
+@fst_cache(_form_builders_dir, num_fst=3)
 def get_main_parser() -> Tuple[pynini.Fst, pynini.Fst, pynini.Fst]:
     all_paradigms = get_verb_paradigms()
     all_paradigms.append(get_noun_paradigm())

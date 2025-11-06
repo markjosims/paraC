@@ -1,4 +1,4 @@
-from src.form_builders.main_parser import get_main_parser, inflect_word, parse_word
+from src.parser import get_main_parser, inflect_word, parse_word
 from src.lexicon import *
 from src.constants import VERB_FEATURE_VALUES, LEXICAL_FEATURE_VALUES
 import pytest
