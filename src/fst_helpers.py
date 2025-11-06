@@ -211,7 +211,7 @@ def stringify_lexeme_features(
     if type(lexeme_features) is features.FeatureVector:
         lexeme_features = lexeme_features.values
     for feature in LEXEME.features:
-        feature_value = lexeme_features.values[feature.name]
+        feature_value = lexeme_features.get(feature.name, 'unmarked')
         if feature_value == 'unmarked':
             continue
         feature_str = f"{feature.name}={feature_value}"
