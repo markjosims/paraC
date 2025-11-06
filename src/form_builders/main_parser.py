@@ -33,7 +33,7 @@ def get_verb_paradigms():
 
     return verb_paradigms
 
-@fst_cache(os.path.dirname(__file__))
+@fst_cache(os.path.dirname(__file__), num_fst=3)
 def get_main_parser() -> Tuple[pynini.Fst, pynini.Fst, pynini.Fst]:
     all_paradigms = get_verb_paradigms()
     all_paradigms.append(get_noun_paradigm())
@@ -66,8 +66,8 @@ def get_main_parser() -> Tuple[pynini.Fst, pynini.Fst, pynini.Fst]:
 
     return main_lemmatizer, main_analyzer, main_inflector
 
-def inflect_word(root, features) -> str:
-    feature_vector, flag_vector = vectorize_feature_dict(features)
+def inflect_word(root, feature_dict) -> str:
+    feature_vector, flag_vector = vectorize_feature_dict(feature_dict)
     _, _, main_inflector = get_main_parser()
     input_fst = fst(root) + feature_vector.acceptor + flag_vector.acceptor
     output_fst = input_fst @ main_inflector
@@ -78,15 +78,15 @@ def parse_word(word) -> list[Dict[str, str]]:
     main_lemmatizer, main_analyzer, _ = get_main_parser()
     input_fst = fst(word)
     lemmatized_lattice = input_fst @ main_lemmatizer
-    parses = decode_fst_lattice(lemmatized_lattice)
+    parses = decode_fst_lattice(lemmatized_lattice, word_key='root')
 
     analyzed_lattice = input_fst @ main_analyzer
     analyses = decode_fst_lattice(analyzed_lattice)
     analyses = [analysis['form'] or analysis for analysis in analyses]
-    
-    for parse in parses:
-        parse['analyzed_form'] = analyses
+
+    for parse, analysis in zip(parses, analyses):
         pos = parse["part_of_speech"]
+        parse['analyzed_form'] = analysis
         if pos not in ['verb', 'noun', 'adjective']:
             pos = 'uninflected'
         gloss = get_gloss_for_root(parse['root'], pos)
