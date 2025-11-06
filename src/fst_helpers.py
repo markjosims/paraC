@@ -226,16 +226,21 @@ def vectorize_lexeme_string(lexeme_str: str) -> features.FeatureVector:
     Returns:
         lexeme_vector:  FeatureVector containing lexeme-specific features
     """
-    features = {}
+    feature_dict = {}
     for feature_str in lexeme_str.split():
         feature, value = feature_str.split('=')
-        features[feature] = value
-    features_strs = []
+        feature_dict[feature] = value
+    feature_strs = []
     for feature in LEXEME.features:
-        feature_value = features.get(feature.name, 'unmarked')
-        feature_str = f"[{feature.name}={feature_value}]"
-        features_strs.append(feature_str)
-    lexeme_vector = features.FeatureVector(LEXEME, *features_strs)
+        feature_value = feature_dict.get(feature.name, 'unmarked')
+        if feature_value == 'unmarked' and not specify_unmarked:
+            continue
+        elif feature == 'part_of_speech' and feature_value not in POS2CATEGORY:
+            # assume uninflected if invalid pos tag
+            feature_value = 'uninflected'
+        feature_str = f"{feature.name}={feature_value}"
+        feature_strs.append(feature_str)
+    lexeme_vector = features.FeatureVector(LEXEME, *feature_strs)
     return lexeme_vector
 
 def decode_fst_lattice(
