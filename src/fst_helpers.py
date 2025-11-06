@@ -158,7 +158,7 @@ def get_feature_fsa(feature_dict: Dict[str, str]) -> pynini.Fst:
 
 def vectorize_feature_dict(
         feature_dict: Dict[str, str],
-        specify_unmarked: bool = False,
+        specify_unmarked: bool = True,
 ) -> Tuple[features.FeatureVector, features.FeatureVector]:
     """
     Arguments:
@@ -219,7 +219,7 @@ def stringify_lexeme_features(
     feature_str = " ".join(feature_strs)
     return feature_str
 
-def vectorize_lexeme_string(lexeme_str: str) -> features.FeatureVector:
+def vectorize_lexeme_string(lexeme_str: str, specify_unmarked: bool = True) -> features.FeatureVector:
     """
     Arguments:
         lexeme_str:     String representation of lexeme-specific features
