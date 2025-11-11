@@ -714,7 +714,6 @@ def get_verb_paradigm_w_aux(
     verb_w_aux_slots = []
     if type(verb_paradigm) is str:
         verb_paradigm = get_verb_stem_paradigm(verb_paradigm, **paradigm_kwargs)
-    is_dstem = 'd-stem' in verb_paradigm.name
     for aux_rule, feature_vector in aux_paradigm.slots:
         new_feature_values = feature_vector.values.copy()
         # certain pronouns can trigger H-tone spreading from aux to ventive verbs
@@ -739,9 +738,9 @@ def get_verb_paradigm_w_aux(
             # set unmarked for subject, object, class to find verb slot
             # except for 1pl.incl, as this is marked on the verb with -ŕ
             # ignore for d-stems, which do not have suffixes
-            if features_to_match['subject'] != '1pl.incl' or is_dstem:
+            if features_to_match['subject'] != '1pl.incl':
                 features_to_match['subject']='unmarked'
-            if features_to_match['object'] != '1pl.incl' or is_dstem:
+            if features_to_match['object'] != '1pl.incl':
                 features_to_match['object']='unmarked'
             features_to_match['class']= 'unmarked'
             verb_slot = [slot for slot in verb_paradigm.slots if slot[1].values == features_to_match]
