@@ -37,7 +37,8 @@ def suffix(
     """
     Arguments:
         fst_input:  (Optional) string or list of strings to be accepted by the FST
-        stem:       (Optional) string or FST to be used as the stem
+        stem:       (Optional) string or FST to be used as the stem.
+                    If None, defaults to SIGMASTAR.
         weight:     (Optional) weight value for FST
     Returns:
         f:          FST suffixing the input string(s)
