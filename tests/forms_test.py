@@ -1,3 +1,4 @@
+import pynini
 import pytest
 from src.form_builders.form_helpers import build_wh_parser
 from src.fst_helpers import fst, get_lattice_strs
