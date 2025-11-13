@@ -204,14 +204,14 @@ VOWEL_COALESCENCE_RULE = VOWEL_COALESCENCE_RULE@REMOVE_DOUBLE_BOUNDARIES
 # special case: L>HL when L is the only tone in the word
 
 LEFT_H_MONOSYLL = pynini.cdrewrite(
-    tau=fst(LOW_TONE, FALL_TONE),
+    tau=fst(L, F),
     l='[BOS]'+pynini.closure(C)+V.ques,
     r=pynini.closure(C)+'[EOS]',
     sigma_star=SIGMASTAR,
 )
 
 LEFT_H_GENERIC = pynini.cdrewrite(
-    tau=fst(T, HIGH_TONE),
+    tau=fst(T-F, HIGH_TONE),
     l='[BOS]'+pynini.closure(C)+V.ques,
     r=fst(''),
     sigma_star=SIGMASTAR,
