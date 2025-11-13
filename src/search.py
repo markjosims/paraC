@@ -334,10 +334,8 @@ def search_for_hyphenated_form(
     query_fst = fst(unparsed_form)@INSERT_HYPHEN_RULE
     search_lattice = query_fst@lattice
     search_lattice.optimize()
-    nbest_hits = get_nbest_strs_and_weights(
+    nbest_hits = get_lattice_strs_and_weights(
         search_lattice,
-        n=num_hits,
-        return_input_strs=False,
-        use_byte_tokens=True,
+        nshortest=num_hits,
     )
     return nbest_hits

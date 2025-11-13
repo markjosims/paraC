@@ -242,7 +242,11 @@ def get_features_fsa(
     elif isinstance(features, dict):
         features = vectorize_feature_dict(features)
     lexeme_vector, lexical_flag_vector = features
-    fsa = lexeme_vector.acceptor + lexical_flag_vector.acceptor
+    if lexeme_vector is None:
+        # uninflected words have no feature tags
+        fsa = lexical_flag_vector.acceptor
+    else:
+        fsa = lexeme_vector.acceptor + lexical_flag_vector.acceptor
     return fsa
 
 def parse_lattice_outputs(

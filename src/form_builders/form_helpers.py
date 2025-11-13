@@ -91,6 +91,59 @@ def add_class_prefixes_to_slots(slot_list, include_ng:bool=False):
             slots_w_class_prefixes.append((prefixed_verb, features_with_class))
     return slots_w_class_prefixes
 
+def add_wh_suffix(stem: pynini.Fst, class_agree: str) -> pynini.Fst:
+    """
+    Arguments:
+        stem:           FST describing the stem to which the class prefix should be added
+        class_agree:    the noun class to which the prefix should agree
+    Returns:
+        An FST describing the stem with the appropriate WH suffix added.
+    """
+    suffix_acceptor = fst(f"-{class_agree}ɛ{HIGH_TONE}")
+    return (paradigms.suffix(suffix_acceptor, stem)@REMOVE_DOUBLE_BOUNDARIES).optimize()
+
+def add_wh_loc_suffix(stem: pynini.Fst) -> pynini.Fst:
+    """
+    Arguments:
+        stem:           FST describing the stem to which the locative WH suffix should be added
+    Returns:
+        An FST describing the stem with the locative WH suffix added.
+    """
+    suffix_acceptor = fst("-l")
+    return (paradigms.suffix(suffix_acceptor, stem)@REMOVE_DOUBLE_BOUNDARIES).optimize()
+
+
+def add_wh_suffixes_to_slots(slot_list):
+    """
+    Arguments:
+        slot_list:  A list of (stem, feature_vector) tuples
+    Returns:
+        A list of (stem_with_wh_suffix, feature_vector_with_class) tuples
+        for each slot in `slot_list` with a defined class agreement
+        appended to the original `slot_list`.
+    """
+    slots_w_wh_suffixes = []
+    for stem, feature_vector in slot_list:
+        category = feature_vector.category
+        class_feature_dict = feature_vector.values.copy()
+        class_agree = class_feature_dict['class']
+        if class_agree == 'unmarked':
+            continue
+
+        class_feature_dict['wh']='class'
+        feature_values = [f"{feature}={value}" for feature, value in class_feature_dict.items()]
+        class_wh_suffix = add_wh_suffix(stem, class_agree)
+        class_feature_vec = features.FeatureVector(category, *feature_values)
+        slots_w_wh_suffixes.append((class_wh_suffix, class_feature_vec))
+
+        loc_feature_dict = class_feature_dict.copy()
+        loc_feature_dict['wh']='locative'
+        feature_values = [f"{feature}={value}" for feature, value in loc_feature_dict.items()]
+        loc_feature_vec = features.FeatureVector(category, *feature_values)
+        loc_wh_suffix = add_wh_loc_suffix(stem)
+        slots_w_wh_suffixes.append((loc_wh_suffix, loc_feature_vec))
+    return slot_list+slots_w_wh_suffixes
+
 
 def generate_forms(
         stem: str,
@@ -120,28 +173,3 @@ def generate_forms(
             features_str = ', '.join(f"{k}={v}" for k, v in word_dict.items())
             print(f"{wordform}\t{features_str}")
     return word_dicts
-
-def build_wh_parser(parser_fst) -> pynini.Fst:
-    """
-    Arguments:
-        parser_fst:  An FST mapping from form strings to feature strings
-    Returns:
-        wh_parser_fst:  An FST mapping from form strings to feature strings
-                        with WH suffixes/features added
-    Constructs an FST based on `parser_fst` that adds appropriate WH suffixes
-    based on the noun class features in the input. Note that this function
-    does not handle setting the WH feature flag to 'true'; that should be done
-    separately.
-    """
-    inverse_parser_fst = pynini.invert(parser_fst)
-    wh_parsers = []
-
-    for class_prefix in CLASS_PREFIXES:
-        class_feature_fsa = SIGMASTAR+fst('class='+class_prefix)+SIGMASTAR
-        class_suffix = suffix(f"-{class_prefix}ɛ{HIGH_TONE}")
-
-        class_wh_fst = class_feature_fsa @ inverse_parser_fst @ class_suffix
-        class_wh_fst.invert()
-        wh_parsers.append(class_wh_fst)
-
-    return pynini.union(*wh_parsers).optimize()

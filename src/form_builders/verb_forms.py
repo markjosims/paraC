@@ -81,6 +81,7 @@ def build_imperfective_aux_forms() -> List[Tuple[pynini.Fst, features.FeatureVec
         features_list.append(f"subject={sbj}")
         features_list.append(f"object={obj}")
         features_list.append(f"class={cl}")
+        features_list.append("wh=unmarked")
         return features.FeatureVector(*features_list)
     
     # make non-pronominal slots
@@ -222,6 +223,7 @@ def build_itive_perfective_aux_forms() -> List[Tuple[pynini.Fst, features.Featur
         features_list.append(f"subject={sbj}")
         features_list.append(f"object={obj}")
         features_list.append(f"class={cl}")
+        features_list.append("wh=unmarked")
         return features.FeatureVector(*features_list)
     
     # make non-pronominal slots
@@ -366,6 +368,7 @@ def add_perfective_ventive_personal_markers(
         features_list.append(f"subject={sbj}")
         features_list.append(f"object={obj}")
         features_list.append(f"class={cl}")
+        features_list.append("wh=unmarked")
         return features.FeatureVector(*features_list)
 
     non_pronominal_slots = add_class_prefixes_to_slots([(form_fst, get_features())], include_ng=False)
@@ -431,11 +434,10 @@ def add_perfective_ventive_personal_markers(
         for obj_rule, obj_features_vec in object_suffixes:
             subject_feature = sbj_features_vec.values['subject']
             object_feature = obj_features_vec.values['object']
-            if subject_feature.startswith('1') and object_feature.startswith('1'):
-                # avoid duplicating 1st person markers
-                continue
-            if subject_feature.startswith('2') and object_feature.startswith('2'):
-                # avoid duplicating 2nd person markers
+            if subject_feature[0] == object_feature[0]:
+                # avoid duplicating person markers
+                # only valid combinations are 3sg/pl+3sg/pl,
+                # which were already handled
                 continue
             combined_features_vec = get_features(sbj=subject_feature, obj=object_feature)
             subject_object_slots.append((form_fst@sbj_rule@obj_rule, combined_features_vec))
@@ -546,6 +548,7 @@ def make_verb_slots(
     pfv_vent_form = paradigms.suffix(pfv_vent_suffix, pfv_vent_stem)
 
     pfv_vent_slots = add_perfective_ventive_personal_markers(pfv_vent_form)
+    pfv_vent_slots = add_wh_suffixes_to_slots(pfv_vent_slots)
     pfv_slots = [*pfv_vent_slots, *pfv_it_slots]
 
     ##############
@@ -685,6 +688,7 @@ def get_aux_paradigm() -> List[Tuple[pynini.Fst, features.FeatureVector]]:
     aux_slots = []
     aux_slots.extend(build_itive_perfective_aux_forms())
     aux_slots.extend(build_imperfective_aux_forms())
+    aux_slots = add_wh_suffixes_to_slots(aux_slots)
 
     # arbitarily set lemma to IPFV_AUX w/ g class
     lemma_features = IPFV_AUX.values.copy()
@@ -716,6 +720,10 @@ def get_verb_paradigm_w_aux(
         verb_paradigm = get_verb_stem_paradigm(verb_paradigm, **paradigm_kwargs)
     for aux_rule, feature_vector in aux_paradigm.slots:
         new_feature_values = feature_vector.values.copy()
+        # ignore forms where aux has wh=marked
+        if new_feature_values['wh'] != 'unmarked':
+            continue
+
         # certain pronouns can trigger H-tone spreading from aux to ventive verbs
         ventive_allows_hspread = (
             (new_feature_values['object'] in ['1du.incl', '1pl.incl', '1pl.excl', '2pl']) or

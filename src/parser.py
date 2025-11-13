@@ -14,18 +14,17 @@ from src.form_builders.verb_forms import (
     get_verb_paradigm_w_aux,
 )
 from src.form_builders.uninflected_forms import get_uninflected_word_fst
-from src.form_builders.form_helpers import build_wh_parser
 from src.fst_helpers import (
     fst, parse_lattice_outputs, get_features_fsa,
     vectorize_feature_dict, vectorize_lexeme_string, get_lattice_strs,
     stringify_lexeme_features,
 )
 from src.cache_decorators import fst_cache
-from src.lexicon import get_gloss_for_root
+from src.lexicon import get_gloss_for_root, get_verb_root_w_hyphen
 import os
 from typing import *
 
-from src.lexicon.phonology import SIGMASTAR
+from src.lexicon.phonology import SIGMASTAR_W_TAG
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 _form_builders_dir = os.path.join(__dir__, 'form_builders')
@@ -59,17 +58,6 @@ def get_main_parser() -> Tuple[pynini.Fst, pynini.Fst, pynini.Fst]:
         analyzers.append(paradigm.analyzer+output_lexical_flags)
         inflectors.append(paradigm.inflector+input_lexical_flags)
 
-        if lexical_flag_vector.values['part_of_speech'] == 'verb':
-            # create graphs for `wh=true`
-            wh_lemmatizer, wh_analyzer, wh_inflector = get_wh_parsers(
-                paradigm,
-                lexical_flag_vector
-            )
-
-            lemmatizers.append(wh_lemmatizer)
-            analyzers.append(wh_analyzer)
-            inflectors.append(wh_inflector)
-
     # uninflected words have a single FST rather than a Paradigm object
     uninflected_word_fst = get_uninflected_word_fst()
     lemmatizers.append(uninflected_word_fst)
@@ -85,23 +73,6 @@ def get_main_parser() -> Tuple[pynini.Fst, pynini.Fst, pynini.Fst]:
 
     return main_lemmatizer, main_analyzer, main_inflector
 
-def get_wh_parsers(paradigm, lexical_flag_vector):
-    """
-    Returns:
-        (wh_lemmatizer, wh_analyzer, wh_inflector): Tuple of FSTs.
-    Creates `wh=true` versions of the lemmatizer, analyzer and inflector
-    for the given paradigm.
-    """
-    wh_flags = lexical_flag_vector.values.copy()
-    wh_flags['wh'] = 'true'
-    wh_flag_str = stringify_lexeme_features(wh_flags)
-    wh_flag_vector = vectorize_lexeme_string(wh_flag_str)
-    output_wh_flags = pynutil.insert(wh_flag_vector.acceptor)
-
-    wh_lemmatizer = build_wh_parser(paradigm.lemmatizer)+output_wh_flags
-    wh_analyzer = build_wh_parser(paradigm.analyzer)+output_wh_flags
-    wh_inflector = pynini.invert(wh_lemmatizer)
-    return wh_lemmatizer,wh_analyzer,wh_inflector
 
 def inflect_word(root, feature_dict) -> List[Tuple[str, float]]:
     feature_vector, flag_vector = vectorize_feature_dict(feature_dict)
@@ -116,7 +87,10 @@ def parse_word(word) -> list[Dict[str, str]]:
     input_fst = fst(word)
     lemmatized_lattice = input_fst @ main_lemmatizer
     parses = parse_lattice_outputs(lemmatized_lattice, word_key='root')
-    parses = [{**parse, 'form': word} for parse in parses]
+    for parse in parses:
+        parse['form']=word
+        if parse['part_of_speech'] == 'verb':
+            parse['root'] = get_verb_root_w_hyphen(parse['root'])
     parses = add_analysis_and_gloss_to_parses(parses, input_fst=input_fst)
 
     return parses
@@ -130,7 +104,7 @@ def add_analysis_and_gloss_to_parses(parses, input_fst=None) -> list[Dict[str, s
             input_fst = fst(parse['form'])
         feature_dict = {k: v for k, v in parse.items() if k not in non_feature_keys}
         features_fsa = get_features_fsa(feature_dict)
-        analysis_lattice = input_fst @ main_analyzer @ (SIGMASTAR + features_fsa)
+        analysis_lattice = input_fst @ main_analyzer @ (SIGMASTAR_W_TAG + features_fsa)
         analyses = get_lattice_strs(analysis_lattice)
         assert len(analyses) == 1, f"Expected exactly one analysis, got {analyses}"
         parse['analyzed_form'] = analyses[0].split('[')[0]

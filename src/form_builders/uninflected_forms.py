@@ -21,7 +21,7 @@ def get_uninflected_word_fst() -> pynini.Fst:
         vectorize_lexeme_string(tag).acceptor for tag in pos_strs
     ]
     word_fsas = [fst(word) for word in words]
-    word_fsas_notag = [word@REMOVE_HOMOPHONE_TAG for word in word_fsas]
+    word_fsas_notag = [(word@REMOVE_HOMOPHONE_TAG).project('output') for word in word_fsas]
     word_fsts = [
         fst(word_fsa_notag, word_fsa+lexeme_flag_acceptor)
         for word_fsa, word_fsa_notag, lexeme_flag_acceptor
