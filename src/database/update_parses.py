@@ -3,7 +3,7 @@ For every sentence in the database, drop all associated parses and re-generate t
 Preserve parses that have been manually set by users.
 """
 
-from src.database.database import engine, SessionLocal, Base
+from src.database.init_database import engine, SessionLocal, Base
 from src.database.models import Sentence, Wordform, SentenceWord, Parse, Lexeme
 from src.database.ingest_elan import add_parses_for_word
 from sqlalchemy.orm import Session
@@ -22,7 +22,6 @@ def update_parses_for_sentence(db: Session, sentence: Sentence, chosen_parses: S
         for parse in existing_parses:
             if parse.id not in chosen_parses:
                 db.delete(parse)
-        db.flush()
 
         wordform = db.query(Wordform).filter(Wordform.id == sentence_word.wordform_id).first()
         if not wordform:
@@ -30,7 +29,6 @@ def update_parses_for_sentence(db: Session, sentence: Sentence, chosen_parses: S
             continue
 
         add_parses_for_word(db, wordform.text, wordform)
-    db.flush()
 
 def main():
     Base.metadata.create_all(bind=engine)

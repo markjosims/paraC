@@ -3,7 +3,7 @@ from src.lexicon import (
     get_all_noun_data, get_all_verb_data,
     get_all_adjective_data, get_uninflected_word_data
 )
-from src.database.database import engine, SessionLocal, Base
+from src.database.init_database import engine, SessionLocal, Base
 from tqdm import tqdm
 import pandas as pd
 from src.database.models import Lexeme
@@ -12,12 +12,14 @@ from sqlalchemy.orm import Session
 def ingest_verbs(df: pd.DataFrame, db: Session):
     num_rows = len(df)
     num_added = 0
+    num_existing = 0
     for i, row in tqdm(df.iterrows(), total=num_rows):
         existing_verb = db.query(Lexeme).filter(
             Lexeme.root == row['verb_root'],
             Lexeme.part_of_speech == 'verb',
         ).first()
         if existing_verb:
+            num_existing += 1
             continue
 
         new_lexeme = Lexeme(
@@ -28,7 +30,6 @@ def ingest_verbs(df: pd.DataFrame, db: Session):
         )
         db.add(new_lexeme)
         num_added += 1
-        db.flush()
     # special case: add TAMD aux
     existing_tamd = db.query(Lexeme).filter(
         Lexeme.root == 'ŋgá',
@@ -43,19 +44,22 @@ def ingest_verbs(df: pd.DataFrame, db: Session):
         )
         db.add(tamd_lexeme)
         num_added += 1
-        db.flush()
+    else:
+        num_existing += 1
     db.commit()
-    print(f"{num_added} verbs added successfully")
+    print(f"{num_added} verbs added successfully, {num_existing} verbs already present")
 
 def ingest_nouns(df: pd.DataFrame, db: Session):
     num_rows = len(df)
     num_added = 0
+    num_existing = 0
     for i, row in tqdm(df.iterrows(), total=num_rows):
         existing_noun = db.query(Lexeme).filter(
             Lexeme.root == row['lemma'],
             Lexeme.part_of_speech == 'noun',
         ).first()
         if existing_noun:
+            num_existing += 1
             continue
 
         noun_features = {abbr: row[abbr] for abbr in NOUN_FEATURE_ABBREVIATIONS if row[abbr]!=''}
@@ -67,19 +71,20 @@ def ingest_nouns(df: pd.DataFrame, db: Session):
         )
         db.add(new_lexeme)
         num_added += 1
-        db.flush()
     db.commit()
-    print(f"{num_added} nouns added successfully")
+    print(f"{num_added} nouns added successfully, {num_existing} nouns already present")
 
 def ingest_adjectives(df: pd.DataFrame, db: Session):
     num_rows = len(df)
     num_added = 0
+    num_existing = 0
     for i, row in tqdm(df.iterrows(), total=num_rows):
         existing_adj = db.query(Lexeme).filter(
             Lexeme.root == row['root'],
             Lexeme.part_of_speech == 'adjective',
         ).first()
         if existing_adj:
+            num_existing += 1
             continue
 
         new_lexeme = Lexeme(
@@ -90,19 +95,20 @@ def ingest_adjectives(df: pd.DataFrame, db: Session):
         )
         db.add(new_lexeme)
         num_added += 1
-        db.flush()
     db.commit()
-    print(f"{num_added} adjectives added successfully")
+    print(f"{num_added} adjectives added successfully, {num_existing} adjectives already present")
 
 def ingest_uninflected_words(df: pd.DataFrame, db: Session):
     num_rows = len(df)
     num_added = 0
+    num_existing = 0
     for i, row in tqdm(df.iterrows(), total=num_rows):
         existing_lexeme = db.query(Lexeme).filter(
             Lexeme.root == row['word'],
             Lexeme.part_of_speech == row['part_of_speech'],
         ).first()
         if existing_lexeme:
+            num_existing += 1
             continue
 
         new_lexeme = Lexeme(
@@ -113,9 +119,8 @@ def ingest_uninflected_words(df: pd.DataFrame, db: Session):
         )
         db.add(new_lexeme)
         num_added += 1
-        db.flush()
     db.commit()
-    print(f"{num_added} uninflected words added successfully")
+    print(f"{num_added} uninflected words added successfully, {num_existing} uninflected words already present")
 
 def main():
     Base.metadata.create_all(bind=engine)
