@@ -291,7 +291,7 @@ def search_uninflected_word(
 
 def search_word(
         form: str,
-        num_hits: int = 5,
+        num_hits: int = 10,
         edit_bound: int = 5,
     ) -> List[Tuple[Dict[str, Any], float]]:
     """
@@ -324,7 +324,7 @@ def search_word(
 def search_for_hyphenated_form(
         unparsed_form: str,
         lattice: pynini.Fst,
-        num_hits: int = 5,
+        num_hits: int = 10,
 ) -> str:
     """
     Arguments:
