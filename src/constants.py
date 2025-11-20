@@ -245,7 +245,7 @@ VERB_ROOT = features.FeatureVector(
     INFLECTED_VERB,
     *[f"{k}={v}" for k, v in VERB_ROOT_VALUES.items()]
 )
-VERB_FETURE_BUNDLES = [
+VERB_FEATURE_BUNDLES = [
     INFINITIVE,
     IPFV_IT,
     IPFV_VENT,
