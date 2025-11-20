@@ -403,10 +403,12 @@ POS_TAG = features.Feature(
 
 FV_TAG = features.Feature("fv", "unmarked", *FV_CLASSES)
 
-# binary features
+# ternary/binary features
 AUX_TAG = features.Feature("aux", "unmarked", "true", "false")
-FINAL_LOWERING_TAG = features.Feature("final_lowering", "unmarked", "true", "false")
-LEFTH_TAG = features.Feature("left_h", "unmarked", "true", "false")
+# aux is ternary since verb stems that are discontinuous with Aux
+# are marked as aux=false
+FINAL_LOWERING_TAG = features.Feature("final_lowering", "unmarked", "true")
+LEFTH_TAG = features.Feature("left_h", "unmarked", "true")
 
 LEXICAL_FEATURES = [
     POS_TAG, FV_TAG, AUX_TAG,
@@ -417,7 +419,20 @@ LEXICAL_FEATURE_VALUES = {
 }
 LEXEME = features.Category(*LEXICAL_FEATURES)
 
+################
+# all features #
+################
 
+FEATURES_TO_VALUES = {}
+for category in [INFLECTED_VERB, INFLECTED_AUX, NOUN, ADJECTIVE, LEXEME]:
+    for feature in category.features:
+        if feature.name not in FEATURES_TO_VALUES:
+            FEATURES_TO_VALUES[feature.name] = feature.values
+
+ALL_FEATURE_STRS = []
+for feature_name, feature_values in FEATURES_TO_VALUES.items():
+    for feature_value in feature_values:
+        ALL_FEATURE_STRS.append(f"{feature_name}={feature_value}")
 
 ################
 # symbol table #
@@ -458,20 +473,8 @@ DEFAULT_EDIT_BOUND = 5
 # paths #
 #########
 
-VERB_ROOTS_PATH = 'data/lexicon/verb_roots.csv'
-INFLECTED_VERBS_PATH = 'data/local/inflected_verb_forms.csv'
-GOLD_VERBS_PATH = 'data/test_cases/gold_verbs.csv'
-GOLD_PERSON_MARKING_PATH = 'data/test_cases/gold_person_marking.csv'
-GOLD_VERBS_DERIVED_PATH = 'data/test_cases/gold_verbs_derived.csv'
-GOLD_AUXS_PATH = 'data/test_cases/gold_auxs.csv'
-GOLD_PARADIGMS_PATH = 'data/test_cases/gold_paradigms.json'
-SENTENCES_PATH = 'data/sentences/sentences.csv'
-NOUNS_PATH = 'data/lexicon/nouns.csv'
-ADJECTIVES_PATH = 'data/lexicon/adjectives.csv'
-GOLD_NOUNS_PATH = 'data/test_cases/gold_nouns.csv'
-GOLD_ADJECTIVES_PATH = 'data/test_cases/gold_adjectives.csv'
-UNINFLECTED_WORDS_PATH = 'data/lexicon/uninflected_words.csv'
-GOLD_UNINFLECTED_WORDS_PATH = 'data/test_cases/gold_uninflected_words.csv'
+LEXICON_DIR = "data/lexicon/"
+TEST_CASE_DIR = "data/test_cases/"
 
 FST_DIR = "fst/"
 ROOT2GLOSS_FST_PATH = os.path.join(FST_DIR, "root2gloss.fst")

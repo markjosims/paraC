@@ -29,7 +29,13 @@ TONE_SLOT_OR_PLACEHOLDER = TONE_SLOT|TONE_PLACEHOLDER
 SIGMA = C|V|T|BOUNDARY|WORD_BOUNDARY|TONE_SLOT_OR_PLACEHOLDER|EOS
 SIGMA_EXCEPT_PLACEHOLDER = C|V|T|BOUNDARY
 SIGMASTAR = pynini.closure(SIGMA).optimize()
+FEATURE = fst(ALL_FEATURE_STRS).optimize()
+FEATURESTAR = pynini.closure(FEATURE).optimize()
+DIGIT = fst(list(string.digits))
+HOMOPHONE_TAG = fst("(")+DIGIT+fst(")")
+SIGMASTAR_W_TAG = fst([SIGMA, DIGIT, fst("("), fst(")")]).closure().optimize()
 SIGMASTAR_EXCEPT_PLACEHOLDER = pynini.closure(SIGMA_EXCEPT_PLACEHOLDER).optimize()
+SIGMASTAR_W_SYMBOLS = pynini.closure(FEATURE|SIGMASTAR_W_TAG).optimize()
 STEM = paradigms.make_byte_star_except_boundary(BOUNDARY)
 
 # ---------------------- #
@@ -204,15 +210,15 @@ VOWEL_COALESCENCE_RULE = VOWEL_COALESCENCE_RULE@REMOVE_DOUBLE_BOUNDARIES
 # special case: L>HL when L is the only tone in the word
 
 LEFT_H_MONOSYLL = pynini.cdrewrite(
-    tau=fst(LOW_TONE, FALL_TONE),
-    l='[BOS]'+pynini.closure(C)+V.ques,
-    r=pynini.closure(C)+'[EOS]',
+    tau=fst(L, F),
+    l='[BOS]'+pynini.closure(C|BOUNDARY)+V.ques+BOUNDARY.ques,
+    r=pynini.closure(C|BOUNDARY)+EOS.ques+'[EOS]',
     sigma_star=SIGMASTAR,
 )
 
 LEFT_H_GENERIC = pynini.cdrewrite(
-    tau=fst(T, HIGH_TONE),
-    l='[BOS]'+pynini.closure(C)+V.ques,
+    tau=fst(T-F, HIGH_TONE),
+    l='[BOS]'+pynini.closure(C|BOUNDARY)+V.ques+BOUNDARY.ques,
     r=fst(''),
     sigma_star=SIGMASTAR,
 )
@@ -223,8 +229,8 @@ LEFT_H_RULE = LEFT_H_MONOSYLL @ LEFT_H_GENERIC
 
 FINAL_LOWERING_MONOSYLL = pynini.cdrewrite(
     tau=fst(H, F),
-    l='[BOS]'+pynini.closure(C)+V.ques,
-    r=pynini.closure(C)+EOS,
+    l='[BOS]'+pynini.closure(C|BOUNDARY)+V.ques+BOUNDARY.ques,
+    r=pynini.closure(C|BOUNDARY)+EOS,
     sigma_star=SIGMASTAR,
 )
 
@@ -233,7 +239,7 @@ FINAL_LOWERING_MONOSYLL = pynini.cdrewrite(
 # where no L tones follow, and then apply left to right
 
 FINAL_LOWERING_RIGHT_CONTEXT = (
-        pynini.closure(SEGMENT)+(H+pynini.closure(SIGMA-L)).ques
+        pynini.closure(SEGMENT|BOUNDARY)+(H+pynini.closure(SIGMA-L)).ques
 )+EOS
 FINAL_LOWERING_GENERIC = pynini.cdrewrite(
     tau=fst(T-F, L),
@@ -243,65 +249,67 @@ FINAL_LOWERING_GENERIC = pynini.cdrewrite(
     direction='ltr',
 )
 
-FINAL_LOWERING_RULE = FINAL_LOWERING_MONOSYLL @ FINAL_LOWERING_GENERIC @ DELETE_EOS
+FINAL_LOWERING_RULE = FINAL_LOWERING_MONOSYLL @ FINAL_LOWERING_GENERIC
 
 # ---------- #
 # edit costs #
 # ---------- #
 
-REDUCED_EDIT_COST = 0.2
+REDUCED_EDIT_COST = 0.5
+MINOR_EDIT_COST = 0.05
 
 INSERTION_COSTS = [
-    ('ə', REDUCED_EDIT_COST),
+    ('ə', MINOR_EDIT_COST),
     (V, REDUCED_EDIT_COST),
-    (T, REDUCED_EDIT_COST),
+    (T, MINOR_EDIT_COST),
+    (WORD_BOUNDARY_STR, None),  # no cost for word boundary insertion
 ]
 DELETION_COSTS = [
-    ('ə', REDUCED_EDIT_COST),
+    ('ə', MINOR_EDIT_COST),
     (V, REDUCED_EDIT_COST),
-    (T, REDUCED_EDIT_COST),
+    (T, MINOR_EDIT_COST),
 ]
 SUBSTITUTION_COSTS = [
-    ('ə', V, REDUCED_EDIT_COST),      # underlying vowel reduced to schwa
-    ('ɛ', 'ə', REDUCED_EDIT_COST),    # underlying schwa fronted to /ɛ/
+    ('ə', V, MINOR_EDIT_COST),      # underlying vowel reduced to schwa
+    ('ɛ', 'ə', MINOR_EDIT_COST),    # underlying schwa fronted to /ɛ/
 
-    ('ɜ', 'ɛ', REDUCED_EDIT_COST),    # ɜ~ɛ interchange
-    ('ɛ', 'ɜ', REDUCED_EDIT_COST),
+    ('ɜ', 'ɛ', MINOR_EDIT_COST),    # ɜ~ɛ interchange
+    ('ɛ', 'ɜ', MINOR_EDIT_COST),
 
-    ('ɜ', 'a', REDUCED_EDIT_COST),    # ɜ~a interchange
-    ('a', 'ɜ', REDUCED_EDIT_COST),
+    ('ɜ', 'a', MINOR_EDIT_COST),    # ɜ~a interchange
+    ('a', 'ɜ', MINOR_EDIT_COST),
 
-    ('ɜ', 'ə', REDUCED_EDIT_COST),    # ɜ~ə interchange
-    ('ə', 'ɜ', REDUCED_EDIT_COST),
+    ('ɜ', 'ə', MINOR_EDIT_COST),    # ɜ~ə interchange
+    ('ə', 'ɜ', MINOR_EDIT_COST),
 
-    ('ɛ', 'e', REDUCED_EDIT_COST),    # ɛ~e interchange
-    ('e', 'ɛ', REDUCED_EDIT_COST),
+    ('ɛ', 'e', MINOR_EDIT_COST),    # ɛ~e interchange
+    ('e', 'ɛ', MINOR_EDIT_COST),
 
-    ('ɪ', 'e', REDUCED_EDIT_COST),    # ɪ~ɛ interchange
-    ('e', 'ɪ', REDUCED_EDIT_COST),
+    ('ɪ', 'e', MINOR_EDIT_COST),    # ɪ~ɛ interchange
+    ('e', 'ɪ', MINOR_EDIT_COST),
 
-    ('o', 'u', REDUCED_EDIT_COST),    # o~u interchange
-    ('u', 'o', REDUCED_EDIT_COST),
+    ('o', 'u', MINOR_EDIT_COST),    # o~u interchange
+    ('u', 'o', MINOR_EDIT_COST),
 
-    ('ɔ', 'o', REDUCED_EDIT_COST),    # o~ɔ interchange
-    ('o', 'ɔ', REDUCED_EDIT_COST),
+    ('ɔ', 'o', MINOR_EDIT_COST),    # o~ɔ interchange
+    ('o', 'ɔ', MINOR_EDIT_COST),
 
-    ('ʊ', 'o', REDUCED_EDIT_COST),    # o~ʊ interchange
-    ('o', 'ʊ', REDUCED_EDIT_COST),
+    ('ʊ', 'o', MINOR_EDIT_COST),    # o~ʊ interchange
+    ('o', 'ʊ', MINOR_EDIT_COST),
 
-    ('d', DENTAL_D, REDUCED_EDIT_COST),   # dental stop written as alveolar
-    ('t', DENTAL_T, REDUCED_EDIT_COST),
+    ('d', DENTAL_D, MINOR_EDIT_COST),   # dental stop written as alveolar
+    ('t', DENTAL_T, MINOR_EDIT_COST),
 
-    ('g', 'k', REDUCED_EDIT_COST),        # g~k interchange
-    ('k', 'g', REDUCED_EDIT_COST),
+    ('g', 'k', MINOR_EDIT_COST),        # g~k interchange
+    ('k', 'g', MINOR_EDIT_COST),
 
-    ('r', 'ɾ', REDUCED_EDIT_COST),        # tap written as trill
+    ('r', 'ɾ', MINOR_EDIT_COST),        # tap written as trill
 ]
 for intab_tone in TIRA_TONE_DIACS:
     for outtab_tone in TIRA_TONE_DIACS:
         if intab_tone == outtab_tone:
             continue
-        SUBSTITUTION_COSTS.append((intab_tone, outtab_tone, REDUCED_EDIT_COST))
+        SUBSTITUTION_COSTS.append((intab_tone, outtab_tone, MINOR_EDIT_COST))
 
 # ------------ #
 # search rules #
@@ -314,9 +322,6 @@ INSERT_HYPHEN_RULE = pynini.cdrewrite(
     sigma_star=SIGMASTAR,
 )
 INSERT_HYPHEN_RULE = INSERT_HYPHEN_RULE.optimize()
-DIGIT = fst(list(string.digits))
-HOMOPHONE_TAG = fst("(")+DIGIT+fst(")")
-SIGMASTAR_W_TAG = fst([SIGMA, DIGIT, fst("("), fst(")")]).closure().optimize()
 REMOVE_HOMOPHONE_TAG = pynini.cdrewrite(
     delete_fst(HOMOPHONE_TAG),
     fst(),

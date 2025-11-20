@@ -3,7 +3,7 @@ from pynini.lib import pynutil
 
 from typing import *
 from src.cache_decorators import fst_cache, output_cache
-from src.form_builders.adjective_forms import get_adjective_paradigm, parse_adjective
+from src.form_builders.adnominal_forms import get_adjective_paradigm, parse_adjective
 from src.form_builders.uninflected_forms import get_uninflected_word_fst, parse_uninflected_word
 from src.form_builders.verb_forms import (
     parse_inflected_verb, get_verb_stem_paradigm,
@@ -250,48 +250,10 @@ def _get_substitution_graph(
 # functions for performing search #
 # ------------------------------- #
 
-def search_verb_form(
-        verb_form: str,
-        num_hits: int = 5,
-        edit_bound: int = 5,
-        return_parse: bool = True,
-        expected_verb_type: Literal[
-            'stem', 'aux', 'stem_and_aux',
-            'derived_stem', 'derived_stem_and_aux',
-            'auto', 'd-stem',
-        ]='auto',
-    ) -> List[Tuple[Dict[str, Any], float]]:
-    raise DeprecationWarning("Function `search_verb_form` is deprecated. Use `search_word` instead.")
-
-
-def search_noun_form(
-        noun_form: str,
-        num_hits: int = 5,
-        edit_bound: int = 5,
-        return_parse: bool = True,
-    ) -> List[Tuple[Dict[str, Any], float]]:
-    raise DeprecationWarning("Function `search_noun_form` is deprecated. Use `search_word` instead.")
-
-def search_adjective_form(
-        adj_form: str,
-        num_hits: int = 5,
-        edit_bound: int = 5,
-        return_parse: bool = True,
-    ) -> List[Tuple[Dict[str, Any], float]]:
-    raise DeprecationWarning("Function `search_adjective_form` is deprecated. Use `search_word` instead.")
-
-def search_uninflected_word(
-        form: str,
-        num_hits: int = 5,
-        edit_bound: int = 5,
-        return_parse: bool = True,
-    ) -> List[Tuple[Dict[str, Any], float]]:
-    raise DeprecationWarning("Function `search_uninflected_word` is deprecated. Use `search_word` instead.")
-
-
+@output_cache(os.path.dirname(__file__))
 def search_word(
         form: str,
-        num_hits: int = 5,
+        num_hits: int = 10,
         edit_bound: int = 5,
     ) -> List[Tuple[Dict[str, Any], float]]:
     """
@@ -324,7 +286,7 @@ def search_word(
 def search_for_hyphenated_form(
         unparsed_form: str,
         lattice: pynini.Fst,
-        num_hits: int = 5,
+        num_hits: int = 10,
 ) -> str:
     """
     Arguments:
@@ -339,3 +301,24 @@ def search_for_hyphenated_form(
         nshortest=num_hits,
     )
     return nbest_hits
+
+def rewrite_sentence(
+        sentence: str,
+) -> str:
+    """
+    Arguments:
+        sentence:   str of space-separated words to rewrite
+    Returns:
+        rewritten_sentence:  str of space-separated rewritten words
+    """
+    words = sentence.split(' ')
+    rewritten_words = []
+    for word in words:
+        hits = search_word(word, num_hits=1)
+        if hits:
+            best_hit = hits[0]['form']
+            rewritten_words.append(best_hit)
+        else:
+            rewritten_words.append(word)
+    rewritten_sentence = ' '.join(rewritten_words)
+    return rewritten_sentence

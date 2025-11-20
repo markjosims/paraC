@@ -11,7 +11,7 @@ from src.lexicon.phonology import *
 from src.fst_helpers import *
 from src.lexicon import get_roots_for_class, get_all_verb_roots_and_fvs, get_gloss_for_verb
 from src.lexicon.phonology import REMOVE_HOMOPHONE_TAG
-from src.constants import INFLECTED_VERBS_PATH, INFLECTED_VERB, FV_CLASSES
+from src.constants import INFLECTED_VERB, FV_CLASSES
 from typing import *
 import random
 
@@ -419,7 +419,7 @@ def add_perfective_ventive_personal_markers(
     object_suffixes = [
         (suffix("-íŋì"), get_features(obj='1sg')),
         (suffix("-áŋà"), get_features(obj='2sg')),
-        (suffix("-ŋú"), get_features(obj='3sg')),
+        (suffix("-ŋ")+suffix('ú').ques, get_features(obj='3sg')),
         (suffix("-átɛ́"), get_features(obj='1du.incl')),
         (suffix("-átɛ́-ŕ"), get_features(obj='1pl.incl')),
         (suffix("-éɲárɛ́"), get_features(obj='1pl.excl')),
@@ -974,17 +974,3 @@ def parse_inflected_verb(
             parse['gloss'] = get_gloss_for_verb(root)
         parses.append(parse)
     return parses
-
-
-def main():
-    rows = []
-    for stem, fv_class in get_all_verb_roots_and_fvs():
-        if fv_class=='IRREG':
-            continue
-        wordforms = generate_forms(stem, get_verb_stem_paradigm(fv_class), action='return', parse=True)
-        rows.extend(wordforms)
-    df = pd.DataFrame(rows)
-    df.to_csv(INFLECTED_VERBS_PATH, index=False)
-
-if __name__ == '__main__':
-    main()

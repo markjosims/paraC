@@ -1,10 +1,10 @@
 from src.parser import get_main_parser, inflect_word, parse_word
 from src.lexicon import *
-from src.constants import VERB_FEATURE_VALUES, LEXICAL_FEATURE_VALUES
-from src.lexicon.phonology import LEFT_H_RULE
+from src.constants import EOS_STR, VERB_FEATURE_VALUES, LEXICAL_FEATURE_VALUES
+from src.lexicon.phonology import FINAL_LOWERING_RULE, LEFT_H_RULE, EOS
 from src.fst_helpers import get_lattice_strs, fst
 import pytest
-from tests.utils import get_different_items
+from tests.utils import filter_query_and_hits, get_different_items
 
 @pytest.mark.parametrize("gold_verb", get_gold_verbs())
 def test_verb_inflection_wh(gold_verb):
@@ -81,6 +81,92 @@ def test_verb_parsing(gold_verb):
         if any(k in parse for parse in predicted_parse)
     }
     assert gold_verb_filtered in predicted_parse
+
+@pytest.mark.parametrize("gold_verb", get_gold_verbs())
+def test_verb_parsing_final_lowering(gold_verb):
+    hyphenated_form = gold_verb['form']
+    orig_form = gold_verb['form'].replace('-', '')
+    fl_form = orig_form
+    if ' ' in fl_form:
+        aux, stem = fl_form.split(' ')
+        stem_w_fl = get_lattice_strs(
+            (fst(stem)+EOS) @ FINAL_LOWERING_RULE,
+            strip_eos=False,
+        )[0]
+        fl_form = aux + ' ' + stem_w_fl
+        gold_verb['aux']='true'
+    else:
+        fl_form = get_lattice_strs(
+            (fst(fl_form)+EOS) @ FINAL_LOWERING_RULE,
+            strip_eos=False,
+        )[0]
+        gold_verb['aux']='false'
+    gold_verb['analyzed_form']=hyphenated_form
+    gold_verb['form']=fl_form
+    gold_verb["part_of_speech"]='verb'
+    gold_verb['weight']=0.0
+    gold_verb['final_lowering']='true'
+
+    predicted_parse = parse_word(fl_form)
+    gold_verb_filtered, predicted_parse_filtered = filter_query_and_hits(gold_verb, predicted_parse)
+
+    if fl_form.removesuffix(EOS_STR) != orig_form:
+        assert gold_verb_filtered in predicted_parse_filtered
+    else:
+        assert gold_verb_filtered not in predicted_parse_filtered
+
+@pytest.mark.parametrize("gold_verb", get_gold_verbs())
+def test_verb_parsing_lefth_and_final_lowering(gold_verb):
+    hyphenated_form = gold_verb['form']
+    orig_form = gold_verb['form'].replace('-', '')
+    fl_form = orig_form
+    if ' ' in fl_form:
+        return
+    fl_form = get_lattice_strs(
+        (fst(fl_form)+EOS) @ FINAL_LOWERING_RULE @ LEFT_H_RULE,
+        strip_eos=False,
+    )[0]
+    gold_verb['aux']='false'
+    fl_form = fl_form
+    gold_verb['analyzed_form']=hyphenated_form
+    gold_verb['form']=fl_form
+    gold_verb["part_of_speech"]='verb'
+    gold_verb['weight']=0.0
+    gold_verb['final_lowering']='true'
+    gold_verb['left_h']='true'
+
+    predicted_parse = parse_word(fl_form)
+    gold_verb_filtered, predicted_parse_filtered = filter_query_and_hits(gold_verb, predicted_parse)
+
+    if fl_form != orig_form:
+        assert gold_verb_filtered in predicted_parse_filtered
+    else:
+        assert gold_verb_filtered not in predicted_parse_filtered
+
+@pytest.mark.parametrize("gold_verb", get_gold_verbs())
+def test_verb_parsing_lefth(gold_verb):
+    hyphenated_form = gold_verb['form']
+    orig_form = gold_verb['form'].replace('-', '')
+    lefth_form = orig_form
+    if ' ' in lefth_form:
+        return
+    lefth_form = get_lattice_strs(
+        (fst(lefth_form)) @ LEFT_H_RULE,
+    )[0]
+    gold_verb['aux']='false'
+    gold_verb['analyzed_form']=hyphenated_form
+    gold_verb['form']=lefth_form
+    gold_verb["part_of_speech"]='verb'
+    gold_verb['weight']=0.0
+    gold_verb['left_h']='true'
+
+    predicted_parse = parse_word(lefth_form)
+    gold_verb_filtered, predicted_parse_filtered = filter_query_and_hits(gold_verb, predicted_parse)
+
+    if lefth_form != orig_form:
+        assert gold_verb_filtered in predicted_parse_filtered
+    else:
+        assert gold_verb_filtered not in predicted_parse_filtered
 
 @pytest.mark.parametrize("gold_verb", get_gold_derived_verbs())
 def test_derived_verbs(gold_verb):

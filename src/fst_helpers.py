@@ -255,6 +255,7 @@ def parse_lattice_outputs(
         nshortest: Optional[int]=None,
         include_input_strs: bool=False,
         input_str_key: str='input_str',
+        strip_eos: bool = True,
     ) -> List[Dict[str, Any]]:
     """
     Arguments:
@@ -265,6 +266,8 @@ def parse_lattice_outputs(
         include_input_strs:  (Optional) bool indicating whether to include
                             input strings in output dicts (default False).
         input_str_key:       (Optional) key to use for input strings in output dicts
+        strip_eos:           (Optional) bool indicating whether to strip EOS symbol
+                            from output strings (default True).
     Returns:
         decoded_outputs:    List of decoded feature dicts from the lattice.
     Wraps `get_lattice_strs_and_weights` and converts output strings to feature dicts.
@@ -274,11 +277,13 @@ def parse_lattice_outputs(
             lattice,
             project_type='output',
             nshortest=nshortest,
+            strip_eos=strip_eos,
         )
     else:
         decoded_outputs = get_lattice_input_output_strs_and_weights(
             lattice,
             nshortest=nshortest,
+            strip_eos=strip_eos,
         )
     feature_dicts = []
     for output in decoded_outputs:
@@ -303,12 +308,15 @@ def parse_lattice_outputs(
 def vectorize_lattice_outputs(
         lattice: pynini.Fst,
         nshortest: Optional[int]=None,
+        strip_eos: bool = True,
     ) -> List[Tuple[str, features.FeatureVector, features.FeatureVector, float]]:
     """
     Arguments:
         lattice:    pynini.Fst with multiple output strings.
         nshortest:  (Optional) int indicating number of shortest paths to
                     consider before decoding (default None, i.e. all paths).
+        strip_eos:  (Optional) bool indicating whether to strip EOS symbol
+                    from output strings (default True).
     Returns:
         decoded_outputs:    List of tuples of the shape
                             `(decoded_string, lexeme_vector, lexical_flag_vector, weight)`.
@@ -318,6 +326,7 @@ def vectorize_lattice_outputs(
         lattice,
         word_key='form',
         nshortest=nshortest,
+        strip_eos=strip_eos,
     )
     output_tuples = []
     for output_dict in decoded_outputs:
@@ -334,6 +343,7 @@ def get_lattice_strs(
         lattice: pynini.Fst,
         project_type: Literal['input', 'output']='output',
         nshortest: Optional[int]=None,
+        strip_eos: bool = True,
     ) -> List[str]:
     """
     Arguments:
@@ -343,6 +353,8 @@ def get_lattice_strs(
                         (default True).
         nshortest:      (Optional) int indicating number of shortest paths to
                         consider before decoding (default None, i.e. all paths).
+        strip_eos:      (Optional) bool indicating whether to strip EOS symbol
+                        from output strings (default True).
     Returns:
         decoded_outputs:    List of decoded strings from the lattice.
 
@@ -354,6 +366,7 @@ def get_lattice_strs(
         lattice,
         project_type=project_type,
         nshortest=nshortest,
+        strip_eos=strip_eos,
     )
     return [output for output, _ in decoded_outputs]
 
@@ -362,6 +375,7 @@ def get_lattice_strs_and_weights(
         lattice: pynini.Fst,
         project_type: Literal['input', 'output']='output',
         nshortest: Optional[int]=None,
+        strip_eos: bool = True,
     ) -> List[
         Union[
             Dict[str,str],
@@ -379,6 +393,8 @@ def get_lattice_strs_and_weights(
                         (default True).
         nshortest:      (Optional) int indicating number of shortest paths to
                         consider before decoding (default None, i.e. all paths).
+        strip_eos:      (Optional) bool indicating whether to strip EOS symbol
+                        from output strings (default True).
     Returns:
         decoded_outputs:    List of decoded strings and feature dicts/vectors
                             from the lattice.
@@ -398,7 +414,7 @@ def get_lattice_strs_and_weights(
     path_iter = lattice.paths()
     while not path_iter.done():
         label_iter = path_iter.olabels()
-        word = extract_word_from_labels(label_iter)
+        word = extract_word_from_labels(label_iter, strip_eos=strip_eos)
         weight = float(path_iter.weight())
         if (word, weight) not in  decoded_outputs:
             decoded_outputs.append((word, weight))
@@ -407,7 +423,17 @@ def get_lattice_strs_and_weights(
     decoded_outputs.sort(key=lambda t:t[-1])
     return decoded_outputs
 
-def extract_word_from_labels(label_iter):
+def extract_word_from_labels(label_iter, strip_eos: bool = True) -> str:
+    """
+    Arguments:
+        label_iter:     An iterator over FST labels
+        strip_eos:      (Optional) bool indicating whether to strip EOS symbol
+                        from output strings (default True).
+    Returns:
+        word:           Decoded string from the labels
+
+    Decodes a string from the given `label_iter`. Used in `get_lattice_strs_and_weights`.
+    """
     word = ''
     for label in label_iter:
         if label == 0:
@@ -420,7 +446,8 @@ def extract_word_from_labels(label_iter):
         else:
             feature_str = '['+GENERATED_SYMBOL_TABLE.find(label)+']'
             word += feature_str
-        
+    if strip_eos:
+        word = word.replace(EOS_STR, '')
     return word
 
 def get_lattice_input_output_strs_and_weights(
@@ -456,7 +483,8 @@ def get_lattice_input_output_strs_and_weights(
         in_word = extract_word_from_labels(inlabel_iter)
         out_word = extract_word_from_labels(outlabel_iter)
         weight = float(path_iter.weight())
-        decoded_outputs.append((in_word, out_word, weight))
+        if (in_word, out_word, weight) not in  decoded_outputs:
+            decoded_outputs.append((in_word, out_word, weight))
         path_iter.next()
 
     decoded_outputs.sort(key=lambda t:t[-1])

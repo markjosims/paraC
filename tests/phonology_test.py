@@ -138,9 +138,9 @@ def test_locative_rounding(unround_str,round_str,do_round):
 
 @pytest.mark.parametrize("orig_str,lefth_str", [
     ("àpɾí", "ápɾí"),
-    ("ùnɛ́ɾɛ́", "únɛ́ɾɛ́"),
-    ("kávə̀lɛ̀ðɔ́", "kávə̀lɛ̀ðɔ́"),
-    ("pɔ̌", "pɔ́"),
+    ("ùnɛ́-ɾɛ́", "únɛ́-ɾɛ́"),
+    ("k-á-və̀lɛ̀ð-ɔ́", "k-á-və̀lɛ̀ð-ɔ́"),
+    ("p-ɔ̌", "p-ɔ́"),
 ])
 def test_lefth_rule(orig_str,lefth_str):
     lattice=rewrite.rewrite_lattice(fst(orig_str), LEFT_H_RULE)
@@ -150,18 +150,31 @@ def test_lefth_rule(orig_str,lefth_str):
 
 @pytest.mark.parametrize("orig_str,fl_str", [
     ("àpɾí", "àpɾì"),
-    ("ùnɛ́ɾɛ́", "ùnɛ̀ɾɛ̀"),
-    ("kávə̀lɛ̀ðɔ́", "kávə̀lɛ̀ðɔ̀"),
-    ("pɔ̌", "pɔ̀"),
-    ("pɛ́", "pɛ̂"),
+    ("ùnɛ́-ɾɛ́", "ùnɛ̀-ɾɛ̀"),
+    ("k-á-və̀lɛ̀ð-ɔ́", "k-á-və̀lɛ̀ð-ɔ̀"),
+    ("p-ɔ̌", "p-ɔ̀"),
+    ("p-ɛ́", "p-ɛ̂"),
 ])
 def test_final_lowering(orig_str,fl_str):
     lattice_nonfinal=rewrite.rewrite_lattice(fst(orig_str), FINAL_LOWERING_RULE)
-    strings_nonfinal = get_lattice_strs(lattice_nonfinal)
+    strings_nonfinal = get_lattice_strs(lattice_nonfinal, strip_eos=False)
     assert len(strings_nonfinal)==1
     assert strings_nonfinal[0]==orig_str
 
     lattice_final =rewrite.rewrite_lattice(fst(orig_str+EOS_STR), FINAL_LOWERING_RULE)
-    strings_final = get_lattice_strs(lattice_final)
+    strings_final = get_lattice_strs(lattice_final, strip_eos=False)
     assert len(strings_final)==1
-    assert strings_final[0]==fl_str
+    assert strings_final[0]==fl_str+EOS_STR
+
+@pytest.mark.parametrize("orig_str,expected_str", [
+    ("àpɾí", "ápɾì"),
+    ("ùnɛ́-ɾɛ́", "únɛ̀-ɾɛ̀"),
+    ("k-á-və̀lɛ̀ð-ɔ́", "k-á-və̀lɛ̀ð-ɔ̀"),
+    ("p-ɔ̌", "p-ɔ̂"),
+    ("p-ɛ́", "p-ɛ̂"),
+])
+def test_final_lowering_and_lefth(orig_str, expected_str):
+    lattice=rewrite.rewrite_lattice(fst(orig_str+EOS_STR), FINAL_LOWERING_RULE@LEFT_H_RULE)
+    strings = get_lattice_strs(lattice, strip_eos=False)
+    assert len(strings)==1
+    assert strings[0]==expected_str+EOS_STR
