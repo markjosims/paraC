@@ -1,5 +1,5 @@
 from typing import *
-from tira_elan_scraper import LIST_PATH
+from scripts.tira_elan_scraper import LIST_PATH
 import os
 import pandas as pd
 import string
