@@ -75,6 +75,11 @@ def get_hashable_args_str(args, kwargs):
         if type(value) is paradigms.Paradigm:
                 # Paradigm objects are not hashable, so use their name
             kwargs_for_key[key] = value.name
+        elif key.startswith('main_') and isinstance(value, pynini.Fst):
+            # only one main lemmatizer/analyzer/inflector is expected
+            # this can be ignored for caching purposes
+            kwargs_for_key.pop(key)
+            value = None
         try:
             hash(value)
         except TypeError:
