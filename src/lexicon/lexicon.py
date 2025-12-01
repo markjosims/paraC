@@ -93,7 +93,7 @@ def get_all_verb_data(
         return all_verbs_df
     return all_verbs_df.to_dict(orient='records')
 
-def get_verb_root_w_hyphen(root_no_hyphen: str, fv: Optional[str]=None) -> str:
+def get_verb_root_w_hyphen(root_no_hyphen: str, fv: Optional[str]=None) -> List[str]:
     """
     Arguments:
         root_no_hyphen: The verb root + extension suffixes without a hyphen.
@@ -101,7 +101,7 @@ def get_verb_root_w_hyphen(root_no_hyphen: str, fv: Optional[str]=None) -> str:
         The verb root with a hyphen before the extension suffixes.
     """
     if root_no_hyphen == AUX_LEMMA_STR:
-        return AUX_LEMMA_STR
+        return [AUX_LEMMA_STR]
     all_verbs_df = get_all_verb_data(return_type=pd.DataFrame)
     no_hyphen_series = all_verbs_df['verb_root'].str.replace('-', '')
     root_mask = no_hyphen_series==root_no_hyphen
@@ -112,7 +112,7 @@ def get_verb_root_w_hyphen(root_no_hyphen: str, fv: Optional[str]=None) -> str:
         raise LexemeNotFoundError(f"Root {root_no_hyphen} not found in verb lexicon.")
     #if root_mask.sum()>1:
     #    raise LexemeNotFoundError(f"Root {root_no_hyphen} found multiple times in verb lexicon.")
-    root_with_hyphen = all_verbs_df.loc[root_mask, 'verb_root'].item()
+    root_with_hyphen = all_verbs_df.loc[root_mask, 'verb_root'].tolist()
     return root_with_hyphen
 
 def get_gloss_for_verb(verb_root: str) -> str:
