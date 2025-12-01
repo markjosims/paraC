@@ -2,7 +2,7 @@ import pynini
 from pynini.lib import pynutil
 
 from typing import *
-from src.cache_decorators import fst_cache, output_cache, Timer
+from src.cache_decorators import fst_cache, output_cache
 from src.form_builders.adnominal_forms import get_adjective_paradigm, parse_adjective
 from src.form_builders.uninflected_forms import get_uninflected_word_fst, parse_uninflected_word
 from src.form_builders.verb_forms import (
@@ -271,31 +271,27 @@ def search_word(
     """
 
     left_factor, searchable_lexicon = get_searchable_main_parser(bound=edit_bound)
-    with Timer("Left lattice composition"):
-        query_fst = fst(form)@left_factor
-        query_fst.optimize()
-    with Timer("Right lattice composition"):
-        search_lattice = query_fst@searchable_lexicon
-        search_lattice.project('output')
-        search_lattice.optimize()
-    with Timer("Getting n-best hits"):
-        hits = get_lattice_strs_and_weights(
-            search_lattice,
-            nshortest=num_hits,
-        )
+    query_fst = fst(form)@left_factor
+    query_fst.optimize()
+    search_lattice = query_fst@searchable_lexicon
+    search_lattice.project('output')
+    search_lattice.optimize()
+    hits = get_lattice_strs_and_weights(
+        search_lattice,
+        nshortest=num_hits,
+    )
 
     if main_lemmatizer is None or main_analyzer is None:
         main_lemmatizer, main_analyzer, _ = get_main_parser()
     parses = []
     for hit_str, weight in hits:
-        with Timer("Parsing hit"):
-            for parse in parse_word(
-                hit_str,
-                main_lemmatizer,
-                main_analyzer
-            ):
-                parse['weight']=weight
-                parses.append(parse)
+        for parse in parse_word(
+            hit_str,
+            main_lemmatizer,
+            main_analyzer
+        ):
+            parse['weight']=weight
+            parses.append(parse)
     return parses
 
 def search_for_hyphenated_form(
