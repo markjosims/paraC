@@ -22,7 +22,6 @@ Tone Spreading and Final Lowering).
 """
 
 from pynini.lib import features
-from itertools import product
 
 """
 ## Class prefixes
@@ -383,10 +382,52 @@ NOUN_FEATURE_ABBREVIATIONS = list(NOUN_FEATURE_ABBREVIATION_TO_VECTOR.keys())
 
 """
 ## Inalienable noun
-TODO. See Rose (2025, DOI: 10.18716/OMP.38.C131) for more information on inalienably possessed nouns.
+While possession in Tira is typically conveyed with a possessive pronoun
+(see Pronouns below), a subset of nouns in Tira are *inalienably possessed*.
+This means that they cannot occur without a possessive *suffix* indicating
+the possessor. These suffixes are particular to inalienably possessed nouns.
+
+1sg/1excl   -ɛ́j/áj
+2sg/2pl     -àló
+3sg/3pl     -ɛ́n
+1du         -ɜ̀lí
+1incl       -ɜ̀lír
+
+Inalienably possessed are generally kinship terms, e.g. ðɛt̪- 'father'
+and íd̪ɛ́r- 'maternal uncle/aunt'.
+
 """
 
-INALIENABLE_NOUN = ...
+POSSESSOR_PERSON = features.Feature(
+    "possessor",
+    "unmarked",
+    *PERSON_AND_NUMBER_VALUES
+)
+INALIENABLE_NOUN = features.Category(
+    NOUN_CASE,
+    NOUN_NUMBER,
+    POSSESSOR_PERSON,
+)
+
+NOMSG_INALIENABLE = features.FeatureVector(NOUN, "case=nominative", "number=singular")
+NOMPL_INALIENABLE = features.FeatureVector(NOUN, "case=nominative", "number=plural")
+
+ACCSG_INALIENABLE = features.FeatureVector(NOUN, "case=accusative", "number=singular")
+ACCPL_INALIENABLE = features.FeatureVector(NOUN, "case=accusative", "number=plural")
+
+INALIENABLE_NOUN_ROOT = features.FeatureVector(
+    NOUN,
+    "case=unmarked",
+    "number=unmarked",
+    "possessor=unmarked"
+)
+INALIENABLE_NOUN_FEATURE_ABBREVIATION_TO_VECTOR = {
+    "nom.sg": NOMSG_INALIENABLE,
+    "nom.pl": NOMPL_INALIENABLE,
+    "acc.sg": ACCSG_INALIENABLE,
+    "acc.pl": ACCPL_INALIENABLE,
+}
+INALIENABLE_NOUN_FEATURE_ABBREVIATIONS = list(INALIENABLE_NOUN_FEATURE_ABBREVIATION_TO_VECTOR.keys())
 
 """
 ## Adjective features
