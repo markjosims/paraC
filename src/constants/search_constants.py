@@ -1,0 +1,6 @@
+from pynini.lib import edit_transducer
+
+DEFAULT_INSERT_COST = edit_transducer.DEFAULT_INSERT_COST
+DEFAULT_SUBSTITUTE_COST = edit_transducer.DEFAULT_SUBSTITUTE_COST
+DEFAULT_DELETE_COST = edit_transducer.DEFAULT_DELETE_COST
+DEFAULT_EDIT_BOUND = 5

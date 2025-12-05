@@ -5,14 +5,45 @@ import pynini
 import hashlib
 import pickle
 from functools import wraps
-from time import time
+from time import time, perf_counter
 from typing import Any
-
+import contextlib
+import logging
 # cache stacks
 FST_CACHE = []
 OUTPUT_CACHE = []
 CACHE_LIMIT = os.environ.get("TIRA_PARSER_CACHE_LIMIT", 100)
 PRINT_CACHE_STATS = os.environ.get("TIRA_PARSER_PRINT_CACHE_STATS", None) == "1"
+
+logging.basicConfig(level=logging.INFO, format='[TIMER] %(message)s')
+logger = logging.getLogger(__name__)
+logging.disable(logging.CRITICAL)
+
+@contextlib.contextmanager
+def Timer(operation_name: str):
+    """
+    A context manager to time a block of code and log the duration.
+    
+    Usage:
+        with Timer("FST Composition"):
+            result = k2.compose(fsa_a, fsa_b)
+    """
+    start_time = perf_counter()
+    
+    # Print the start message immediately
+    logger.info(f"START: {operation_name}...")
+    
+    # 'yield' passes control back to the 'with' block's body
+    try:
+        yield
+        
+    finally:
+        # This code runs after the 'with' block finishes, even if an error occurred.
+        end_time = perf_counter()
+        duration = end_time - start_time
+        
+        # Log the result, formatted to 4 decimal places
+        logger.info(f"END:   {operation_name} finished in {duration:.4f} seconds.")
 
 def get_hashable_args_str(args, kwargs):
     """
@@ -44,6 +75,11 @@ def get_hashable_args_str(args, kwargs):
         if type(value) is paradigms.Paradigm:
                 # Paradigm objects are not hashable, so use their name
             kwargs_for_key[key] = value.name
+        elif key.startswith('main_') and isinstance(value, pynini.Fst):
+            # only one main lemmatizer/analyzer/inflector is expected
+            # this can be ignored for caching purposes
+            kwargs_for_key.pop(key)
+            value = None
         try:
             hash(value)
         except TypeError:

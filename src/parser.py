@@ -19,7 +19,7 @@ from src.fst_helpers import (
     vectorize_feature_dict, vectorize_lexeme_string, get_lattice_strs,
     stringify_lexeme_features,
 )
-from src.cache_decorators import fst_cache
+from src.cache_decorators import fst_cache, Timer
 from src.lexicon import get_gloss_for_root, get_verb_root_w_hyphen
 import os
 from typing import *
@@ -168,21 +168,59 @@ def inflect_word(root, feature_dict) -> List[Tuple[str, float]]:
     inflected_strs = get_lattice_strs(output_fst)
     return inflected_strs
 
-def parse_word(word) -> list[Dict[str, str]]:
-    main_lemmatizer, _, _ = get_main_parser()
+def parse_word(
+        word: str,
+        main_lemmatizer: pynini.Fst = None,
+        main_analyzer: pynini.Fst = None
+    ) -> list[Dict[str, str]]:
+    if main_lemmatizer is None or main_analyzer is None:
+        main_lemmatizer, main_analyzer, _ = get_main_parser()
     input_fst = fst(word)
     lemmatized_lattice = input_fst @ main_lemmatizer
     parses = parse_lattice_outputs(lemmatized_lattice, word_key='root')
-    for parse in parses:
+    for parse in parses[:]:
         parse['form']=word
         if parse['part_of_speech'] == 'verb':
-            parse['root'] = get_verb_root_w_hyphen(parse['root'], parse['fv'])
-    parses = add_analysis_and_gloss_to_parses(parses, input_fst=input_fst)
+            verb_root = get_verb_root_w_hyphen(parse['root'], parse['fv'])
+            parse['root'] = verb_root[0]
+            if len(verb_root) > 1:
+                for root in verb_root[1:]:
+                    new_parse = parse.copy()
+                    new_parse['root'] = root
+                    parses.append(new_parse)
 
+    parses = add_analysis_and_gloss_to_parses(
+        parses,
+        input_fst=input_fst,
+        main_analyzer=main_analyzer
+    )
     return parses
 
-def add_analysis_and_gloss_to_parses(parses, input_fst=None) -> list[Dict[str, str]]:
-    _, main_analyzer, _ = get_main_parser()
+def parse_is_root(parse: Dict[str, str]) -> bool:
+    """
+    Determines whether a given parse corresponds to a root form
+    (i.e. form with no features marked).
+    Arguments:
+        parse: A dictionary representing a parse.
+    Returns:
+        True if the parse corresponds to a root form, False otherwise.
+    """
+    if parse['part_of_speech'] == 'noun':
+        return parse['case'] == 'unmarked'
+    if parse['part_of_speech'] == 'verb':
+        return parse['tam'] == 'unmarked'
+    if parse['part_of_speech'] == 'adjective':
+        return parse['class'] == 'unmarked'
+    return False
+
+
+def add_analysis_and_gloss_to_parses(
+        parses,
+        input_fst=None,
+        main_analyzer=None
+    ) -> list[Dict[str, str]]:
+    if main_analyzer is None:
+        _, main_analyzer, _ = get_main_parser()
     new_parses = []
 
     non_feature_keys = ['root', 'weight']

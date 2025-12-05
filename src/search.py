@@ -20,7 +20,7 @@ from src.lexicon.phonology import (
     SIGMA, INSERTION_COSTS, DELETION_COSTS, SUBSTITUTION_COSTS,
     INSERT_HYPHEN_RULE
 )
-from src.parser import get_main_parser, add_analysis_and_gloss_to_parses, parse_word
+from src.parser import get_main_parser, add_analysis_and_gloss_to_parses, parse_is_root, parse_word
 
 # ----------------------------------- #
 # functions for building search graph #
@@ -43,6 +43,7 @@ def get_searchable_lexicon(
         lexicon = fst(lexicon)
     left_factor, right_factor = get_edit_factors(**edit_factor_kwargs)
     searchable_lexicon = right_factor@lexicon
+    searchable_lexicon.optimize()
     return left_factor, searchable_lexicon
 
 @fst_cache(os.path.dirname(__file__), num_fst=2)
@@ -59,6 +60,7 @@ def get_searchable_main_parser(**edit_factor_kwargs) -> Tuple[pynini.Fst, pynini
     left_factor, right_factor = get_edit_factors(**edit_factor_kwargs)
     lexicon = pynini.project(main_lemmatizer, 'input')
     searchable_lexicon = right_factor@lexicon
+    searchable_lexicon.optimize()
     return left_factor, searchable_lexicon
 
 @output_cache(__file__)
@@ -255,6 +257,8 @@ def search_word(
         form: str,
         num_hits: int = 10,
         edit_bound: int = 5,
+        main_lemmatizer: Optional[pynini.Fst]=None,
+        main_analyzer: Optional[pynini.Fst]=None,
     ) -> List[Tuple[Dict[str, Any], float]]:
     """
     Returns fuzzy search hits for a queried word form across all parts of speech.
@@ -276,11 +280,20 @@ def search_word(
         search_lattice,
         nshortest=num_hits,
     )
+
+    if main_lemmatizer is None or main_analyzer is None:
+        main_lemmatizer, main_analyzer, _ = get_main_parser()
     parses = []
     for hit_str, weight in hits:
-        for parse in parse_word(hit_str):
-            parse['weight']=weight
-            parses.append(parse)
+        for parse in parse_word(
+            hit_str,
+            main_lemmatizer,
+            main_analyzer
+        ):
+            if not parse_is_root(parse):
+                # skip zero-feature parses
+                parse['weight']=weight
+                parses.append(parse)
     return parses
 
 def search_for_hyphenated_form(
@@ -304,6 +317,8 @@ def search_for_hyphenated_form(
 
 def rewrite_sentence(
         sentence: str,
+        main_lemmatizer: Optional[pynini.Fst]=None,
+        main_analyzer: Optional[pynini.Fst]=None,
 ) -> str:
     """
     Arguments:
@@ -311,10 +326,14 @@ def rewrite_sentence(
     Returns:
         rewritten_sentence:  str of space-separated rewritten words
     """
+    if main_lemmatizer is None or main_analyzer is None:
+        main_lemmatizer, main_analyzer, _ = get_main_parser()
+
+
     words = sentence.split(' ')
     rewritten_words = []
     for word in words:
-        hits = search_word(word, num_hits=1)
+        hits = search_word(word, num_hits=1, main_lemmatizer=main_lemmatizer, main_analyzer=main_analyzer)
         if hits:
             best_hit = hits[0]['form']
             rewritten_words.append(best_hit)
