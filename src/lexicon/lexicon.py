@@ -403,6 +403,11 @@ def get_gloss_for_root(
     Returns:
         The gloss for the given root and part of speech.
     """
+    if root == AUX_LEMMA_STR:
+        if return_pos:
+            return [('aux', 'aux')]
+        return ['aux']
+
     all_lexical_data = get_all_lexical_data(return_type='dataframe')
     root_mask = all_lexical_data['root']==root
     if part_of_speech == 'uninflected':
@@ -453,6 +458,10 @@ def get_root_for_gloss(
     Returns:
         The root for the given gloss and part of speech.
     """
+    if gloss == 'aux':
+        if return_pos:
+            return [(AUX_LEMMA_STR, 'aux')]
+        return [AUX_LEMMA_STR]
     all_lexical_data = get_all_lexical_data(return_type='dataframe')
     gloss_mask = all_lexical_data['gloss']==gloss
     if part_of_speech == 'uninflected':

@@ -13,7 +13,6 @@ from src.lexicon import get_roots_for_class
 from src.lexicon.phonology import REMOVE_HOMOPHONE_TAG
 from src.constants import INFLECTED_VERB, FV_CLASSES
 from typing import *
-import random
 
 # FV mappings
 
@@ -697,7 +696,7 @@ def get_aux_paradigm() -> List[Tuple[pynini.Fst, features.FeatureVector]]:
     aux_lemma = features.FeatureVector(INFLECTED_AUX, *lemma_feature_strs)
 
     paradigm_name = stringify_lexeme_features(
-        {"part_of_speech": 'verb', 'aux': 'true'}
+        {"part_of_speech": 'aux'}
     )
     aux_paradigm = paradigms.Paradigm(
         category=INFLECTED_AUX,

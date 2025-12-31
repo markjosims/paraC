@@ -242,8 +242,7 @@ def test_uninflected_forms(gold_word):
 @pytest.mark.parametrize("gold_aux", get_gold_auxs())
 def test_gold_auxs(gold_aux):
     form = gold_aux.pop('form').replace('-', '')
-    gold_aux['part_of_speech']='verb'
-    gold_aux['aux']='true'
+    gold_aux['part_of_speech']='aux'
 
     aux_filtered = {
         k: v for k,v in gold_aux.items()
