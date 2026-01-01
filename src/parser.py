@@ -209,9 +209,9 @@ def inflect_word(
         fv_list = get_class_for_verb_root(root)
         inflected_forms = []
         for fv in fv_list:
-            feature_kwargs['fv'] = fv
             inflected_forms.extend(inflect_word(
                 root=root,
+                fv=fv,
                 **feature_kwargs
             ))
         return list(set(inflected_forms))  # remove duplicates
