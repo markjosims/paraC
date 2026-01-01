@@ -18,7 +18,7 @@ def test_verb_inflection_wh(gold_verb):
     gold_verb["part_of_speech"]='verb'
     gold_verb['wh']='class'
 
-    gold_verb['aux']= 'false'
+    gold_verb['aux']= 'unmarked'
     form+=f"{agree_class}ɛ́" 
 
     gold_verb_filtered = {
@@ -38,7 +38,7 @@ def test_verb_inflection_loc(gold_verb):
     if ' ' in form or gold_verb['class']=='unmarked':
         return
     form+="l" 
-    gold_verb['aux']= 'false'
+    gold_verb['aux']= 'unmarked'
 
     gold_verb_filtered = {
         k: v for k,v in gold_verb.items()
@@ -100,7 +100,7 @@ def test_verb_parsing_final_lowering(gold_verb):
             (fst(fl_form)+EOS) @ FINAL_LOWERING_RULE,
             strip_eos=False,
         )[0]
-        gold_verb['aux']='false'
+        gold_verb['aux']='unmarked'
     gold_verb['analyzed_form']=hyphenated_form
     gold_verb['form']=fl_form
     gold_verb["part_of_speech"]='verb'
@@ -126,7 +126,7 @@ def test_verb_parsing_lefth_and_final_lowering(gold_verb):
         (fst(fl_form)+EOS) @ FINAL_LOWERING_RULE @ LEFT_H_RULE,
         strip_eos=False,
     )[0]
-    gold_verb['aux']='false'
+    gold_verb['aux']='unmarked'
     fl_form = fl_form
     gold_verb['analyzed_form']=hyphenated_form
     gold_verb['form']=fl_form
@@ -153,7 +153,7 @@ def test_verb_parsing_lefth(gold_verb):
     lefth_form = get_lattice_strs(
         (fst(lefth_form)) @ LEFT_H_RULE,
     )[0]
-    gold_verb['aux']='false'
+    gold_verb['aux']='unmarked'
     gold_verb['analyzed_form']=hyphenated_form
     gold_verb['form']=lefth_form
     gold_verb["part_of_speech"]='verb'
