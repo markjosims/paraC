@@ -4,7 +4,10 @@ from src.lexicon import get_gloss_for_root, get_root_for_gloss
 from src.fst_helpers import get_gloss_str_from_dict
 from functools import wraps
 
+import os
 import fire
+
+verbose=os.env.get('verbose', False)
 
 def parse_printer(func):
     @wraps(func)
