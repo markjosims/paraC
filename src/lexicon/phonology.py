@@ -262,7 +262,7 @@ INSERTION_COSTS = [
     ('ə', MINOR_EDIT_COST),
     (V, REDUCED_EDIT_COST),
     (T, MINOR_EDIT_COST),
-    (WORD_BOUNDARY_STR, None),  # no cost for word boundary insertion
+    (WORD_BOUNDARY_STR, REDUCED_EDIT_COST),
 ]
 DELETION_COSTS = [
     ('ə', MINOR_EDIT_COST),
