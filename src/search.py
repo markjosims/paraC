@@ -7,7 +7,7 @@ from src.fst_helpers import *
 from src.constants import (
     INSERT, DELETE, SUBSTITUTE,
     DEFAULT_INSERT_COST, DEFAULT_DELETE_COST, DEFAULT_SUBSTITUTE_COST,
-    DEFAULT_EDIT_BOUND, FV_CLASSES,
+    DEFAULT_EDIT_BOUND, FV_CLASSES, EOS_STR,
 )
 from src.lexicon.phonology import (
     SIGMA, INSERTION_COSTS, DELETION_COSTS, SUBSTITUTION_COSTS,
@@ -17,6 +17,7 @@ from src.parser import get_main_parser, add_analysis_and_gloss_to_parses, parse_
 from argparse import ArgumentParser
 import os
 import yaml
+from tqdm import tqdm
 
 # ----------------------------------- #
 # functions for building search graph #
@@ -340,6 +341,7 @@ def rewrite_sentence(
 
 def get_annotation_markup_for_sentence(
         sentence: str,
+        translation: Optional[str] = None,
         num_hits: int = 10,
         main_lemmatizer: Optional[pynini.Fst]=None,
         main_analyzer: Optional[pynini.Fst]=None,
@@ -370,7 +372,8 @@ def get_annotation_markup_for_sentence(
     }
 
     Arguments:
-        sentence:   str of space-separated words to search and annotate
+        sentence: str of space-separated words to search and annotate
+        translation: optional str of translated sentence
         num_hits:  int, number of hits to return per word
         main_lemmatizer: FST of main lemmatizer
         main_analyzer: FST of main analyzer
@@ -378,8 +381,9 @@ def get_annotation_markup_for_sentence(
         annotated_parses:  list of dicts representing annotated parses for each word
     """
     markup_dict = {
-        'sentence': sentence,
-        'words': []
+        'sentence': sentence.removesuffix(EOS_STR),
+        'translation': translation,
+        'checked_by_pi': False,
     }
 
     if main_lemmatizer is None or main_analyzer is None:
@@ -389,10 +393,12 @@ def get_annotation_markup_for_sentence(
     parsed_words = []
     for word in words:
         word_obj = {
-            'original_str': word,
+            'original_str': word.removesuffix(EOS_STR),
             'updated_str': '',
             'updated_gloss': '',
-            'parses': []
+            'chosen_parse': None,
+            'comment': '',
+            'parses': {},
         }
         hits = search_word(
             word,
@@ -400,18 +406,19 @@ def get_annotation_markup_for_sentence(
             main_analyzer=main_analyzer,
             num_hits=num_hits,
         )
-        for hit in hits:
+        for i, hit in enumerate(hits):
             gloss_str = get_gloss_str_from_dict(hit)
             predicted_form = hit['form']
             predicted_form_segmented = hit['analyzed_form']
             weight = hit['weight']
-            word_obj['parses'].append((
+            word_obj['parses'][i]=[
                 predicted_form,
                 predicted_form_segmented,
                 gloss_str,
-                weight
-            ))
+                round(weight, 2),
+            ]
         parsed_words.append(word_obj)
+    markup_dict['words'] = parsed_words
 
     return markup_dict
 
@@ -430,16 +437,19 @@ if __name__ == '__main__':
         args.output = os.path.splitext(args.input)[0]+'.yaml'
 
     with open(args.input, 'r', encoding='utf-8') as infile:
-        sentences = infile.readlines()
+        lines = infile.readlines()
 
     main_lemmatizer, main_analyzer, _ = get_main_parser()
     all_markup = []
-    for sentence in sentences:
+    for line in tqdm(lines):
+        sentence, translation = line.strip().split(',')
         sentence = sentence.strip()
+        sentence += EOS_STR
         if not sentence:
             continue
         markup = get_annotation_markup_for_sentence(
             sentence,
+            translation,
             num_hits=int(args.num_hits),
             main_lemmatizer=main_lemmatizer,
             main_analyzer=main_analyzer,
