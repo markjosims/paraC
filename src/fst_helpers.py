@@ -243,24 +243,39 @@ def vectorize_lexeme_string(lexeme_str: str, specify_unmarked: bool = True) -> f
 def get_gloss_str_from_dict(
         analysis: Dict[str, str],
         verbose: bool = False,
+        include_form: bool = False,
 ) -> str:
     analysis_subset = analysis.copy()
     gloss = analysis_subset.pop('gloss')
 
-    ignored_keys = ['root', 'part_of_speech', 'analyzed_form', 'weight', 'form']
+    ignored_keys = [
+        'root', 'part_of_speech', 'analyzed_form',
+        'weight', 'form'
+    ]
     for key, value in analysis.items():
         if key in ignored_keys or value == 'unmarked':
             analysis_subset.pop(key, None)
+        elif key == 'class' and not verbose:
+            # Prepend 'CL' to class value
+            analysis_subset[key] = f"CL{analysis_subset['class']}"
+        elif key == 'subject' and not verbose:
+            analysis_subset[key]+='.sbj'
+        elif key == 'object' and not verbose:
+            analysis_subset[key]+='.obj'
+        elif value == 'true' and not verbose:
+            analysis_subset[key]=key
     keys = sorted(analysis_subset.keys())
     if verbose:
         other_parts = [f'[{key}={analysis_subset[key]}]' for key in keys]
         gloss_str = gloss + ''.join(other_parts)
     else:
-        if 'class' in analysis:
-            # Prepend 'CL' to class value
-            analysis_subset['class'] = f"CL{analysis_subset['class']}"
         other_parts = [f'{analysis_subset[key]}' for key in keys]
         gloss_str = '-'.join([gloss] + other_parts)
+
+    if include_form and 'analyzed_form' in analysis:
+        gloss_str = analysis['analyzed_form'] + ' ' + gloss_str
+    if include_form and 'form' in analysis:
+        gloss_str = analysis['form'] + ' ' + gloss_str
 
     return gloss_str
 

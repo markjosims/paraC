@@ -10,7 +10,10 @@ def parse_printer(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         result = func(*args, **kwargs)
-        return [get_gloss_str_from_dict(entry) for entry in result]
+        return [
+            get_gloss_str_from_dict(entry, include_form=True, verbose=False)
+            for entry in result
+        ]
     return wrapper
 
 if __name__ == "__main__":
