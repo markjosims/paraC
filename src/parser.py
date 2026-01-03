@@ -50,13 +50,13 @@ def get_verb_paradigms():
 
 def add_tone_processes_to_inflector(inflector_fst: pynini.Fst) -> pynini.Fst:
     """
+    Wraps `add_tone_processes_to_parser`. Inverts inflector FST before and after
+    adding tone processes.
+
     Arguments:
         inflector_fst: The main inflector FST before tone processes are added.
     Returns:
         The main inflector FST with tone processes added.
-
-    Wraps `add_tone_processes_to_parser`. Inverts inflector FST before and after
-    adding tone processes.
     """
     inflector_reversed = pynini.invert(inflector_fst)
     inflector_with_tone = add_tone_processes_to_parser(inflector_reversed)
@@ -65,13 +65,13 @@ def add_tone_processes_to_inflector(inflector_fst: pynini.Fst) -> pynini.Fst:
 
 def add_tone_processes_to_parser(parser_fst: pynini.Fst) -> pynini.Fst:
     """
+    Adds paths for tone processes (left H docking/spreading, final lowering)
+    to `parser_fst`.
+
     Arguments:
         parser_fst: The main parser FST before tone processes are added.
     Returns:
         The main parser FST with tone processes added.
-
-    Adds paths for tone processes (left H docking/spreading, final lowering)
-    to `parser_fst`.
     """
     tone_rules = [
         (('final_lowering',), FINAL_LOWERING_RULE),
@@ -79,42 +79,180 @@ def add_tone_processes_to_parser(parser_fst: pynini.Fst) -> pynini.Fst:
         (('final_lowering', 'left_h'), FINAL_LOWERING_RULE @ LEFT_H_RULE),
     ]
     parser_list = [parser_fst]
-    for feature_tuple, rule_fst in tone_rules:
-        set_features_to_positive = SIGMASTAR_W_SYMBOLS
-        for feature in feature_tuple:
-            positive_feature = f"{feature}=true"
-            unmarked_feature = f"{feature}=unmarked"
-            set_features_to_positive @= pynini.cdrewrite(
-                tau=fst(unmarked_feature, positive_feature),
-                l=fst(),
-                r=fst(),
-                sigma_star=SIGMASTAR_W_SYMBOLS,
-            )
-        if 'final_lowering' in feature_tuple:
-            # need to ensure EOS is present for final lowering
-            forms_w_eos2forms = pynini.project(parser_fst, 'input') + delete_fst(EOS)
-            feature_parser = forms_w_eos2forms @ parser_fst
-        else:
-            feature_parser = parser_fst
-        feature_parser_input = pynini.project(feature_parser, 'input')
-        forms_w_process = feature_parser_input@rule_fst
-        forms_w_process.invert()
-
-        # remove redundant paths where process is applied vacuously
-        redundant_paths = feature_parser_input @ forms_w_process
-        redundant_paths.project('input')
-        process_input = pynini.project(forms_w_process, 'input')
-        non_redundant_paths = process_input - redundant_paths
-        forms_w_process = non_redundant_paths @ forms_w_process
-
-        process_fst = forms_w_process @ feature_parser @ set_features_to_positive
-        process_fst.optimize()
-
-        parser_list.append(process_fst)
+    for feature_names, rule_fst in tone_rules:
+        print(f"Computing parser with tone process: {', '.join(feature_names)}")
+        feature_map = {
+            feature_name: ('unmarked', 'true')
+            for feature_name in feature_names
+        }
+        parser_fst_with_tone = add_tone_process_to_parser(
+            parser_fst,
+            rule_fst,
+            feature_map
+        )
+        parser_list.append(parser_fst_with_tone)
 
     parser_fst = pynini.union(*parser_list)
     parser_fst.optimize()
     return parser_fst
+
+def add_tone_process_to_parser(
+        parser_fst: pynini.Fst,
+        rule_fst: pynini.Fst,
+        feature_map: Dict[str, Tuple[str, str]],
+) -> pynini.Fst:
+    """
+    Arguments:
+        parser_fst: The main parser FST before tone processes are added.
+        rule_fst: The phonological rule FST to apply.
+        feature_map: Dictionary mapping features to tuples of (from_value, to_value).
+    Returns:
+        The main parser FST with tone processes added.
+
+    Adds paths for a single tone process to `parser_fst`.
+    """
+    parser_w_rule = apply_rule_to_input(parser_fst, rule_fst)
+    parser_w_shifted_features = shift_feature_value(parser_w_rule, feature_map)
+    parser_with_process = prune_redundant_paths(parser_fst, parser_w_shifted_features)
+    
+    return parser_with_process.optimize()
+
+def append_eos_to_input(
+        parser: pynini.Fst,
+        optional: bool=False,
+) -> pynini.Fst:
+    """
+    Given a parser FST that maps form strings to parses,
+    returns an equivalent FST where EOS is appended to all
+    strings on the input side.
+
+    Arguments:
+        parser: FST mapping forms to parses.
+        optional: If True, EOS is optionally appended to input strings.
+    Returns:
+        FST equivalent to `parser` with EOS appended to input side.
+    """
+    parser_input = pynini.project(parser, 'input')
+    # since delete maps a single symbol to epsilon,
+    # we use delete_fst to map the EOS symbol on the left side
+    # to epsilon on the right side
+    if optional:
+        forms_w_eos2forms_without_eos = parser_input + delete_fst(EOS).ques
+    else:
+        forms_w_eos2forms_without_eos = parser_input + delete_fst(EOS)
+
+
+    # since the right side of this graph is equivalent to the input
+    # side of `parser`, we can compose to get the desired FST
+    # mapping forms with EOS to parses
+    forms_w_eos = forms_w_eos2forms_without_eos @ parser
+    forms_w_eos.optimize()
+
+    return forms_w_eos
+
+def apply_rule_to_input(
+    parser: pynini.Fst,
+    rule: Union[pynini.Fst, List[pynini.Fst]],
+) -> pynini.Fst:
+    """
+    Given a parser FST that maps form strings to parses,
+    returns an equivalent FST where `rule` has been applied
+    to all strings on the input side.
+
+    Arguments:
+        parser: FST mapping forms to parses.
+        rule: FST or list of FSTs representing phonological rules to apply.
+    Returns:
+        FST equivalent to `parser` with `rule` applied to input side.
+    """
+    forms_w_rule = pynini.project(parser, 'input')
+
+    if type(rule) is list:
+        for r in rule:
+            forms_w_rule = forms_w_rule @ r
+    else:
+        forms_w_rule = forms_w_rule @ rule
+
+    # this FST now maps original forms to forms with the rule applied
+    # to compose with the parser, we need to invert it
+    # so that original forms are on the right side
+    # and forms with the rule applied are on the left side
+    forms_w_rule = pynini.invert(forms_w_rule)
+    parser_w_rule = forms_w_rule @ parser
+
+    return parser_w_rule
+
+def shift_feature_value(parser: pynini.Fst, feature_map: Dict[str, Tuple[str, str]]) -> pynini.Fst:
+    """
+    Given a parser FST that maps form strings to parses,
+    returns an equivalent FST where the value of `feature`
+    has been changed from `from_value` to `to_value` on
+    the output side.
+
+    E.g. if `feature` "final_lowering" is changed from "unmarked" to "true",
+    then all parses that had "final_lowering=unmarked" in the output language
+    will now have "final_lowering=true" instead.
+
+    Arguments:
+        parser: FST mapping forms to parses.
+        feature_map: Dictionary mapping features to tuples of (from_value, to_value).
+    Returns:
+        FST equivalent to `parser` with feature value shifted.
+    """
+    feature_rewrite_rule = SIGMASTAR_W_SYMBOLS
+    for feature, (from_value, to_value) in feature_map.items():
+        from_feature = f"[{feature}={from_value}]"
+        to_feature = f"[{feature}={to_value}]"
+        feature_rewrite_rule @= pynini.cdrewrite(
+            tau=fst(from_feature, to_feature),
+            l=fst(),
+            r=fst(),
+            sigma_star=SIGMASTAR_W_SYMBOLS,
+        )
+    parser_shifted = parser @ feature_rewrite_rule
+    parser_shifted.optimize()
+    return parser_shifted
+
+def prune_redundant_paths(
+        parser: pynini.Fst,
+        parser_w_rule: pynini.Fst,
+    ) -> pynini.Fst:
+    """
+    Given a parser FST that maps form strings to parses,
+    and an equivalent parser FST where a phonological rule
+    has been applied to the input side, returns an FST that
+    is a union of the two, excluding any paths from `parser_w_rule`
+    whose input strings are already covered by `parser`.
+
+    Imagine `parser_w_rule` describes forms with final lowering
+    applied. The word "ðɔ̀mɔ̀cɔ̀", having a lexical all-low melody,
+    is unchanged by final lowering. Then `parser` will have the relation:
+
+        ðɔ̀mɔ̀cɔ̀ -> man[case=nominative][number=singular][final_lowering=unmarked]
+    
+    And `parser_w_rule` will have the relation:
+
+        ðɔ̀mɔ̀cɔ̀ -> man[case=nominative][number=singular][final_lowering=true]
+
+    Where final lowering has been applied vacuously. To avoid proliferation
+    of vacuous paths like this, this function removes such relations from
+    `parser_w_rule` and returns only the non-redundant paths.
+
+    Arguments:
+        parser: FST mapping forms to parses.
+        parser_w_rule: FST mapping forms to parses, with a phonological rule applied.
+    Returns:
+        FST equivalent to `parser_w_rule`, excluding redundant paths from `parser_w_rule`
+        where the rule has been applied vacuously.
+    """
+    parser_input = pynini.project(parser, 'input')
+    parser_w_rule_input = pynini.project(parser_w_rule, 'input')
+    
+    intersection = pynini.intersect(parser_input, parser_w_rule_input)
+    non_redundant_input = parser_w_rule_input - intersection
+    non_redundant_paths = non_redundant_input @ parser_w_rule
+
+    return non_redundant_paths
 
 @fst_cache(_form_builders_dir, num_fst=3)
 def get_main_parser() -> Tuple[pynini.Fst, pynini.Fst, pynini.Fst]:
@@ -152,6 +290,11 @@ def get_main_parser() -> Tuple[pynini.Fst, pynini.Fst, pynini.Fst]:
     main_lemmatizer.optimize()
     main_analyzer.optimize()
     main_inflector.optimize()
+
+    print("Appending EOS to input side...")
+    main_lemmatizer = append_eos_to_input(main_lemmatizer, optional=True)
+    main_analyzer = append_eos_to_input(main_analyzer, optional=True)
+    main_inflector = append_eos_to_input(main_inflector, optional=True)
 
     print("Adding tone processes...")
     main_lemmatizer = add_tone_processes_to_parser(main_lemmatizer)
