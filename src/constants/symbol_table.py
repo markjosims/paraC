@@ -17,6 +17,18 @@ Lateral:                    l
 Trill:                      r      
 Tap/flap:                   ɾ       ɽ
 
+
+The postalveolar fricative ʃ, the glottal fricative h and the glottal stop ʔ
+are used occasionally in loanwords from English, and so are included in the
+symbol table.
+
+Vowels:
+            Front       Central     Back
+High:       i                       u
+            ɪ                       ʊ
+Mid:        e           ə           o
+            ɛ           ɜ           ɔ
+Low:                    a
 """
 
 DENTAL_T = 't̪'
