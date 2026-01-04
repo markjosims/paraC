@@ -441,19 +441,24 @@ class agreeing with the noun they modify, as indicated in the earlier example re
     ŋ-ɛ̂n        ŋ-ìcə̀lò
     Clŋ-dog     Clŋ-good
     "The dog is good"
+
+Note the term 'adnominal' as used here is inclusive to both adjectives and demonstrative pronouns.
 """
 
-ADJECTIVE_CLASS_VALUES = CLASS_PREFIXES
-ADJECTIVE_CLASS = features.Feature("class", "unmarked", *ADJECTIVE_CLASS_VALUES)
-ADJECTIVE = features.Category(ADJECTIVE_CLASS)
+ADNOMINAL_CLASS_VALUES = CLASS_PREFIXES
+ADNOMINAL_CLASS = features.Feature("class", "unmarked", *ADNOMINAL_CLASS_VALUES)
+ADJECTIVE = features.Category(ADNOMINAL_CLASS)
 ADJECTIVE_ROOT = features.FeatureVector(ADJECTIVE, "class=unmarked")
 
 """
-## Pronoun
-TODO
+## Demonstrative
+Demonstratives, like adjectives, are marked with a class prefix agreeing with the noun they modify. There are
+two demonstrative pronouns in Tira, the proximal demonstrative -âj (equivalent to 'this' in English) and the
+distal demonstrative -ɛ́ (equivalent to 'that' in English).
 """
 
-PRONOUN = ...
+DEMONSTRATIVE = features.Category(ADNOMINAL_CLASS)
+DEMONSTRATIVE_ROOT = features.FeatureVector(DEMONSTRATIVE, "class=unmarked")
 
 """
 ## Lexical features
@@ -510,7 +515,7 @@ See `src/lexicon/phonology.py` for more information.
 POS2CATEGORY = {
     'noun': NOUN,
     'inalienable_noun': INALIENABLE_NOUN,
-    'pronoun': PRONOUN,
+    'demonstrative': DEMONSTRATIVE,
     'verb': INFLECTED_VERB,
     'aux': INFLECTED_AUX,
     'adjective': ADJECTIVE,
