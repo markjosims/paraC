@@ -1,3 +1,14 @@
+"""
+# FST for uninflected words
+FST building function for uninflected words. Uninflected words
+include adverbs, conjunctions, prepositions, adpositions, particles
+and interjections [TODO]. These words do not take inflectional morphology,
+and so are represented with a single form in the lexicon. The FST is an
+acceptor for most forms, with the exception of homophones, which are
+mapped from plain input strings to forms with homophone disambiguation tags
+in output, e.g. "nɛ̀" -> "nɛ̀(1)" 'in', "nɛ̀(2)" 'and'.
+"""
+
 from src.cache_decorators import fst_cache
 from src.lexicon.phonology import REMOVE_HOMOPHONE_TAG
 from src.fst_helpers import decode_byte_str, fst, vectorize_lexeme_string

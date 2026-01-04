@@ -1,5 +1,7 @@
 """
-Script that builds FSTs for generating various inflectional forms of verbs in Tira.
+# Verb form builders
+This module builds the paradigms for Tira verbs using data from the verb lexicon.
+The 'root' column is used as the lemma for all verb forms. [TODO: finish docstr]
 """
 
 import pynini

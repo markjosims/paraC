@@ -1,10 +1,14 @@
 """
+# Form helper functions
 Helper functions for creating paradigm functions
 for various parts of speech.
+These include functions for adding suffixes and prefixes
+generally, as well as functions for adding class prefixes
+and WH suffixes specific to Tira nouns.
 """
 
 from typing import *
-from src.fst_helpers import fst, decode_feature_label_rewriter
+from src.fst_helpers import fst
 from src.constants import CLASS_PREFIXES, HIGH_TONE, LOW_TONE
 from src.lexicon.phonology import DELETE_SCHWA_BEFORE_VOWEL, SIGMASTAR, REMOVE_DOUBLE_BOUNDARIES
 import pynini
@@ -144,32 +148,3 @@ def add_wh_suffixes_to_slots(slot_list):
         slots_w_wh_suffixes.append((loc_wh_suffix, loc_feature_vec))
     return slot_list+slots_w_wh_suffixes
 
-
-def generate_forms(
-        stem: str,
-        paradigm: paradigms.Paradigm,
-        save_to_tmp: bool=False,
-        print_forms: bool=False,
-):
-    """
-    Arguments:
-        stem:      The stem to be inflected
-        paradigm:  The paradigm to use for inflection
-        action:    Whether to print the generated forms or return them as a list
-        parse:     Whether to return the generated forms as feature dictionaries (if action is 'return')
-    """
-    lattice = rewrite.rewrite_lattice(
-        fst(stem),
-        paradigm.stems_to_forms @ paradigm.feature_label_rewriter,
-    )
-    word_dicts = decode_feature_label_rewriter(lattice)
-    if save_to_tmp:
-        df = pd.DataFrame(word_dicts)
-        df.to_csv(f'tmp/{stem}_forms.csv', index=False)
-    if print_forms:
-        for word_dict in word_dicts:
-            word_dict = word_dict.copy()
-            wordform = word_dict.pop('wordform')
-            features_str = ', '.join(f"{k}={v}" for k, v in word_dict.items())
-            print(f"{wordform}\t{features_str}")
-    return word_dicts

@@ -1,3 +1,14 @@
+"""
+# Noun Paradigm Builder
+This module builds the noun paradigm for Tira nouns using data from the noun lexicon.
+The 'root' column is used as the lemma, which generally corresponds to the singular nominative form
+with a homophone disambiguation suffix if necessary.
+
+Marked features include case (nominative and accusative), number (singular and plural).
+
+TODO: Support inalienably possessed nouns.
+"""
+
 import pandas as pd
 import pynini
 from pynini.lib import features, paradigms, rewrite, pynutil
