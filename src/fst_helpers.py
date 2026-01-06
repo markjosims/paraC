@@ -283,8 +283,11 @@ def get_gloss_str_from_dict(
         other_parts = [f'[{key}={analysis_subset[key]}]' for key in keys]
         gloss_str = gloss + ''.join(other_parts)
     else:
+        for key in inflectional_keys:
+            part = analysis_subset[key]
+            part_abbr = FEATURE2ABBREVIATION.get(part, part.upper())
+            analysis_subset[key] = part_abbr
         other_parts = [analysis_subset[key] for key in keys]
-        other_parts = [FEATURE2ABBREVIATION.get(part, part) for part in other_parts]
         gloss_str = '-'.join([gloss] + other_parts)
 
     if include_form and 'analyzed_form' in analysis:
