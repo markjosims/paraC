@@ -565,3 +565,22 @@ ALL_FEATURE_STRS = []
 for feature_name, feature_values in FEATURES_TO_VALUES.items():
     for feature_value in feature_values:
         ALL_FEATURE_STRS.append(f"{feature_name}={feature_value}")
+
+"""
+This is a mapping from full feature names to abbreviations used in glosses.
+"""
+
+FEATURE2ABBREVIATION = {
+    'nominative': 'NOM',
+    'accusative': 'ACC',
+    'singular': 'SG',
+    'plural': 'PL',
+    'infinitive': 'INF',
+    'imperative': 'IMP',
+    'imperfective': 'IPFV',
+    'perfective': 'PFV',
+    'dependent': 'DEP',
+    'progressive': 'PROG',
+    'itive': 'IT',
+    'ventive': 'VENT',
+}
