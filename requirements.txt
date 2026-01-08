@@ -12,3 +12,4 @@ pydot
 fire
 pyyaml
 RecursiveNamespace
+unidecode
