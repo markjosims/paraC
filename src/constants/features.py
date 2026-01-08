@@ -468,7 +468,7 @@ individual paradigms can be combined into one main parser.
 
 ### Part of speech
 Parts of speech include noun, inalienable noun, pronoun, verb, aux, adjective, adverb, postposition,
-preposition, conjunction and particle.
+preposition, conjunction, interjection and particle.
 
 Adverbs, postpositions, prepositions, conjunctions and particles are all considered 'uninflected' words,
 and lack any morphological features of their own.
@@ -521,9 +521,10 @@ POS2CATEGORY = {
     'adjective': ADJECTIVE,
     'adverb': None,
     'postposition': None,
-    'preposition': None,
+    'adposition': None,
     'conjunction': None,
     'particle': None,
+    'interjection': None,
 }
 
 INFLECTED_POS = [
