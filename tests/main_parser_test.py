@@ -1,6 +1,9 @@
 from src.parser import inflect_word, parse_word
 from src.lexicon import load_lexical_data, load_test_case_data
-from src.constants import EOS_STR, VERB_FEATURE_VALUES, LEXICAL_FEATURE_VALUES
+from src.constants import (
+    EOS_STR, VERB_FEATURE_VALUES, NOUN_FEATURE_ABBREVIATION_TO_VECTOR,
+    LEXICAL_FEATURE_VALUES
+)
 from src.lexicon.phonology import FINAL_LOWERING_RULE, LEFT_H_RULE, EOS
 from src.fst_helpers import get_lattice_strs, fst
 import pytest
@@ -253,6 +256,25 @@ def test_uninflected_forms(gold_word):
         }
         parses_filtered.append(parse_filtered)
     assert gold_word_filtered in parses_filtered
+
+"""
+## Noun parsing and inflection tests
+"""
+
+@pytest.mark.parametrize("nominal", load_lexical_data('nominal').to_dict(orient='records'))
+def test_noun_inflection(nominal):
+    root = nominal['root']
+    part_of_speech = nominal['part_of_speech']
+    for feature_str, feature_vector in NOUN_FEATURE_ABBREVIATION_TO_VECTOR.items():
+        form = nominal[feature_str]
+        if form == '':
+            continue
+        for subform in form.split():
+            predicted_forms = inflect_word(root, **{
+                'part_of_speech': part_of_speech,
+                **feature_vector.values
+            })
+            assert subform in predicted_forms
 
 """
 ## Auxiliary parsing and inflection tests
