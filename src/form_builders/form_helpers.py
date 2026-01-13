@@ -9,16 +9,17 @@ and WH suffixes specific to Tira nouns.
 
 from typing import *
 from src.fst_helpers import fst
-from src.constants import CLASS_PREFIXES, HIGH_TONE, LOW_TONE
+from src.constants import CLASS_PREFIXES, HIGH_TONE, LOW_TONE, CLASS_SYMBOL
 from src.lexicon.phonology import DELETE_SCHWA_BEFORE_VOWEL, SIGMASTAR, REMOVE_DOUBLE_BOUNDARIES
 import pynini
-from pynini.lib import features, paradigms, rewrite
+from pynini import cdrewrite
+from pynini.lib import features, paradigms
 import pandas as pd
 
 def prefix(
         fst_input: Union[str, Sequence[str], pynini.Fst],
         stem: Union[str, pynini.Fst, None] = None,
-        weight: pynini.WeightLike = None,
+        weight: Optional[pynini.WeightLike] = None,
     ) -> pynini.Fst:
     """
     Arguments:
@@ -36,7 +37,7 @@ def prefix(
 def suffix(
         fst_input: Union[str, Sequence[str], pynini.Fst],
         stem: Union[str, pynini.Fst, None] = None,
-        weight: pynini.WeightLike = None,
+        weight: Optional[pynini.WeightLike] = None,
     ) -> Callable[[pynini.Fst], pynini.Fst]:
     """
     Arguments:
@@ -93,6 +94,40 @@ def add_class_prefixes_to_slots(slot_list, include_ng:bool=False):
             features_with_class = features.FeatureVector(category, f"class={class_agree}", *feature_values)
             prefixed_verb = add_class_prefix(stem, prefix)
             slots_w_class_prefixes.append((prefixed_verb, features_with_class))
+    return slots_w_class_prefixes
+
+def add_class_symbol_replacers_to_slot(slot_list):
+    """
+    Some adnominal forms contain mark noun class internally,
+    which is represented in the lexicon  using a special CLASS_SYMBOL.
+    This function replaces the CLASS_SYMBOL with the appropriate class
+    prefix, similar to how `add_class_prefixes_to_slots` prepends the
+    class prefix.
+    Arguments:
+        slot_list:  A list of (stem, feature_vector) tuples
+    Returns:
+        A list of (stem_with_class_prefix, feature_vector_with_class) tuples
+        for each slot in `slot_list` with the CLASS_SYMBOL replaced
+        by the appropriate class prefix.
+    """
+    slots_w_class_prefixes = []
+    for stem, feature_vector in slot_list:
+        category = feature_vector.category
+        feature_dict = feature_vector.values.copy()
+        feature_dict.pop('class', None)  # remove any existing class feature
+        feature_values = [f"{feature}={value}" for feature, value in feature_dict.items()]
+        for class_agree in CLASS_PREFIXES:
+            prefix = class_agree
+            rewrite_rule = cdrewrite(
+                tau = fst(CLASS_SYMBOL, prefix),
+                l = fst(''),
+                r = fst(''),
+                sigma_star = SIGMASTAR,
+            )
+            new_stem = rewrite_rule @ stem
+            new_stem.optimize()
+            features_with_class = features.FeatureVector(category, f"class={class_agree}", *feature_values)
+            slots_w_class_prefixes.append((new_stem, features_with_class))
     return slots_w_class_prefixes
 
 def add_wh_suffix(stem: pynini.Fst, class_agree: str) -> pynini.Fst:
