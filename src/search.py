@@ -54,7 +54,8 @@ def search_corpus(
         matching_rows = df[normalized_sentence.str.contains(query, na=False)]
     hit_sentences = matching_rows['text'].tolist()
     translations = matching_rows['translation'].tolist()
-    return list(zip(hit_sentences, translations))
+    glosses = matching_rows['gloss'].tolist()
+    return list(zip(hit_sentences, translations, glosses))
 
 
 # ----------------------------------- #
