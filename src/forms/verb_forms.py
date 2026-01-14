@@ -26,7 +26,7 @@ from multiprocessing.pool import Pool
 import pynini
 from pynini.lib import features, paradigms
 from src.decorators import output_cache
-from src.form_builders.form_helpers import *
+from src.forms.form_helpers import *
 from src.lexicon.phonology import *
 from src.fst_helpers import *
 from src.lexicon import get_roots_for_class

@@ -8,10 +8,10 @@ import pynini
 from loguru import logger
 from pynini.lib import pynutil
 from src.constants import FV_CLASSES
-from src.form_builders.adnominal_forms import get_adjective_paradigm, get_all_adnominal_paradigms
-from src.form_builders.nominal_forms import get_all_nominal_paradigms
-from src.form_builders.verb_forms import get_verb_paradigms
-from src.form_builders.uninflected_forms import get_uninflected_word_fst
+from src.forms.adnominal_forms import get_adjective_paradigm, get_all_adnominal_paradigms
+from src.forms.nominal_forms import get_all_nominal_paradigms
+from src.forms.verb_forms import get_verb_paradigms
+from src.forms.uninflected_forms import get_uninflected_word_fst
 from src.fst_helpers import (
     delete_fst, fst, insert_fst, parse_lattice_outputs, get_features_fsa,
     vectorize_feature_dict, vectorize_lexeme_string, get_lattice_strs,
