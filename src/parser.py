@@ -34,7 +34,7 @@ from src.lexicon.phonology import (
 from multiprocessing import Pool
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
-_form_builders_dir = os.path.join(__dir__, 'form_builders')
+_forms_dir = os.path.join(__dir__, 'forms')
 
 def add_tone_processes_to_inflector(inflector_fst: pynini.Fst) -> pynini.Fst:
     """
@@ -241,7 +241,7 @@ def shift_feature_value(parser: pynini.Fst, feature_map: Dict[str, Tuple[str, st
     parser_shifted.optimize()
     return parser_shifted
 
-@fst_cache(_form_builders_dir, num_fst=3)
+@fst_cache(_forms_dir, num_fst=3)
 def get_main_parser() -> Tuple[pynini.Fst, pynini.Fst, pynini.Fst]:
     logger.info("Building main parser FSTs...")
 

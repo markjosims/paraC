@@ -81,7 +81,7 @@ Morphologically, verbs follow the general structure of:
 Class prefixes are described in the section above, and verbal auxiliaries (Aux) in the next
 section. The Final Vowel (FV) suffix is a suffix that follows the verb stem. The particular
 vowel it conssits of varies as a function of inflectional features of the verb (specifically,
-TAM and deixis), and also based on the particular verb root. See `src/form_builders/verb_forms.py`
+TAM and deixis), and also based on the particular verb root. See `src/forms/verb_forms.py`
 for more details.
 
 ### Class
@@ -301,7 +301,7 @@ auxiliary /á/ is associated with the imperfective and a low toned /à/ with t
 
 In short, verbal exponence is cumulative across the auxiliary and the verb stem (Hagen Kaldhol 2024).
 I use the same set of features for verb stems and verb auxiliaries. For more information on how verb forms
-are built in the Tira parser, see src/form_builders/verb_forms.py.
+are built in the Tira parser, see src/forms/verb_forms.py.
 """
 
 INFLECTED_AUX = features.Category(*INFLECTED_VERB.features)
@@ -508,7 +508,7 @@ and lack any morphological features of their own.
 This is a tag marking the Final Vowel Class of the given verb stem. While only pertinent to verbs,
 this is included as a *lexical* feature because it is an immutable feature of a particular verb
 stem (where stem is a verb root or root + extension suffix), and not a feature that changes with
-inflection. See `src/form_builders/verb_forms.py` for more information.
+inflection. See `src/forms/verb_forms.py` for more information.
 
 For parts of speech other than verbs, the Final Vowel feature is set to 'unmarked'.
 
@@ -517,7 +517,7 @@ This is a tag indicating whether the verb form includes in auxiliary or not. Ver
 lack an auxiliary (e.g. imperative, perfective ventive) have Aux set to False by necessity.
 Verb forms where an auxiliary is present have two paradigms: one paradigm that consists only
 of the verb stem without the auxiliary, and another where both auxiliary and verb stem are
-included in the same string. See `src/form_builders/verb_forms.py` for more information.
+included in the same string. See `src/forms/verb_forms.py` for more information.
 
 Like Final Vowel, Aux is set to 'unmarked' for parts of speech other than verbs.
 

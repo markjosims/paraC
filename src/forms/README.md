@@ -1,4 +1,4 @@
-# form_builders
+# forms
 Scripts for creating FST parsers for various parts of speech.
 
 ## Files:
