@@ -13,3 +13,4 @@ fire
 pyyaml
 RecursiveNamespace
 unidecode
+loguru

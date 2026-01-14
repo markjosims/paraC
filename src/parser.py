@@ -5,6 +5,7 @@ and creates a main parser FST that combines them all.
 """
 
 import pynini
+from loguru import logger
 from pynini.lib import pynutil
 from src.constants import FV_CLASSES
 from src.form_builders.adnominal_forms import get_adjective_paradigm, get_all_adnominal_paradigms
@@ -19,7 +20,7 @@ from src.fst_helpers import (
     vectorize_feature_dict, vectorize_lexeme_string, get_lattice_strs,
     stringify_lexeme_features,
 )
-from src.cache_decorators import fst_cache, Timer
+from src.decorators import fst_cache, _log_fst_stats
 from src.lexicon import get_gloss_for_root, get_verb_root_w_hyphen, get_root_for_gloss, get_part_of_speech_for_root, \
     get_class_for_verb_root
 import os
@@ -38,24 +39,6 @@ from multiprocessing import Pool
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 _form_builders_dir = os.path.join(__dir__, 'form_builders')
 
-def _build_fv_paradigm_pair(fv_class):
-    """Helper function for parallel processing"""
-    fv_paradigm = get_verb_stem_paradigm(fv_class)
-    fv_with_aux = get_verb_paradigm_w_aux(fv_paradigm)
-    return (fv_paradigm, fv_with_aux)
-
-def get_verb_paradigms():
-    verb_paradigms = []
-    verb_paradigms.append(get_aux_paradigm())
-
-    with Pool() as pool:
-        fv_paradigm_pairs = pool.map(_build_fv_paradigm_pair, FV_CLASSES)
-    for fv_paradigm, fv_with_aux in fv_paradigm_pairs:
-        verb_paradigms.append(fv_paradigm)
-        verb_paradigms.append(fv_with_aux)
-
-    return verb_paradigms
-
 def add_tone_processes_to_inflector(inflector_fst: pynini.Fst) -> pynini.Fst:
     """
     Wraps `add_tone_processes_to_parser`. Inverts inflector FST before and after
@@ -66,9 +49,11 @@ def add_tone_processes_to_inflector(inflector_fst: pynini.Fst) -> pynini.Fst:
     Returns:
         The main inflector FST with tone processes added.
     """
+    _log_fst_stats([inflector_fst], "add_tone_processes_to_inflector[INITIAL]", "inflector_fst")
     inflector_reversed = pynini.invert(inflector_fst)
     inflector_with_tone = add_all_tone_processes_to_parser(inflector_reversed)
     inflector_final = pynini.invert(inflector_with_tone)
+    _log_fst_stats([inflector_final], "add_tone_processes_to_inflector[FINAL]", "inflector_final")
     return inflector_final
 
 def add_all_tone_processes_to_parser(parser_fst: pynini.Fst) -> pynini.Fst:
@@ -89,7 +74,7 @@ def add_all_tone_processes_to_parser(parser_fst: pynini.Fst) -> pynini.Fst:
     parser_list = [parser_fst]
     parser_input_projection = pynini.project(parser_fst, 'input')
     for feature_names, rule_fst in tone_rules:
-        print(f"Computing parser with tone process: {', '.join(feature_names)}")
+        logger.info(f"Computing parser with tone process: {', '.join(feature_names)}")
         feature_map = {
             feature_name: ('unmarked', 'true')
             for feature_name in feature_names
@@ -101,8 +86,12 @@ def add_all_tone_processes_to_parser(parser_fst: pynini.Fst) -> pynini.Fst:
             feature_map,
         )
         parser_list.append(parser_fst_with_tone)
+    
+    _log_fst_stats(parser_list, "add_all_tone_processes_to_parser[PRE-UNION]", f"parser_fst")
 
-    parser_fst = pynini.union(*parser_list)
+    parser_fst = pynini.union(*parser_list).optimize()
+    _log_fst_stats([parser_fst], "add_all_tone_processes_to_parser[POST-UNION]", f"parser_fst")
+
     return parser_fst
 
 def add_process_to_parser(
@@ -124,7 +113,7 @@ def add_process_to_parser(
     """
     parser_w_rule = apply_rule_to_input(parser_fst, parser_input_projection,rule_fst)
     parser_w_shifted_features = shift_feature_value(parser_w_rule, feature_map)
-    
+    _log_fst_stats([parser_w_shifted_features], "add_process_to_parser", "parser_w_shifted_features")
     return parser_w_shifted_features.optimize()
 
 def append_eos_to_input(
@@ -157,6 +146,8 @@ def append_eos_to_input(
     # mapping forms with EOS to parses
     forms_w_eos = forms_w_eos2forms_without_eos @ parser
     forms_w_eos.optimize()
+
+    _log_fst_stats([forms_w_eos], "append_eos_to_input", f"parser with optional={optional}")
 
     return forms_w_eos
 
@@ -193,6 +184,9 @@ def apply_rule_to_input(
     Returns:
         FST equivalent to `parser` with `rule` applied to input side.
     """
+
+    _log_fst_stats([parser], "apply_rule_to_input[INITIAL]", "parser")
+
     forms_w_rule = parser_input_projection
 
     if type(rule) is list:
@@ -212,6 +206,8 @@ def apply_rule_to_input(
     # for this reason, we need to remove paths that are just epsilon on the input side
     parser_w_rule = SIGMA.plus @ parser_w_rule
     parser_w_rule.optimize()
+
+    _log_fst_stats([parser_w_rule], "apply_rule_to_input[FINAL]", "parser_w_rule")
 
     return parser_w_rule
 
@@ -250,9 +246,9 @@ def shift_feature_value(parser: pynini.Fst, feature_map: Dict[str, Tuple[str, st
 
 @fst_cache(_form_builders_dir, num_fst=3)
 def get_main_parser() -> Tuple[pynini.Fst, pynini.Fst, pynini.Fst]:
-    print("Building main parser FSTs...")
+    logger.info("Building main parser FSTs...")
 
-    print("Gathering paradigms...")
+    logger.info("Gathering paradigms...")
     all_paradigms = get_verb_paradigms()
     all_paradigms.extend(get_all_nominal_paradigms())
     all_paradigms.append(get_adjective_paradigm())
@@ -260,41 +256,54 @@ def get_main_parser() -> Tuple[pynini.Fst, pynini.Fst, pynini.Fst]:
 
     lemmatizers = []
     analyzers = []
+    inflectors = []
 
-    print("Adding lexical flags to paradigms...")
+    logger.info("Adding lexical flags to paradigms...")
     for paradigm in all_paradigms:
         lexical_flag_vector = vectorize_lexeme_string(paradigm.name)
         output_lexical_flags = pynutil.insert(lexical_flag_vector.acceptor)
+        input_lexical_flags = pynutil.delete(lexical_flag_vector.acceptor)
+
         lemmatizers.append(paradigm.lemmatizer+output_lexical_flags)
         analyzers.append(paradigm.analyzer+output_lexical_flags)
+        inflectors.append(paradigm.inflector+input_lexical_flags)
 
-    print("Adding uninflected words...")
+    logger.info("Adding uninflected words...")
     # uninflected words have a single FST rather than a Paradigm object
     uninflected_word_fst = get_uninflected_word_fst()
     lemmatizers.append(uninflected_word_fst)
     analyzers.append(uninflected_word_fst)
     # there is no equivalent to "inflector" for uninflected words
 
-    print("Combining FSTs into global lemmatizer, analyzer, and inflector...")
+    logger.info("Combining FSTs into global lemmatizer, analyzer, and inflector...")
     main_lemmatizer = pynini.union(*lemmatizers)
     main_analyzer = pynini.union(*analyzers)
+    main_inflector = pynini.union(*inflectors)
     main_lemmatizer.optimize()
     main_analyzer.optimize()
+    main_inflector.optimize()
 
-    print("Appending EOS to input side...")
+    _log_fst_stats(
+        [main_lemmatizer, main_analyzer, main_inflector],
+        "get_main_parser[POST-UNION]",
+        "main_lemmatizer, main_analyzer, main_inflector"
+    )
+
+    logger.info("Appending EOS to input side...")
     main_lemmatizer = append_eos_to_input(main_lemmatizer, optional=True)
     main_analyzer = append_eos_to_input(main_analyzer, optional=True)
+    main_inflector = append_eos_to_input(main_inflector, optional=True)
 
-    print("Adding tone processes...")
+    logger.info("Adding tone processes...")
     main_lemmatizer = add_all_tone_processes_to_parser(main_lemmatizer)
     main_analyzer = add_all_tone_processes_to_parser(main_analyzer)
+    main_inflector = add_tone_processes_to_inflector(main_inflector)
 
-    main_lemmatizer.optimize()
-    main_analyzer.optimize()
-
-    print("Building main inflector...")
-    main_inflector = pynini.invert(main_lemmatizer)
-    main_inflector.optimize()
+    _log_fst_stats(
+        [main_lemmatizer, main_analyzer, main_inflector],
+        "get_main_parser[FINAL]",
+        "main_lemmatizer, main_analyzer, main_inflector"
+    )
 
     return main_lemmatizer, main_analyzer, main_inflector
 
