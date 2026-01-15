@@ -105,6 +105,39 @@ def fst(
     f.optimize()
     return f
 
+def priority_union(
+        fst_list: List[pynini.Fst],
+        sigma_star: pynini.Fst,
+    ) -> pynini.Fst:
+    """
+    Creates a priority union of the input FSTs, i.e.
+    the first FST has highest priority, the second FST
+    has second highest priority, etc.
+    Adapted from Gorman and Sproat (2021).
+
+    Arguments:
+        fst_list:   List of FSTs to combine
+    Returns:
+        f:          FST representing priority union of input FSTs
+
+    """
+    if len(fst_list) < 2:
+        raise ValueError("Need at least two FSTs for priority union.")
+
+    # base case, just two FSTs
+    if len(fst_list) == 2:
+        f1, f2 = fst_list
+        f1_input = pynini.project(f1, project_type='input')
+        f2_not_f1 = (sigma_star - f1_input) @  f2
+        return f1 | f2_not_f1
+
+    # recursive case
+    f_first = fst_list[0]
+    f_rest = priority_union(fst_list[1:], sigma_star=sigma_star)
+    f_first_input = pynini.project(f_first, project_type='input')
+    f_rest_not_first = (sigma_star - f_first_input) @ f_rest
+    return f_first | f_rest_not_first  
+
 def insert_fst(
         fst_output: Union[str, Sequence[str]],
         weight: Optional[pynini.WeightLike] = None,
