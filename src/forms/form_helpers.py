@@ -8,9 +8,10 @@ and WH suffixes specific to Tira nouns.
 """
 
 from typing import *
-from src.fst_helpers import fst
+from typing import Dict, List, Tuple
+from src.fst_helpers import Dict, List, Tuple, features, fst, pynini
 from src.constants import CLASS_PREFIXES, HIGH_TONE, LOW_TONE, CLASS_SYMBOL
-from src.lexicon.phonology import DELETE_SCHWA_BEFORE_VOWEL, SIGMASTAR, REMOVE_DOUBLE_BOUNDARIES
+from src.lexicon.phonology import DELETE_SCHWA_BEFORE_VOWEL, SIGMASTAR, REMOVE_DOUBLE_BOUNDARIES, Dict, List, Tuple, features, pynini
 import pynini
 from pynini import cdrewrite
 from pynini.lib import features, paradigms
@@ -38,7 +39,7 @@ def suffix(
         fst_input: Union[str, Sequence[str], pynini.Fst],
         stem: Union[str, pynini.Fst, None] = None,
         weight: Optional[pynini.WeightLike] = None,
-    ) -> Callable[[pynini.Fst], pynini.Fst]:
+    ) -> pynini.Fst:
     """
     Arguments:
         fst_input:  string or list of strings to be accepted by the FST
@@ -81,13 +82,13 @@ def add_class_prefixes_to_slots(slot_list, include_ng:bool=False):
     slots_w_class_prefixes = []
     prefixes = CLASS_PREFIXES
     if include_ng:
-        prefixes.append('ŋg')
+        prefixes = CLASS_PREFIXES + ['ŋg']
     for stem, feature_vector in slot_list:
         category = feature_vector.category
         feature_dict = feature_vector.values.copy()
         feature_dict.pop('class', None)  # remove any existing class feature
         feature_values = [f"{feature}={value}" for feature, value in feature_dict.items()]
-        for class_agree in CLASS_PREFIXES:
+        for class_agree in prefixes:
             prefix = class_agree
             if class_agree == 'ŋg':
                 class_agree = 'g'
@@ -182,4 +183,28 @@ def add_wh_suffixes_to_slots(slot_list):
         loc_wh_suffix = add_wh_loc_suffix(stem)
         slots_w_wh_suffixes.append((loc_wh_suffix, loc_feature_vec))
     return slot_list+slots_w_wh_suffixes
+
+
+def aggregate_slot_dicts(
+        slot_dicts: List[Dict[Tuple[str, str, str], pynini.Fst]],
+        category: features.Category,
+    ) -> List[Tuple[pynini.Fst, features.FeatureVector]]:
+    """
+    Aggregate a list of slot dicts into a single slot dict.
+    """
+    aggregated_slot_dict = {}
+    for slot_dict in slot_dicts:
+        for feature_tuple, fst in slot_dict.items():
+            if feature_tuple in aggregated_slot_dict:
+                existing_fst = aggregated_slot_dict[feature_tuple]
+                combined_fst = existing_fst | fst
+                combined_fst.optimize()
+                aggregated_slot_dict[feature_tuple] = combined_fst
+            else:
+                aggregated_slot_dict[feature_tuple] = fst
+    slot_list = [
+        (fst, features.FeatureVector(category, *feature_tuple))
+        for feature_tuple, fst in aggregated_slot_dict.items()
+    ]
+    return slot_list
 
