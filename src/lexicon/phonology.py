@@ -72,7 +72,13 @@ CLEAN_TBU_MARKERS = pynini.cdrewrite(
     l=fst(),
     r=fst(),
     sigma_star=SIGMASTAR
-)
+).optimize()
+REMOVE_ALL_TONE = pynini.cdrewrite(
+    tau=delete_fst(TIRA_TONE_DIACS),
+    l=fst(),
+    r=fst(),
+    sigma_star=SIGMASTAR,
+).optimize()
 
 PREPARE_TONE = ADD_TBU_MARKER@REMOVE_TBU_MARKER_AFTER_ONSET_C@REMOVE_TBU_MARKER_AFTER_CODA_C
 FINALIZE_TONE = CLEAN_TBU_MARKERS
