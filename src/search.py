@@ -295,6 +295,7 @@ def search_word(
         edit_bound: int = 5,
         main_lemmatizer: Optional[pynini.Fst]=None,
         main_analyzer: Optional[pynini.Fst]=None,
+        try_lower_bound: bool = True,
     ) -> List[Tuple[Dict[str, Any], float]]:
     """
     Returns fuzzy search hits for a queried word form across all parts of speech.
@@ -302,9 +303,29 @@ def search_word(
     Arguments:
         form:       str of form to query parses for
         num_hits:   int, number of parses to return
+        edit_bound: int, maximum number of edits to allow in search
+        main_lemmatizer: FST of main lemmatizer (optional)
+        main_analyzer: FST of main analyzer (optional)
+        try_lower_bound: bool, whether to try searching with lower edit bounds
+            until `num_hits` are found (default: True)
     Returns:
         parses:     list of tuples, each of shape `(parse: dict, prob: float)`
     """
+    if try_lower_bound:
+        parses = []
+        current_bound = 1
+        while len(parses) < num_hits and current_bound < edit_bound:
+            parses = search_word(
+                form,
+                num_hits,
+                current_bound,
+                main_lemmatizer,
+                main_analyzer,
+                try_lower_bound=False,
+            )
+            current_bound = min(current_bound+2, edit_bound)
+        if len(parses) >= num_hits:
+            return parses[:num_hits]
 
     left_factor, searchable_lexicon = get_searchable_main_parser(bound=edit_bound)
     query_fst = fst(form)@left_factor
