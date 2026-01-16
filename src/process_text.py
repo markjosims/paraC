@@ -137,6 +137,7 @@ if __name__ == '__main__':
     parser.add_argument('--input', '-i', help="Input text file")
     parser.add_argument('--output', '-o', help="Output .yaml file for annotation markup")
     parser.add_argument('--num_hits', '-n', default=10)
+    parser.add_argument('--split', '-s', choices=['train', 'validation', 'test', 'all'], default='all')
 
     args = parser.parse_args()
     if getattr(args, 'output', None) is None:
@@ -147,6 +148,13 @@ if __name__ == '__main__':
 
     main_lemmatizer, main_analyzer, _ = get_main_parser()
     all_markup = []
+
+    if args.split != 'all':
+        # filter lines by split
+        split_index = 2  # assuming CSV format: sentence,translation,split,index
+        lines = [line for line in lines if line.strip().split(',')[split_index] == args.split]
+
+
     for line in tqdm(lines):
         sentence, translation, split, index = line.strip().split(',')
         sentence = sentence.strip()
