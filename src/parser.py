@@ -63,10 +63,14 @@ def add_all_tone_processes_to_parser(parser_fst: pynini.Fst) -> pynini.Fst:
     Returns:
         The main parser FST with tone processes added.
     """
+
+    # ignoring final lowering for now
+    # as patterns are not fully clear yet, and including it will
+    # only slow down annotation without clear benefit
     tone_rules = [
-        (('final_lowering',), FINAL_LOWERING_RULE_NONVACUOUS),
+        # (('final_lowering',), FINAL_LOWERING_RULE_NONVACUOUS),
         (('left_h',), LEFT_H_RULE_NONVACUOUS),
-        (('final_lowering', 'left_h'), [FINAL_LOWERING_RULE_NONVACUOUS, LEFT_H_RULE_NONVACUOUS]),
+        # (('final_lowering', 'left_h'), [FINAL_LOWERING_RULE_NONVACUOUS, LEFT_H_RULE_NONVACUOUS]),
     ]
     parser_list = [parser_fst]
     parser_input_projection = pynini.project(parser_fst, 'input')
@@ -286,10 +290,11 @@ def get_main_parser() -> Tuple[pynini.Fst, pynini.Fst, pynini.Fst]:
         "main_lemmatizer, main_analyzer, main_inflector"
     )
 
-    logger.info("Appending EOS to input side...")
-    main_lemmatizer = append_eos_to_input(main_lemmatizer, optional=True)
-    main_analyzer = append_eos_to_input(main_analyzer, optional=True)
-    main_inflector = append_eos_to_input(main_inflector, optional=True)
+    # don't append EOS for now since we're not parsing final lowering
+    # logger.info("Appending EOS to input side...")
+    # main_lemmatizer = append_eos_to_input(main_lemmatizer, optional=True)
+    # main_analyzer = append_eos_to_input(main_analyzer, optional=True)
+    # main_inflector = append_eos_to_input(main_inflector, optional=True)
 
     logger.info("Adding tone processes...")
     main_lemmatizer = add_all_tone_processes_to_parser(main_lemmatizer)

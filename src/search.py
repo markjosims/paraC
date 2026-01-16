@@ -513,7 +513,8 @@ if __name__ == '__main__':
     for line in tqdm(lines):
         sentence, translation, split, index = line.strip().split(',')
         sentence = sentence.strip()
-        sentence += EOS_STR
+        # don't add EOS_STR since we're not parsing final lowering for now
+        # sentence += EOS_STR
         if not sentence:
             continue
         markup = get_annotation_markup_for_sentence(
