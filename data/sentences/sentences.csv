@@ -1,4 +1,4 @@
-index,audio_basename,start,end,duration,text,eaf_basename,gloss,translation,Word,source,gloss,form
+index,audio_basename,start,end,duration,text,eaf_basename,gloss,translation,Word,source,excel-gloss,form
 0,HH20210707.wav,1350.0,2110.0,760.0,ɛ̀vɛ̀,HH20210707.eaf,,vegetable,,elan,,
 1,HH20210707.wav,7900.0,9640.0,1740.0,ɛ̀vɛ̀ jìcə̀lò,HH20210707.eaf,CLj.vegetables CLj-good,vegetables are good,ɛ̀vɛ̀ jì-tʃə̀lò,elan,,
 2,HH20210707.wav,14135.0,17165.0,3030.0,ɪ́ŋgɛ́lǎ ŋ̀gáíjà ɛ̀vɛ̀,HH20210707.eaf,,I am going to eat vegetables,,elan,,

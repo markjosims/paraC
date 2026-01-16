@@ -1,5 +1,15 @@
-root,gloss,part_of_speech
-í-<CL>-ùn,3sg.poss,pronoun
-<CL>-ɛ́(1),this,demonstrative
-<CL>-ɛ́(2),with/of,adposition
-<CL>-âj,that,demonstrative
+root,translation,gloss,part_of_speech
+<CL>-ɛ́(1),proximal demonstrative,this,demonstrative
+<CL>-ɛ́(2),commitative marker,with,adposition
+<CL>-ɛ́(3),genitive marker,of,possessive_marker
+<CL>-âj,distal demonstrative,that,demonstrative
+<CL>-ɔ̂n,distal locative demonstrative,there,demonstrative
+<CL>-ɛ́nɛ̀ <CL>-ɛ́nà,one/any/only/some,one,quantifier
+ɛ́<CL>-ɛ̀ɲí,my,1sg.poss,possessive_pronoun
+ɛ́<CL>-ɔ̌,your,2sg.poss,possessive_pronoun
+ɛ́<CL>-úŋ,his/her,3sg.poss,possessive_pronoun
+ɛ́<CL>-ɜ̀lí,our (incl.dual),1du.incl.poss,possessive_pronoun
+ɛ́<CL>-ɜ̀lí-r,our (incl.plural),1pl.incl.poss,possessive_pronoun
+ɛ́<CL>-ǎj,our (excl.plural),1pl.excl.poss,possessive_pronoun
+ɛ́<CL>-àló,your (plural),2pl.poss,possessive_pronoun
+ɛ́<CL>-ɛ́n,their,3pl.poss,possessive_pronoun
