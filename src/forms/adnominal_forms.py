@@ -22,7 +22,7 @@ from src.constants import (
     ADJECTIVE, ADJECTIVE_ROOT, POS_GROUPS,
     POS2ROOT_VECTOR, POS2CATEGORY, BOUNDARY_STR
 )
-from src.lexicon.phonology import ALL_LOW_TONE_RULE, SIGMASTAR
+from src.lexicon.phonology import ALL_LOW_TONE_RULE, REMOVE_HOMOPHONE_TAG, SIGMASTAR, SIGMASTAR_W_TAG
 from src.fst_helpers import fst, stringify_lexeme_features
 import pandas as pd
 
@@ -49,13 +49,18 @@ def get_adjective_paradigm() -> paradigms.Paradigm:
 @output_cache(__file__)
 def get_adnominal_paradigm(part_of_speech: str) -> paradigms.Paradigm:
     adnominal_data = load_lexical_data(part_of_speech=part_of_speech)
+
+    # explode roots so that pronunciation variants are separate entries
+    adnominal_data['root'] = adnominal_data['root'].str.split(' ')
+    adnominal_data = adnominal_data.explode('root')
+
     adnominal_roots = [fst(root) for root in adnominal_data['root'].tolist()]
     
     root_vector = POS2ROOT_VECTOR[part_of_speech]
     category = POS2CATEGORY[part_of_speech]
 
-    inflected_slot = (ALL_LOW_TONE_RULE, root_vector)
-    root_slot = (SIGMASTAR, root_vector)
+    root_slot = (SIGMASTAR_W_TAG, root_vector)
+    inflected_slot = (SIGMASTAR_W_TAG@REMOVE_HOMOPHONE_TAG, root_vector)
 
     slots = [root_slot]
     slots += add_class_symbol_replacers_to_slot([inflected_slot])
