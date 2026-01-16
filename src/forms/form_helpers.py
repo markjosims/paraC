@@ -10,7 +10,7 @@ and WH suffixes specific to Tira nouns.
 from typing import *
 from typing import Dict, List, Tuple
 from src.fst_helpers import Dict, List, Tuple, features, fst, pynini
-from src.constants import CLASS_PREFIXES, HIGH_TONE, LOW_TONE, CLASS_SYMBOL
+from src.constants import CLASS_PREFIXES, HIGH_TONE, LOW_TONE, CLASS_PLACEHOLDER
 from src.lexicon.phonology import DELETE_SCHWA_BEFORE_VOWEL, SIGMASTAR, REMOVE_DOUBLE_BOUNDARIES, Dict, List, Tuple, features, pynini
 import pynini
 from pynini import cdrewrite
@@ -120,7 +120,7 @@ def add_class_symbol_replacers_to_slot(slot_list):
         for class_agree in CLASS_PREFIXES:
             prefix = class_agree
             rewrite_rule = cdrewrite(
-                tau = fst(CLASS_SYMBOL, prefix),
+                tau = fst(CLASS_PLACEHOLDER, prefix),
                 l = fst(''),
                 r = fst(''),
                 sigma_star = SIGMASTAR,

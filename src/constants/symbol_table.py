@@ -133,7 +133,7 @@ TONE_PLACEHOLDER_STR = '<FLOAT>'
 
 """
 ### Other special symbols
-- CLASS_SYMBOL: Placeholder for noun class morphemes
+- CLASS_PLACEHOLDER: Placeholder for noun class morphemes
 - BOUNDARY_STR: Morpheme boundary symbol
 - WORD_BOUNDARY_STR: Word boundary symbol
 - EPSILON_SYMBOL: Epsilon (empty) symbol for FSTs
@@ -141,7 +141,7 @@ TONE_PLACEHOLDER_STR = '<FLOAT>'
 - BRACKETS: List of bracket symbols used in various contexts
 """
 
-CLASS_SYMBOL = '<CL>'
+CLASS_PLACEHOLDER = '<CL>'
 BOUNDARY_STR = '-'
 WORD_BOUNDARY_STR = '|'
 EPSILON_SYMBOL = '<eps>'
@@ -157,7 +157,7 @@ BRACKETS = ['[', ']', '(', ')']
 
 SPECIAL_SYMBOLS = [
     BOUNDARY_STR, WORD_BOUNDARY_STR, TONE_SLOT_STR, TONE_PLACEHOLDER_STR,
-    CLASS_SYMBOL, INSERT, DELETE, SUBSTITUTE, EOS_STR,
+    CLASS_PLACEHOLDER, INSERT, DELETE, SUBSTITUTE, EOS_STR,
     *BRACKETS, *digits
 ]
 MULTICHAR_TOKENS = [symbol for symbol in SPECIAL_SYMBOLS+TIRA_TONE_SYMBOLS if len(symbol)>1]\
