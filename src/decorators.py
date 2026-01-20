@@ -327,7 +327,7 @@ def fst_cache(current_file: str, num_fst: int=1) -> pynini.Fst:
                 f = func(*args, **kwargs)
                 _log_fst_stats(f, func.__name__, args_str)
 
-            if num_fst == 1:
+            if type(f) is pynini.Fst:
                 f = [f]
             for fst_obj, cache_path in zip(f, cache_paths):
                 fst_obj.write(cache_path)
