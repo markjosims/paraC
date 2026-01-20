@@ -17,7 +17,7 @@ from pynini.lib import paradigms, features
 from typing import *
 from src.decorators import output_cache
 from src.lexicon import load_lexical_data
-from src.forms.form_helpers import add_class_prefixes_to_slots, add_class_symbol_replacers_to_slot
+from src.forms.form_helpers import add_class_prefixes_to_slots, add_class_symbol_replacers_to_slots
 from src.constants import (
     ADJECTIVE, ADJECTIVE_ROOT, POS_GROUPS,
     POS2ROOT_VECTOR, POS2CATEGORY, BOUNDARY_STR
@@ -63,7 +63,7 @@ def get_adnominal_paradigm(part_of_speech: str) -> paradigms.Paradigm:
     inflected_slot = (SIGMASTAR_W_TAG@REMOVE_HOMOPHONE_TAG, root_vector)
 
     slots = [root_slot]
-    slots += add_class_symbol_replacers_to_slot([inflected_slot])
+    slots += add_class_symbol_replacers_to_slots([inflected_slot])
     adnominal_paradigm = paradigms.Paradigm(
         category=category,
         slots=slots,
