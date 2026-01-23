@@ -384,6 +384,7 @@ NOUN_FEATURE_ABBREVIATIONS = list(NOUN_FEATURE_ABBREVIATION_TO_VECTOR.keys())
 ## Wh Pronoun
 Wh pronouns in Tira are marked for case and number like regular nouns, e.g.
 ɔ́ɟɔ́ (who-NOM.SG) ɔ́ɟɔ́-ŋá (who-ACC.SG).
+Also includes (for now) indefinite pronouns like kǎr (someone).
 """
 
 WH_PRONOUN = features.Category(
