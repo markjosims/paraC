@@ -1,4 +1,4 @@
-class,tam,deixis,root,gloss,subj,obj,fuzzy_form,matched_form,generated_form
+class,tam,deixis,root,gloss,subject,object,fuzzy_form,matched_form,generated_form,gold_form,note
 unmarked,perfective,ventive,vəlɛð,pull,1sg,2sg,jɛ́-və̀lɛ̀ð-á-ŋà,jə̀-və̀lɛ̀ð-áŋà,
 unmarked,perfective,ventive,vəlɛð,pull,1sg,3sg,kə̀-və̀lɛ̀ð-ɛ́-ŋí,kə̀-və̀lɛ̀ð-ɛ́ŋí,
 unmarked,perfective,ventive,vəlɛð,pull,1sg,2pl,jɛ́-və̀lɛ̀ð-á-tɛ́,jə̀-və̀lɛ̀ð-átɛ́,
@@ -142,4 +142,7 @@ l,perfective,itive,vəlɛð,pull,3pl,1du.incl,l-á-tɛ́ və́lɛ̂ð-à,l-á
 l,perfective,itive,vəlɛð,pull,3pl,1pl.incl,l-á-tɛ́ və́lɛ̂ð-à-ŕ,l-á-tɛ́ və́lɛ̀ð-à-ŕ,
 l,perfective,itive,vəlɛð,pull,3pl,1pl.excl,l-é-ɲár və́lɛ̂ð-à,l-éɲár və́lɛ̀ð-à,
 l,perfective,itive,vəlɛð,pull,3pl,2pl,l-á-tɛ́ və́lɛ̂ð-à,l-á-tɛ́ və́lɛ̀ð-à,
-l,perfective,itive,vəlɛð,pull,3pl,3pl,l-á-l-ló və́lɛ̂ð-à,l-á-l-ló və́lɛ̀ð-à,
+l,perfective,itive,vəlɛð,pull,3pl,3pl,l-á-l-ló və́lɛ̂ð-à,l-á-lɔló və́lɛ̀ð-à,
+unmarked,perfective,ventive,p,hit,2sg,3sg,á-p-ó-ŋú,á-p-ɔ́-ŋú,
+unmarked,perfective,ventive,p,hit,1sg,3pl,jɛ́-p-ó-ló-ŋú,jɛ́-p-ɔ́-lɔ́-ŋú,
+unmarked,perfective,ventive,t̪,drink,2sg,3sg,á-t̪-ó-ŋú,á-t̪-ɔ́-ŋú,
