@@ -142,7 +142,7 @@ PERFECTIVE_VENTIVE_MARKERS = PerfectiveVentiveMarkers(
     subject_3pl_obj={
         '1sg': {'suffix': '-ɛ́-ló'},
         '2sg': {'suffix': '-á-ló'},
-        '3sg': {'suffix': {'required': '-l-ɔ́ŋ', 'optional': 'ú'}},
+        '3sg': {'suffix': {'required': '-lɔ́-ŋ', 'optional': 'ú'}},
         '1du.incl': {'suffix': '-ɜ́llí'},
         '1pl.incl': {'suffix': '-ɜ́llí-ŕ'},
         '1pl.excl': {'suffix': '-áɲâ-l'},
