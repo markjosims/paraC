@@ -1,5 +1,5 @@
 import yaml
-from src.constants import EOS_STR
+from src.constants import EOS_STR, AUX_LEMMA_STR
 from src.fst_helpers import EOS_STR, Any, Dict, List, get_gloss_str_from_dict, pynini
 from src.parser import get_main_parser
 from src.search import search_word
@@ -86,23 +86,51 @@ def get_annotation_markup_for_sentence(
             num_hits=num_hits,
         )
         for i, hit in enumerate(hits):
-            gloss_str = get_gloss_str_from_dict(hit)
-            predicted_form = hit['form']
-            predicted_form_segmented = hit['analyzed_form']
-            root = hit['root']
-            weight = hit['weight']
-            word_obj['parses'][i]=[
-                predicted_form,
-                predicted_form_segmented,
-                root,
-                gloss_str,
-                round(weight, 2),
-            ]
+            word_obj['parses'][i]=get_parse_list_from_dict(hit)
         parsed_words.append(word_obj)
     markup_dict['words'] = parsed_words
 
     return markup_dict
 
+def get_parse_list_from_dict(
+        parse_dict: Dict[str, Any],
+) -> List[Any]:
+    """
+    Converts a parse dict returned by search_word into a list format.
+
+    Arguments:
+        parse_dict: dict representing a parse
+    Returns:
+        parse_list: list representing the same parse
+    """
+    gloss_str = get_gloss_str_from_dict(parse_dict)
+    predicted_form = parse_dict['form']
+    predicted_form_segmented = parse_dict['analyzed_form']
+    root = parse_dict['root']
+    weight = parse_dict['weight']
+
+    if ' ' in predicted_form:
+        # space in predicted form indicates verb with auxiliary
+        # format root and gloss to reflect AUX presence
+
+        # sanity check: make sure AUX is marked in gloss
+        # then change gloss str from shape 'root-FEATURE-FEATURE-aux'
+        # to 'aux root-FEATURE-FEATURE'
+        assert 'aux' in gloss_str
+        gloss_str = gloss_str.replace('-aux', '').strip()
+        gloss_str = 'aux '+gloss_str
+
+        # similarly, adjust root to reflect AUX presence
+        root = AUX_LEMMA_STR + ' ' + root
+
+    parse_list = [
+        predicted_form,
+        predicted_form_segmented,
+        root,
+        gloss_str,
+        round(weight, 2),
+    ]
+    return parse_list
 
 def rewrite_sentence(
         sentence: str,
