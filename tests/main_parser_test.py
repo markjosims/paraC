@@ -36,6 +36,21 @@ def test_verb_inflection_wh(gold_verb):
 
     assert form in predicted_form
 
+@pytest.mark.parametrize("gold_verb", load_test_case_data('gold_person_marking'))
+def test_verb_person_marking(gold_verb):
+    root = gold_verb.pop('root')
+    form = gold_verb.pop('matched_form').replace('-', '')
+    gold_verb["part_of_speech"]='verb'
+    gold_verb['aux']= 'true' if ' ' in form else 'unmarked'
+
+    gold_verb_filtered = {
+        k: v for k,v in gold_verb.items()
+        if (k in VERB_FEATURE_VALUES or k in LEXICAL_FEATURE_VALUES)
+    }
+    predicted_form = inflect_word(root, **gold_verb_filtered)
+
+    assert form in predicted_form
+
 @pytest.mark.parametrize("gold_verb", load_test_case_data('gold_verbs'))
 def test_verb_inflection_loc(gold_verb):
     root = gold_verb.pop('root')
