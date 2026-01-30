@@ -140,7 +140,10 @@ class ContingentMarkers(FeatureMarkers, FeatureQueryMixin):
 class FeatureValueCombinations:
     """
     Class for tracking licit combinations of person (both subject and object)
-    and class values.
+    and class values. Initialize with a list of combination dictionaries.
+    Each dictionary specifies valid values for features.
+    A value of '*' indicates all possible values for that feature.
+    Note that every combination dictionary must specify the same set of features.
 
     Usage:
 
@@ -188,12 +191,6 @@ class FeatureValueCombinations:
             Dict[str, Union[str, List[str]]]
         ]
     ):
-        """
-        Initialize FeatureValueCombinations with a list of combination dictionaries.
-        Each dictionary specifies valid values for features.
-        A value of '*' indicates all possible values for that feature.
-        Note that every combination dictionary must specify the same set of features.
-        """
         first_combination = combinations[0]
         expected_features = set(first_combination.keys())
         self.feature_names = list(sorted(expected_features))
