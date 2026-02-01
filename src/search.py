@@ -25,7 +25,7 @@ def search_corpus(
         query,
         query_type: Literal['tira', 'en'] = 'tira',
         whole_word=False
-    ):
+    ) -> List[Dict[str, str]]:
     """
     Search sentences.csv for occurrences of the given word.
     To allow for (very simple) fuzzy matching, the word is first
@@ -47,11 +47,51 @@ def search_corpus(
         matching_rows = df[split_sentences.apply(lambda x: query in x)]
     else:
         matching_rows = df[normalized_sentence.str.contains(query, na=False)]
-    hit_sentences = matching_rows['text'].tolist()
-    translations = matching_rows['translation'].tolist()
-    glosses = matching_rows['gloss'].tolist()
-    return list(zip(hit_sentences, translations, glosses))
+    
+    return_cols = ['text', 'translation', 'gloss']
+    return matching_rows[return_cols].to_dict(orient='records') # type: ignore
+    
 
+def search_parse_csv(
+    root: Optional[str] = None,
+    features: Union[str, List[str]] = [],
+    parse_csv_path: str = os.path.join(SENTENCE_DIR, 'parses.csv'),
+    max_cost: float = float('inf'),
+) -> List[Dict[str, str]]:
+    """
+    Search a CSV file containing parses for entries matching a given lemma and features.
+    For the moment 'feature' is a simple substring match against the gloss field.
+
+    Arguments:
+        root:               Optional[str], root to search for
+        features:           Features that must be present in the parse, passed as a comma-separated
+                            string or list of strings
+        parse_csv_path:     str, path to CSV file containing parses
+        max_cost:           float, maximum cost allowed between the root and the parse's root
+    Returns:
+        List[Dict[str, str]] containing matching parses
+    """
+    df = pd.read_csv(parse_csv_path, keep_default_na=False)
+    matching_rows = df['weight'] <= max_cost
+    if root:
+        matching_rows &= df['root']==root
+
+    lowercase_gloss = df['gloss'].str.lower()
+
+    if type(features) is str:
+        features = features.split(',')
+
+    for feature in features:
+        feature = feature.strip().lower()
+        matching_rows &= lowercase_gloss.str.contains(feature, na=False)
+    
+    columns = [
+        'original_str', 'updated_str', 'gloss', 'root',
+        'weight', 'sentence', 'translation'
+    ]
+
+    matching_df = df[matching_rows][columns]
+    return matching_df.to_dict(orient='records')  # type: ignore
 
 # ----------------------------------- #
 # functions for building search graph #
