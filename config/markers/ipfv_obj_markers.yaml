@@ -1,5 +1,7 @@
 # Imperfective auxiliary object suffixes
 kind: FeatureMarkers
+global_attributes:
+  order: argument_marker
 features:
   object:
     1sg:

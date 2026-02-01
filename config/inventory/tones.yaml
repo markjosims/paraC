@@ -1,0 +1,31 @@
+## Tira tone inventory
+# Tira has two level tones, High (H) and Low (L), and
+# two contour tones, Rising (R) and Falling (F).
+# Tones can occur on both vowels and sonorant consonants.
+# Tones are marked with the following diacritics:
+#   High tone:      ́  (U+0301 COMBINING ACUTE ACCENT)
+#   Low tone:       ̀  (U+0300 COMBINING GRAVE ACCENT)
+#   Rising tone:    ̌  (U+030C COMBINING CARON)
+#   Falling tone:   ̂  (U+0302 COMBINING CIRCUMFLEX ACCENT)
+kind: Inventory
+data:
+  tones:
+    repr: "<T>"
+    H:
+      repr: "<H>"
+      phones: ["\\u0301"]  # COMBINING ACUTE ACCENT
+    L:
+      repr: "<L>"
+      phones: ["\\u0300"]  # COMBINING GRAVE ACCENT
+    R:
+      repr: "<LH>"
+      phones: ["\\u030C"]  # COMBINING CARON
+    F:
+      repr: "<HL>"
+      phones: ["\\u0302"]  # COMBINING CIRCUMFLEX ACCENT
+  tone_flags:
+  # Flags indicating slots for tone association
+  # 'TBU' = Tone-Bearing Unit (vowel or sonorant consonant)
+  # 'FLOAT' = floating tone (not yet associated to a segment)
+    repr: "<TONE_SLOT>"
+    flags: ["<TBU>", "<FLOAT>"]

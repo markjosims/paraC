@@ -5,7 +5,7 @@ order:
   - final_vowel
   - argument_marker
   - class_prefix
-  - hiatus_resolution
+  - resolve_hiatus
   - vowel_harmony
   - tone_processes
 global_markers:
@@ -13,8 +13,12 @@ global_markers:
     order: root_tone
   - rule: $final_vowel_A
     order: final_vowel
-  - rule: $hiatus_resolution
-    order: hiatus_resolution
+  - rule: $resolve_hiatus
+    order: resolve_hiatus
+  - rule: $vowel_harmony
+    order: vowel_harmony
+  - rule: $float_tones
+    order: tone_processes
 features:
   tam: imperfective
   deixis: itive

@@ -1,0 +1,25 @@
+# Phonological rules for vowel coalescence and hiatus resolution
+kind: Rules
+rules:
+  coalesce_before_i:
+    description: >
+      Non-high vowels coalesce to /ɛ/ when followed by /i/ across
+      morpheme boundaries. Equivalent to V[-high]i > ɛ / _i
+    input_pattern: "(<V_MID>|<V_LOW>)-?i"
+    # Coalesces to a mid front vowel /ɛ/
+    output_pattern: "ɛ"
+    # no "left_context" or "right_context" needed for this rule
+  delete_vowel_in_hiatus:
+    description: >
+      A vowel is deleted before another vowel across morpheme boundaries.
+      Equivalent to V > V / _V
+    input_pattern: "<V>-?"
+    output_pattern: ""
+    # right_context: another vowel
+    # note: if we put this in the 'input_pattern', it would delete both vowels
+    right_context: "<V>"
+  resolve_hiatus:
+    description: >
+      Resolve vowel hiatus: if the first vowel is non-high and the second vowel is /i/,
+      coalesce them to /ɛ/; otherwise, delete the first vowel.
+    rule_sequence: [delete_vowel_in_hiatus, coalesce_before_i]

@@ -5,6 +5,8 @@ global_attributes:
 features:
   class:
   # class prefixes in Tira include: l, g, r, ð, n, ŋ, ɲ, j, s, t̪
+  # assume that the slot for the class prefix, marked with <CL>,
+  # is assigned at a previous stage (e.g. argument_marking)
     l:
       replace: [<CL>, l]
     g:

@@ -1,5 +1,5 @@
 # Imperfective auxiliary subject markers
-kind: ContingentMarkers
+kind: FeatureMarkers
 global_attributes:
   order: argument_marker
 features:

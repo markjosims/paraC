@@ -1,0 +1,23 @@
+# Phonological rules for associating tones to segments
+kind: Rules
+rules:
+  add_tbus:
+    description: >
+      Add a tone-bearing unit (TBU) for each vowel and sonorant consonant
+    input_pattern: ""
+    output_pattern: "<TBU>"
+    left_context: "(<V>|<R>|<N>)"
+  remove_tbus_from_onset_c:
+    description: >
+      Remove TBUs from sonorant consonants in syllable onsets
+    input_pattern: "<TBU>"
+    output_pattern: ""
+    left_context: "(<R>|<N>)"
+    right_context: "<V>"
+  remove_tbus_from_coda_c:
+    description: >
+      Remove TBUs from sonorant consonants in syllable codas
+    input_pattern: "<TBU>"
+    output_pattern: ""
+    left_context: "<V>"
+    right_context: "(<C>|<EOS>)"
