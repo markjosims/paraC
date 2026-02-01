@@ -1,0 +1,32 @@
+# Imperfective auxiliary subject markers with a 3rd person object
+kind: ContingentFeatureMarkers
+global_attributes:
+  order: argument_marker
+features:
+  object:
+    3sg:
+      subject:
+        1sg:
+          prefix: <CL>-
+          suffix: -ɛ́
+        2sg:
+          prefix: <CL>-
+          suffix: -á
+        3sg:
+          prefix: <CL>-
+          suffix: -ŋ
+        1du.incl:
+          prefix: <CL>-
+          suffix: -á-l
+        1pl.incl:
+          prefix: <CL>-
+          suffix: -á-l
+        1pl.excl:
+          prefix: <CL>-
+          suffix: -éɲâ
+        2pl:
+          prefix: <CL>-
+          suffix: -éɲá
+        3pl:
+          prefix: <CL>-
+          suffix: -l
