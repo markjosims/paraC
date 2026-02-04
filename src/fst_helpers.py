@@ -317,15 +317,15 @@ def get_gloss_str_from_dict(
     keys = sorted(inflectional_keys) + sorted(person_keys) + sorted(lexical_keys)
 
     if verbose:
-        other_parts = [f'[{key}={analysis_subset[key]}]' for key in keys]
-        gloss_str = gloss + ''.join(other_parts)
+        features = [f'[{key}={analysis_subset[key]}]' for key in keys]
+        gloss_str = gloss + ''.join(features)
     else:
         for key in inflectional_keys+person_keys:
             part = analysis_subset[key]
             part_abbr = FEATURE2ABBREVIATION.get(part, part.upper())
             analysis_subset[key] = part_abbr
-        other_parts = [analysis_subset[key] for key in keys]
-        gloss_str = '[' + ','.join([gloss] + other_parts) + ']' 
+        features = [analysis_subset[key] for key in keys]
+        gloss_str = f"{gloss}[{','.join(features)}]"
 
     if include_form and 'analyzed_form' in analysis:
         gloss_str = analysis['analyzed_form'] + ' ' + gloss_str
