@@ -302,6 +302,8 @@ def get_gloss_str_from_dict(
         elif key == 'class' and not verbose:
             # Prepend 'CL' to class value
             analysis_subset[key] = f"CL{analysis_subset['class']}"
+        elif key == 'wh' and not verbose:
+            analysis_subset[key]=f'WH.{value}'
         elif key == 'subject' and not verbose:
             analysis_subset[key]+='.sbj'
         elif key == 'object' and not verbose:
@@ -323,7 +325,7 @@ def get_gloss_str_from_dict(
             part_abbr = FEATURE2ABBREVIATION.get(part, part.upper())
             analysis_subset[key] = part_abbr
         other_parts = [analysis_subset[key] for key in keys]
-        gloss_str = '-'.join([gloss] + other_parts)
+        gloss_str = '[' + ','.join([gloss] + other_parts) + ']'
 
     if include_form and 'analyzed_form' in analysis:
         gloss_str = analysis['analyzed_form'] + ' ' + gloss_str
