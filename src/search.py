@@ -86,7 +86,7 @@ def search_parse_csv(
         matching_rows &= lowercase_gloss.str.contains(feature, na=False)
     
     columns = [
-        'original_str', 'updated_str', 'gloss', 'root',
+        'original_str', 'word', 'updated_str', 'gloss', 'root',
         'weight', 'sentence', 'translation'
     ]
 
