@@ -814,35 +814,6 @@ function renderReferences() {
 
         let bodyContent = buildRefContent(section, items);
 
-        // Inject inventory class REPRs into the Patterns section
-        if (section === 'patterns') {
-            const invItems = references['inventory'] || [];
-            let invReprHtml = '';
-            for (const invItem of invItems) {
-                if (invItem.symbols) {
-                    for (const sym of invItem.symbols) {
-                        const hasItems = sym.items && sym.items.length;
-                        const hasChildren = sym.child_reprs && sym.child_reprs.length;
-                        const iid = 'invpat-detail-' + Math.random().toString(36).slice(2, 8);
-                        invReprHtml += `<div class="ref-item ms-2" onclick="insertRef('${sym.repr}')" title="Inventory class">
-                            <span class="ref-symbol">${escapeHtml(sym.repr)}</span>`;
-                        if (hasItems || hasChildren) {
-                            invReprHtml += `<span class="ref-expand-btn" onclick="event.stopPropagation(); toggleRefDetail('${iid}')" title="Show members">&#9432;</span>`;
-                        }
-                        invReprHtml += `</div>`;
-                        if (hasItems) {
-                            invReprHtml += `<div id="${iid}" class="ref-detail-box" style="display:none">${sym.items.map(escapeHtml).join(', ')}</div>`;
-                        } else if (hasChildren) {
-                            invReprHtml += `<div id="${iid}" class="ref-detail-box" style="display:none">${sym.child_reprs.map(escapeHtml).join(', ')}</div>`;
-                        }
-                    }
-                }
-            }
-            if (invReprHtml) {
-                bodyContent += `<hr style="margin:0.4rem 0"><div class="text-muted" style="font-size:0.75rem;margin-bottom:0.25rem">Inventory Classes</div>` + invReprHtml;
-            }
-        }
-
         div.innerHTML = `
             <h2 class="accordion-header">
                 <button class="accordion-button collapsed" type="button"
@@ -857,6 +828,25 @@ function renderReferences() {
     }
 }
 
+function renderInventoryTree(nodes, depth) {
+    let html = '';
+    const indent = depth;  // ms-{depth} for indentation
+    for (const node of nodes) {
+        const hasItems = node.items && node.items.length;
+        const hasChildren = node.children && node.children.length;
+        html += `<div class="ref-item ms-${indent}" onclick="insertRef('${node.repr}')" title="Click to copy">`;
+        html += `<span class="ref-symbol">${escapeHtml(node.repr)}</span>`;
+        if (hasItems) {
+            html += `<span class="text-muted" style="font-size:0.78rem;margin-left:0.4rem">${node.items.map(escapeHtml).join(', ')}</span>`;
+        }
+        html += `</div>`;
+        if (hasChildren) {
+            html += renderInventoryTree(node.children, Math.min(depth + 1, 5));
+        }
+    }
+    return html;
+}
+
 function buildRefContent(section, items) {
     let html = '';
     for (const item of items) {
@@ -865,24 +855,9 @@ function buildRefContent(section, items) {
             <span class="text-muted"> (${escapeHtml(item.kind || '')})</span>
         </div>`;
 
-        // Show extra detail depending on type
+        // Show hierarchical inventory tree: REPR > (child REPRs) > phones/flags
         if (section === 'inventory' && item.symbols) {
-            for (const sym of item.symbols) {
-                const hasItems = sym.items && sym.items.length;
-                const hasChildren = sym.child_reprs && sym.child_reprs.length;
-                const sid = 'inv-detail-' + Math.random().toString(36).slice(2, 8);
-                html += `<div class="ref-item ms-2" onclick="insertRef('${sym.repr}')">
-                    <span class="ref-symbol">${escapeHtml(sym.repr)}</span>`;
-                if (hasItems || hasChildren) {
-                    html += `<span class="ref-expand-btn" onclick="event.stopPropagation(); toggleRefDetail('${sid}')" title="Show members">&#9432;</span>`;
-                }
-                html += `</div>`;
-                if (hasItems) {
-                    html += `<div id="${sid}" class="ref-detail-box" style="display:none">${sym.items.map(escapeHtml).join(', ')}</div>`;
-                } else if (hasChildren) {
-                    html += `<div id="${sid}" class="ref-detail-box" style="display:none">${sym.child_reprs.map(escapeHtml).join(', ')}</div>`;
-                }
-            }
+            html += renderInventoryTree(item.symbols, 1);
         }
         if (section === 'patterns' && item.patterns) {
             for (const p of item.patterns) {

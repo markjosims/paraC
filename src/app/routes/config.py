@@ -41,38 +41,25 @@ def _build_tree(root_dir):
     return tree
 
 
-def _collect_symbols_from_inventory(data, symbols=None):
-    """Recursively extract repr -> items/phones/flags from inventory data.
-
-    For parent groups (no direct phones/flags), collects child group reprs instead.
-    """
-    if symbols is None:
-        symbols = []
+def _collect_symbols_from_inventory(data):
+    """Recursively extract repr -> items/phones/flags from inventory data as a tree."""
     if not isinstance(data, dict):
-        return symbols
-    repr_val = data.get('repr')
-    items = data.get('items') or data.get('phones') or data.get('flags')
-
-    # Collect child sub-group reprs
-    child_reprs = []
+        return []
+    trees = []
     for key, val in data.items():
         if key in ('repr', 'items', 'phones', 'flags'):
             continue
-        if isinstance(val, dict) and val.get('repr'):
-            child_reprs.append(val['repr'])
-
-    if repr_val:
-        entry = {'repr': repr_val, 'items': items or []}
-        if not items and child_reprs:
-            entry['child_reprs'] = child_reprs
-        symbols.append(entry)
-
-    for key, val in data.items():
-        if key in ('repr', 'items', 'phones', 'flags'):
+        if not isinstance(val, dict) or not val.get('repr'):
             continue
-        if isinstance(val, dict):
-            _collect_symbols_from_inventory(val, symbols)
-    return symbols
+        node = {'repr': val['repr']}
+        items = val.get('items') or val.get('phones') or val.get('flags')
+        if items:
+            node['items'] = items
+        children = _collect_symbols_from_inventory(val)
+        if children:
+            node['children'] = children
+        trees.append(node)
+    return trees
 
 
 def _collect_references():
