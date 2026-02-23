@@ -17,6 +17,7 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import pynini
 import yaml
+import unicodedata
 
 from src.constants import (
     BOUNDARY_STR,
@@ -147,9 +148,10 @@ def _build_registry_from_node(node: dict, registry: Dict[str, pynini.Fst]) -> py
         parts.append(fst(phone))
     for flag in flags:
         # flags may have bracket notation like "[TBU]" — encode them
+        # TODO Validate flag string meets expected format
         parts.append(fst(flag))
 
-    # Recurse into child nodes (skip special keys)
+    # Recurse into child nodes (skip  keys)
     skip_keys = {"repr", "phones", "flags"}
     for key, value in node.items():
         if key in skip_keys:
@@ -252,7 +254,7 @@ def _tokenize_pattern(pattern_str: str) -> List[Tuple[str, str]]:
         for tok_type, tok_re in [
             ("special", re.compile(r"\[BOS\]|\[EOS\]")),
             ("ref", re.compile(r"<[^>]+>")),
-        ]:
+        ]:  
             m = tok_re.match(text, i)
             if m:
                 tokens.append((tok_type, m.group()))
@@ -274,7 +276,7 @@ def _tokenize_pattern(pattern_str: str) -> List[Tuple[str, str]]:
             # Possibly a multi-byte Unicode character or dental bridge combo
             # Collect combining characters that follow
             j = i + 1
-            while j < len(text) and unicodedata_combining(text[j]):
+            while j < len(text) and unicodedata.combining(text[j]):
                 j += 1
             literal = text[i:j]
             tokens.append(("literal", literal))
@@ -283,20 +285,14 @@ def _tokenize_pattern(pattern_str: str) -> List[Tuple[str, str]]:
     return tokens
 
 
-def unicodedata_combining(ch: str) -> bool:
-    """Return True if ch is a combining Unicode character."""
-    import unicodedata
-    return unicodedata.combining(ch) != 0
-
-
 class _PatternParser:
     """
     Recursive descent parser for pattern strings.
 
     Grammar:
         expr   ::= term ('|' term)*
-        term   ::= factor+
         factor ::= atom ('*' | '+' | '?')?
+        term   ::= factor+
         atom   ::= ref | special | literal | '(' expr ')'
     """
 
