@@ -1,1 +1,7 @@
 kind: FeatureCombinations
+features: [tam, deixis, class, subject, object]
+combinations:
+  - tam: infinitive
+    class: ð
+  - tam: imperative
+    deixis: [itive, ventive]

@@ -10,10 +10,10 @@ kind: Patterns
 patterns:
     - non_high_vowel:
         pattern: "(<V_Low>|<V_Mid>)"
-        repr: "<V_NonHigh>"
+        _ref: "<V_NonHigh>"
     - voiced_stop:
         pattern: [b, d, g]
-        repr: <VcdStop>
+        _ref: <VcdStop>
 ```
 Patterns can be used to build other patterns by using the 'repr' value:
 ```yaml
@@ -22,9 +22,9 @@ pattern:
     - tone_bearing_segment:
         pattern: "(<M>|<R>|<V>)"
         # using <TBU_SEG> rather than <TBU> to avoid confusion with the [TBU] flag
-        repr: "<TBU_SEG>"
+        _ref: "<TBU_SEG>"
     - syllable:
         pattern: "<C>?<TBU_SEG><C>?"
-        repr: "<Syll>"
+        _ref: "<Syll>"
 ```
 Patterns can reference patterns defined earlier in the same document or in another document provided that document does not itself reference the current, to prevent circular imports.

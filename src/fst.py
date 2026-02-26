@@ -138,9 +138,9 @@ def _build_registry_from_node(node: dict, registry: Dict[str, pynini.Fst]) -> py
     Returns an FSA that is the union of all phones/flags in this subtree,
     and registers any intermediate/top-level reprs encountered.
     """
-    phones = node.get("phones", [])
-    flags = node.get("flags", [])
-    repr_str = node.get("repr", None)
+    phones = node.get("_phones", [])
+    flags = node.get("_flags", [])
+    repr_str = node.get("_ref", None)
 
     # Build the FSA for all phones/flags at this node
     parts: List[pynini.Fst] = []
@@ -152,7 +152,7 @@ def _build_registry_from_node(node: dict, registry: Dict[str, pynini.Fst]) -> py
         parts.append(fst(flag))
 
     # Recurse into child nodes (skip  keys)
-    skip_keys = {"repr", "phones", "flags"}
+    skip_keys = {"_ref", "_phones", "_flags"}
     for key, value in node.items():
         if key in skip_keys:
             continue
@@ -449,7 +449,7 @@ def compile_patterns(config: dict, registry: Dict[str, pynini.Fst]) -> Dict[str,
     """
     patterns_list = config.get("patterns", [])
     for entry in patterns_list:
-        # Each entry is either {name: {pattern: ..., repr: ...}} or flat
+        # Each entry is either {name: {pattern: ..., _ref: ...}} or flat
         # TODO: this is not true, the YAML structure requires pattern and repr
         # attributes for each pattern
         if isinstance(entry, dict):
@@ -457,7 +457,7 @@ def compile_patterns(config: dict, registry: Dict[str, pynini.Fst]) -> Dict[str,
                 if not isinstance(spec, dict):
                     continue
                 pattern_str = spec.get("pattern", "")
-                repr_str = spec.get("repr", None)
+                repr_str = spec.get("_ref", None)
                 if repr_str is None:
                     continue
                 fsa = compile_pattern_str(pattern_str, registry)

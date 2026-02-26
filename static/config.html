@@ -2265,7 +2265,7 @@ function buildPatternsForm(container, data) {
             }
         }
     }
-    addAddBtn(sec, 'Add Pattern', () => addPatternEntry(patternsDiv, '', { pattern: '', repr: '' }));
+    addAddBtn(sec, 'Add Pattern', () => addPatternEntry(patternsDiv, '', { pattern: '', _ref: '' }));
 }
 
 function addPatternEntry(container, name, pdef) {
@@ -2322,7 +2322,7 @@ function buildInventoryForm(container, data) {
     sec.appendChild(hint(
         'Define phoneme/symbol inventory as a nested hierarchy. ' +
         'Each group has a name and repr (angle brackets). ' +
-        'Set type to "phones" for phone lists, "flags" for flag lists, or "group" to add sub-categories.'
+        'Set type to "_phones" for phone lists, "_flags" for flag lists, or "group" to add sub-categories.'
     ));
     container.appendChild(sec);
 
@@ -2338,7 +2338,7 @@ function buildInventoryForm(container, data) {
     }
 
     addAddBtn(sec, 'Add Top-Level Group', () => {
-        addInventoryNode(rootDiv, '', { repr: '' }, 0);
+        addInventoryNode(rootDiv, '', { _ref: '' }, 0);
     });
 }
 
@@ -2471,7 +2471,7 @@ function addInventoryNode(container, name, nodeData, depth) {
             }
 
             addAddBtn(body, 'Add Sub-Group', () => {
-                addInventoryNode(childrenDiv, '', { repr: '' }, depth + 1);
+                addInventoryNode(childrenDiv, '', { _ref: '' }, depth + 1);
             });
         }
     }
@@ -2479,7 +2479,7 @@ function addInventoryNode(container, name, nodeData, depth) {
     typeSel.addEventListener('change', () => {
         // When switching type, clear the body and re-render
         // (existing items/children will be lost on type switch)
-        nodeData = { repr: reprInput.value };
+        nodeData = { _ref: reprInput.value };
         renderBody();
     });
 

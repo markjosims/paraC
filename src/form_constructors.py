@@ -20,7 +20,7 @@ class Marker:
         suppletion: Full form to use instead of the base form
         rule: Name(s) of phonological rule(s) to apply (must be defined elsewhere)
         order: A unique name for ordering application of rules/affixes
-        fst: (TODO) Finite State Transducer representing the marker (built automatically post-init)
+        fst: Finite State Transducer representing the marker (built by `FstRegistry` object)
         
     """
     prefix: Optional[str] = None
@@ -32,13 +32,11 @@ class Marker:
     fst: Optional[Fst] = None  # Placeholder for FST object
 
     def __post_init__(self):
-        # TODO: convert marker input to FST
         if self.fst is not None:
             raise ValueError("FST should not be provided directly; it will be built automatically.")
         if self.suppletion is not None:
             if any([self.prefix, self.suffix, self.replace, self.rule]):
                 raise ValueError("Suppletion cannot be combined with other marker attributes.")
-        # self.fst = build_fst_from_marker_input(self.marker_input)
     
 @dataclass
 class FeatureMarkers:
@@ -55,10 +53,11 @@ class FeatureMarkers:
     def __post_init__(self):
         # Set attributes dynamically based on keys in data
         for key, value in self.data.items():
-            if not isinstance(value, dict):
-                raise ValueError(f"Marker value for {key} must be a dictionary.")
-            if isinstance(value, Marker):
+            if isinstance(value, dict) or isinstance(value, Marker):
                 value = [value]
+            # Cast list of dicts to Markers
+            if isinstance(value[0], dict):
+                value = [Marker(d) for d in value]
             elif not isinstance(value, list):
                 raise ValueError(f"Marker value for {key} must be a Marker or list of Markers.")
             setattr(self, key, value)

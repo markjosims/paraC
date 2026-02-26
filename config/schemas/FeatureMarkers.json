@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FeatureMarkers",
+  "description": "Schema for defining morphological formatives for a single feature.",
+  "type": "object",
+  "required": ["kind", "feature", "markers"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["FeatureMarkers"]
+    },
+    "feature": {
+      "type": "string",
+      "description": "The name of the linguistic feature being marked (e.g., 'person')."
+    },
+    "inherits": {
+      "type": "string",
+      "pattern": "^\\$.*",
+      "description": "Path to another config to inherit markers from."
+    },
+    "global_attributes": {
+      "type": "object",
+      "description": "Attributes applied to every marker defined in this file.",
+      "properties": {
+        "order": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "markers": {
+      "type": "object",
+      "description": "Map of feature values to their morphological realizations.",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "null" },
+          { "$ref": "#/definitions/marker" },
+          {
+            "type": "array",
+            "items": { "$ref": "#/definitions/marker" }
+          }
+        ]
+      },
+      "properties": {
+        "global_marker": {
+          "description": "A marker applied to all forms in this paradigm.",
+          "$ref": "#/definitions/marker"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "marker": {
+      "type": "object",
+      "properties": {
+        "suffix": { "type": "string" },
+        "prefix": { "type": "string" },
+        "replace": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "string" }
+        },
+        "rule": { 
+          "type": "string",
+          "pattern": "^\\$.*" 
+        },
+        "suppletion": { "type": "string" },
+        "order": { "type": "string" },
+        "comment": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

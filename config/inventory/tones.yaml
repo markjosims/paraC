@@ -1,19 +1,19 @@
 kind: Inventory
 data:
   tone_flags:
-    repr: "<TONE_SLOT>"
-    flags: ["<TBU>", "<FLOAT>"]
+    _ref: "<TONE_SLOT>"
+    _flags: ["<TBU>", "<FLOAT>"]
   tones:
-    repr: "<T>"
+    _ref: "<T>"
     F:
-      repr: "<HL>"
-      phones: ["\u0302"]
+      _ref: "<HL>"
+      _phones: ["\u0302"]
     H:
-      repr: "<H>"
-      phones: ["\u0301"]
+      _ref: "<H>"
+      _phones: ["\u0301"]
     L:
-      repr: "<L>"
-      phones: ["\u0300"]
+      _ref: "<L>"
+      _phones: ["\u0300"]
     R:
-      repr: "<LH>"
-      phones: ["\u030C"]
+      _ref: "<LH>"
+      _phones: ["\u030C"]

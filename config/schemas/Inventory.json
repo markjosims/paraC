@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "inventory_schema.json",
+  "title": "Inventory",
+  "description": "Schema for phoneme and symbol inventory YAML configs",
+  "type": "object",
+  "required": ["kind", "data"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "Inventory",
+      "description": "Type identifier for inventory configs"
+    },
+    "data": {
+      "type": "object",
+      "$ref": "#/$defs/inventoryNode"
+    }
+  },
+  "$defs": {
+    "inventoryNode": {
+      "type": "object",
+      "description": "A node in the inventory tree, can contain phones, flags, repr, or child nodes",
+      "properties": {
+        "_ref": {
+          "type": "string",
+          "pattern": "^<[^>]+>$",
+          "description": "Representation symbol in angle brackets (e.g., <V>, <C>, <V_Mid>)"
+        },
+        "_phones": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of phone symbols (IPA characters)"
+        },
+        "_flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^<[^>]+>$"
+          },
+          "description": "Array of flag symbols in angle brackets"
+        }
+      },
+      "patternProperties": {
+        "^[a-zA-Z][a-zA-Z0-9_]*$": {
+          "$ref": "#/$defs/inventoryNode"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
