@@ -17,4 +17,4 @@ markers:
   2pl:
     suffix: -tɛ́
   3pl:
-    suffix: {(-ĺ)|(-ló)}
+    suffix: '(-ĺ)|(-ló)'

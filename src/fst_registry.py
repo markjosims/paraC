@@ -11,6 +11,7 @@ All higher-level config-driven code will depend on it.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple, Union
@@ -37,6 +38,7 @@ from src.fst_helpers import (
     set_symbols,
 )
 from src.lexicon.phonology import SIGMASTAR
+from src.registry_utils import ConfigConstructorMixin
 
 # ---------------------------------------------------------------------------
 # Config directory map: kind → subdirectory
@@ -56,6 +58,57 @@ _KIND_TO_SUBDIR: Dict[str, str] = {
     "FeatureCombinations": "features",
 }
 
+# TODO implement classes
+
+class InventoryRegistry(ConfigConstructorMixin):
+    # initialize with a list of convig dicts
+    def __init__(self):
+        ...
+        
+    def from_yaml(self):
+        ...
+
+    def _build_symbol_table(self):
+        ...
+
+    def _update_data(self):
+        ...
+
+class PatternList(ConfigConstructorMixin):
+    def __init__(self): 
+        ...
+
+class Pattern:
+    def __init__(self):
+        ...
+
+class RuleList(ConfigConstructorMixin):
+    def __init__(self):
+        ...
+
+class Rule:
+    def __init__(self):
+        ...
+
+class FstRegistry(InventoryRegistry):
+    def __init__(self):
+        ...
+        
+    def from_yaml(self):
+        ...
+        
+    def _update_from_patterns(self):
+        ...
+        
+    def _update_from_rules(self):
+        ...
+    
+
+@dataclass
+class InventoryItem:
+    def __init__(self):
+        ...
+        
 # ---------------------------------------------------------------------------
 # Section 1: Config Loading
 # ---------------------------------------------------------------------------
@@ -138,9 +191,9 @@ def _build_registry_from_node(node: dict, registry: Dict[str, pynini.Fst]) -> py
     Returns an FSA that is the union of all phones/flags in this subtree,
     and registers any intermediate/top-level reprs encountered.
     """
-    phones = node.get("phones", [])
-    flags = node.get("flags", [])
-    repr_str = node.get("repr", None)
+    phones = node.get("_phones", [])
+    flags = node.get("_flags", [])
+    repr_str = node.get("_ref", None)
 
     # Build the FSA for all phones/flags at this node
     parts: List[pynini.Fst] = []
@@ -152,7 +205,7 @@ def _build_registry_from_node(node: dict, registry: Dict[str, pynini.Fst]) -> py
         parts.append(fst(flag))
 
     # Recurse into child nodes (skip  keys)
-    skip_keys = {"repr", "phones", "flags"}
+    skip_keys = {"_ref", "_phones", "_flags"}
     for key, value in node.items():
         if key in skip_keys:
             continue
@@ -449,7 +502,7 @@ def compile_patterns(config: dict, registry: Dict[str, pynini.Fst]) -> Dict[str,
     """
     patterns_list = config.get("patterns", [])
     for entry in patterns_list:
-        # Each entry is either {name: {pattern: ..., repr: ...}} or flat
+        # Each entry is either {name: {pattern: ..., _ref: ...}} or flat
         # TODO: this is not true, the YAML structure requires pattern and repr
         # attributes for each pattern
         if isinstance(entry, dict):
@@ -457,7 +510,7 @@ def compile_patterns(config: dict, registry: Dict[str, pynini.Fst]) -> Dict[str,
                 if not isinstance(spec, dict):
                     continue
                 pattern_str = spec.get("pattern", "")
-                repr_str = spec.get("repr", None)
+                repr_str = spec.get("_ref", None)
                 if repr_str is None:
                     continue
                 fsa = compile_pattern_str(pattern_str, registry)

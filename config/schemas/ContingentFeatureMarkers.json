@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ContingentFeatureMarkers",
+  "description": "Schema for morphological realizations contingent on multiple features.",
+  "type": "object",
+  "required": ["kind", "features", "markers"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["ContingentFeatureMarkers"]
+    },
+    "features": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "List of features involved in this contingent paradigm."
+    },
+    "global_attributes": {
+      "type": "object",
+      "properties": {
+        "order": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "markers": {
+      "type": "object",
+      "description": "The root of the contingent hierarchy.",
+      "$ref": "#/definitions/nestedNode"
+    }
+  },
+  "definitions": {
+    "marker": {
+      "type": "object",
+      "properties": {
+        "suffix": { "type": "string" },
+        "prefix": { "type": "string" },
+        "replace": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "rule": { "type": "string", "pattern": "^\\$.*" },
+        "suppletion": { "type": "string" },
+        "order": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "nestedNode": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "null" },
+          { "$ref": "#/definitions/marker" },
+          {
+            "type": "array",
+            "items": { "$ref": "#/definitions/marker" }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "inherits": { "type": "string", "pattern": "^\\$.*" }
+            },
+            "additionalProperties": { "$ref": "#/definitions/nestedNode" }
+          },
+          { "$ref": "#/definitions/nestedNode" }
+        ]
+      }
+    }
+  }
+}

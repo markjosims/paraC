@@ -1,6 +1,6 @@
 import pytest
 from src.fst_helpers import *
-from src.fst import (
+from src.fst_registry import (
     load_config,
     build_inventory_registry,
     compile_pattern_str,

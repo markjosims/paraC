@@ -24,35 +24,35 @@ kind: Inventory
 data:
   consonants:
   # the `repr` key gives a short representation for the entire class
-    repr: "<C>"
+    _ref: "<C>"
     stops:
-      repr: "<PLSV>"
+      _ref: "<PLSV>"
       voiced:
-        repr: "<P>"
-        phones: ['b', 'd̪', 'd', 'ɟ', 'g']
+        _ref: "<P>"
+        _phones: ['b', 'd̪', 'd', 'ɟ', 'g']
       voiceless:
-        repr: "<B>"
-        phones: ['p', 't̪', 't', 'c', 'k', 'ʔ']
+        _ref: "<B>"
+        _phones: ['p', 't̪', 't', 'c', 'k', 'ʔ']
     nasals:
-      repr: "<N>"
-      phones: ['m', 'n', 'ɲ', 'ŋ']
+      _ref: "<N>"
+      _phones: ['m', 'n', 'ɲ', 'ŋ']
     fricatives:
-      repr: "<F>"
-      phones: ['f', 'v', 'ð', 's', 'ʃ', 'h']
+      _ref: "<F>"
+      _phones: ['f', 'v', 'ð', 's', 'ʃ', 'h']
     resonants:
-      repr: "<R>"
-      phones: ['l', 'r', 'ɾ', 'ɽ']
+      _ref: "<R>"
+      _phones: ['l', 'r', 'ɾ', 'ɽ']
       glides:
-        repr: "<Glide>"
-        phones: ['j', 'w']
+        _ref: "<Glide>"
+        _phones: ['j', 'w']
   vowels:
-    repr: "<V>"
+    _ref: "<V>"
     high:
-      repr: "<V_High>"
-      phones: ['i', 'ɪ', 'u', 'ʊ']
+      _ref: "<V_High>"
+      _phones: ['i', 'ɪ', 'u', 'ʊ']
     mid:
-      repr: "<V_Mid>"
-      phones: ['e', 'ɛ', 'ə', 'ɜ', 'o', 'ɔ']
+      _ref: "<V_Mid>"
+      _phones: ['e', 'ɛ', 'ə', 'ɜ', 'o', 'ɔ']
     low:
-      repr: "<V_Low>"
-      phones: ['a']
+      _ref: "<V_Low>"
+      _phones: ['a']

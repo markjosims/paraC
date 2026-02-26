@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PartOfSpeech",
+  "description": "Configuration defining the metadata, inflectional features, and lexical attributes for a specific part of speech.",
+  "type": "object",
+  "required": ["kind", "name", "features"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["PartOfSpeech"]
+    },
+    "name": {
+      "type": "string",
+      "description": "The name of the part of speech (e.g., noun, verb, adjective)."
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of inflectional features relevant to this part of speech that are associated with morphological formatives."
+    },
+    "invariant_features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Morphological features inherent to the word (e.g., inherent gender). These must correspond to columns in the lexicon CSV."
+    },
+    "lexical_flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Column names in the lexicon CSV used to signal special behavior, irregular inflection, or lexical classes."
+    },
+    "principal_parts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Column names in the lexicon CSV that specify alternate stems for a root (e.g., present_stem, past_stem)."
+    }
+  },
+  "additionalProperties": false
+}

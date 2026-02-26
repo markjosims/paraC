@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Paradigm",
+  "description": "Configuration defining an inflectional paradigm or sub-paradigm.",
+  "type": "object",
+  "required": ["kind", "part_of_speech", "features"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["Paradigm"]
+    },
+    "part_of_speech": {
+      "type": "string",
+      "description": "The category of the root (e.g., verb, noun)."
+    },
+    "filter": {
+      "type": "object",
+      "description": "Logic to select specific lexical roots from the lexicon.",
+      "properties": {
+        "lexical_flag": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "order": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "The ordered stages of morphological application."
+    },
+    "global_markers": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/marker" },
+      "description": "Markers or rules applied to every form in the paradigm."
+    },
+    "features": {
+      "type": "object",
+      "description": "Mapping of features to their markers or import files.",
+      "additionalProperties": {
+        "oneOf": [
+          { 
+            "type": "string", 
+            "description": "Literal value or file reference (starts with $)." 
+          },
+          { 
+            "type": "object", 
+            "description": "Inline markers mapping feature values to realizations.",
+            "additionalProperties": { "$ref": "#/definitions/featureValueMarker" }
+          }
+        ]
+      }
+    },
+    "feature_combinations": {
+      "oneOf": [
+        { "type": "string", "pattern": "^\\$.*" },
+        { "type": "array", "items": { "type": "string", "pattern": "^\\$.*" } }
+      ],
+      "description": "Imported configuration(s) defining valid feature cross-products."
+    },
+    "contingent_features": {
+      "type": "object",
+      "description": "In-line contingent feature definitions.",
+      "patternProperties": {
+          "^[a-zA-Z][a-zA-Z0-9_]*&[a-zA-Z][a-zA-Z0-9_]$": {
+            "oneOf": [
+              { "type": "string", "pattern": "^\\$.*" },
+              { 
+                "additionalProperties": { "$ref": "#/definitions/nestedNode" }
+              }
+            ]
+          }
+      }
+    }
+  },
+  "definitions": {
+    "marker": {
+      "type": "object",
+      "properties": {
+        "suffix": { "type": "string" },
+        "prefix": { "type": "string" },
+        "replace": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "rule": { "type": "string", "pattern": "^\\$.*" },
+        "suppletion": { "type": "string" },
+        "order": { "type": "string" },
+        "comment": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "featureValueMarker": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/definitions/marker" },
+        { "type": "array", "items": { "$ref": "#/definitions/marker" } }
+      ]
+    },
+    "nestedNode": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "null" },
+          { "$ref": "#/definitions/marker" },
+          { "type": "array", "items": { "$ref": "#/definitions/marker" } },
+          {
+            "type": "object",
+            "properties": {
+              "inherits": { "type": "string", "pattern": "^\\$.*" }
+            },
+            "additionalProperties": { "$ref": "#/definitions/nestedNode" }
+          },
+          { "$ref": "#/definitions/nestedNode" },
+          { "type": "string", "pattern": "^\\$.*", "description": "Direct file import inside contingency." }
+        ]
+      }
+    }
+  }
+}
