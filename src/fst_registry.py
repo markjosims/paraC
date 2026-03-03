@@ -11,7 +11,7 @@ All higher-level config-driven code will depend on it.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 import re
 from pathlib import Path
@@ -23,11 +23,10 @@ import unicodedata
 
 from src.registry_utils import Registry
 
-# TODO implement classes
-
 class InventoryRegistry(Registry):
     def __init__(self, config_dir: os.PathLike):
         super().__init__(kind="Inventory", config_dir=config_dir)
+        self.data = self.load_all_configs()
         
     def load_all_configs(self):
         config_items = {}
@@ -48,19 +47,19 @@ class InventoryRegistry(Registry):
             return
         
         # get flat list of items
-        items_with_children = [
-            InventoryItem._initialize_inventory_item(item) for item in top_classes
-        ]
-        flat_items = top_classes[:]
-        while items_with_children:
-            current_item = items_with_children.pop(0)
-            for child in current_item.children:
-                flat_items.append(child)
-                if child.children:
-                    items_with_children.append(child)
+        inventory_items = []
+        for item_config in top_classes.values():
+            item = InventoryItem.from_config(item_config)
+            flat_item = self._flatten_inventory_item(item)
+            inventory_items.extend(flat_item)
+        
+        # check for item collisions
+        item_values = [item.value for item in inventory_items]
+        if len(item_values) != len(set(item_values)):
+            raise ValueError("Collision found among item values", item_values)
 
         # make dict mapping ref to item
-        config_items = {item.value: item for item in flat_items}
+        config_items = {item.value: item for item in inventory_items}
         return config_items
 
     def _flatten_inventory_item(self, item: InventoryItem) -> List[InventoryItem]:
@@ -89,16 +88,17 @@ class InventoryItem:
     """
     value: str
     type: Literal["phone", "flag", "class"]
-    children: List[InventoryItem] = []
+    children: List[InventoryItem] = field(default_factory=list)
     parent: Optional[InventoryItem] = None
 
-    def _initialize_inventory_item(item_dict: dict, parent: Optional[InventoryItem] = None) -> InventoryItem:
+    @classmethod
+    def from_config(cls, item_dict: dict, parent: Optional[InventoryItem] = None) -> InventoryItem:
         """
         Builds an InventoryItem from a config dict
         If config has children (nested dicts), recursively
         build child InventoryItems and attach to parent
         """
-        inventory_item = InventoryItem(
+        inventory_item = cls(
             value=item_dict["_ref"],
             type="class",
             children=[],
@@ -109,19 +109,18 @@ class InventoryItem:
         for key, value in item_dict.items():
             if key == '_phones':
                 for phone in value:
-                    child = InventoryItem(value=phone, type="phone", parent=inventory_item)
+                    child = cls(value=phone, type="phone", parent=inventory_item)
                     children.append(child)
             elif key == '_flags':
                 for flag in value:
-                    child = InventoryItem(value=flag, type="flag", parent=inventory_item)
+                    child = cls(value=flag, type="flag", parent=inventory_item)
                     children.append(child)
             elif isinstance(value, dict):
-                child = InventoryItem._initialize_inventory_item(value, parent=inventory_item)
+                child = cls.from_config(value, parent=inventory_item)
                 children.append(child)
 
         inventory_item.children = children
         return inventory_item
-
 
 class PatternList(Registry):
     def __init__(self): 
@@ -151,12 +150,7 @@ class FstRegistry(InventoryRegistry):
         
     def _update_from_rules(self):
         ...
-    
 
-@dataclass
-class InventoryItem:
-    def __init__(self):
-        ...
         
 # ---------------------------------------------------------------------------
 # Section 1: Config Loading
@@ -668,7 +662,7 @@ def compile_rules(
 # Section 5: Marker Compiler
 # ---------------------------------------------------------------------------
 
-from src.forms.form_helpers import prefix as _prefix_fst, suffix as _suffix_fst
+# from src.forms.form_helpers import prefix as _prefix_fst, suffix as _suffix_fst
 
 
 def compile_marker_dict(
@@ -878,7 +872,7 @@ def compile_contingent_markers(
 # ---------------------------------------------------------------------------
 
 # Symbols to strip from decoded strings
-_STRIP_SYMBOLS = {TONE_SLOT_STR, TONE_PLACEHOLDER_STR, CLASS_PLACEHOLDER, EOS_STR}
+# _STRIP_SYMBOLS = {TONE_SLOT_STR, TONE_PLACEHOLDER_STR, CLASS_PLACEHOLDER, EOS_STR}
 
 
 def decode_fst_string(encoded_str: str) -> str:
