@@ -26,12 +26,12 @@ data:
   # the `repr` key gives a short representation for the entire class
     _ref: "<C>"
     stops:
-      _ref: "<PLSV>"
+      _ref: "<Plsv>"
       voiced:
-        _ref: "<P>"
+        _ref: "<B>"
         _phones: ['b', 'd̪', 'd', 'ɟ', 'g']
       voiceless:
-        _ref: "<B>"
+        _ref: "<P>"
         _phones: ['p', 't̪', 't', 'c', 'k', 'ʔ']
     nasals:
       _ref: "<N>"
