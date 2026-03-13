@@ -24,17 +24,7 @@ from graphlib import TopologicalSorter
 
 from src.registry_utils import Registry
 
-class FsmMixin:
-    def fsa(self, fsa_input) -> pynini.Fst:
-        ...
-
-    def fst(self, fst_input, fst_output) -> pynini.Fst:
-        ...
-
-    def fsm_string(self, fsm, project_type: str='output') -> str:
-        ...
-
-class InventoryRegistry(Registry, FsmMixin):
+class InventoryRegistry(Registry):
 
     @classmethod
     def from_config_dir(cls, config_dir: str) -> InventoryRegistry:
@@ -94,31 +84,6 @@ class InventoryRegistry(Registry, FsmMixin):
         for child in item.children:
             tokens.extend(self._get_tokens_from_class(child))
         return tokens
-
-    def _build_symbol_table(self):
-        symbols = pynini.SymbolTable()
-        for item in self.data.values():
-            if item.type in ("phone", "flag"):
-                symbols.add_symbol(item.value)
-        self.symbols = symbols
-
-    def _build_acceptors(self):
-        acceptors = {}
-        for class_key in self.classes:
-            item = self.data[class_key]
-            tokens = self._get_tokens_from_class(item)
-            acceptor = pynini.union(*[self.fsa(token) for token in tokens]).optimize()
-            acceptors[class_key] = acceptor
-
-    def _update_data(self):
-        self.classes = [key for key, item in self.data.items() if item.type == "class"]
-        self.phones = [key for key, item in self.data.items() if item.type == "phone"]
-        self.flags = [key for key, item in self.data.items() if item.type == "flag"]
-
-        self._build_symbol_table()
-
-    def fsa(self, fsa_input) -> pynini.Fst:
-        return pynini.accep(fsa_input, token_type=self.symbols)
 
 @dataclass
 class InventoryItem:
@@ -341,6 +306,31 @@ class FstRegistry(InventoryRegistry):
         
     def _update_from_rules(self):
         ...
+
+    def _build_symbol_table(self):
+        symbols = pynini.SymbolTable()
+        for item in self.data.values():
+            if item.type in ("phone", "flag"):
+                symbols.add_symbol(item.value)
+        self.symbols = symbols
+
+    def _build_acceptors(self):
+        acceptors = {}
+        for class_key in self.classes:
+            item = self.data[class_key]
+            tokens = self._get_tokens_from_class(item)
+            acceptor = pynini.union(*[self.fsa(token) for token in tokens]).optimize()
+            acceptors[class_key] = acceptor
+
+    def _update_data(self):
+        self.classes = [key for key, item in self.data.items() if item.type == "class"]
+        self.phones = [key for key, item in self.data.items() if item.type == "phone"]
+        self.flags = [key for key, item in self.data.items() if item.type == "flag"]
+
+        self._build_symbol_table()
+
+    def fsa(self, fsa_input) -> pynini.Fst:
+        return pynini.accep(fsa_input, token_type=self.symbols)
 
         
 # ---------------------------------------------------------------------------
