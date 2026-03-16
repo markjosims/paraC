@@ -11,6 +11,7 @@ All higher-level config-driven code will depend on it.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, field
 import os
 import re
@@ -36,9 +37,17 @@ class ReservedSymbolMixin:
     phone = "<Phone>"
     flag = "<Flag>"
     epsilon = "<Empty>"
-    boundary = "+"
+
     affix_boundary = "-"
     clitic_boundary = "="
+
+    affix_boundary_fsa_str = "[AFFIX]"
+    clitic_boundary_fsa_str = "[CLITIC]"
+
+    boundary2fsa_iput = {
+        affix_boundary: affix_boundary_fsa_str,
+        clitic_boundary: clitic_boundary_fsa_str,
+    }
 
     star = '*'
     plus = '+'
@@ -51,13 +60,16 @@ class ReservedSymbolMixin:
 
     left_delimiters = (left_paren, left_brace)
     right_delimiters = (right_paren, right_brace)
-    operators = (star, plus, optional, union)
+    unary_operators = (star, plus, optional)
+    pipe_operators = (union,)
     reserved_refs = (phone, flag, epsilon)
     reserved_flags = (bos, eos)
-    boundary_symbols = (boundary, affix_boundary, clitic_boundary)
+    boundary_symbols = (affix_boundary, clitic_boundary)
+    boundary_fsa_symbols = (affix_boundary_fsa_str, clitic_boundary_fsa_str)
 
     reserved_symbols = left_delimiters + right_delimiters + \
-        operators + reserved_refs + reserved_flags + boundary_symbols
+        unary_operators + pipe_operators+ reserved_refs + \
+        reserved_flags + boundary_symbols
 
 class InventoryRegistry(Registry):
     """
@@ -125,7 +137,7 @@ class InventoryRegistry(Registry):
         inventory_items = []
         for item_config in top_classes.values():
             item = InventoryItem.from_config(item_config)
-            flat_item = self._flatten_inventory_item(item)
+            flat_item = item.flatten()
             inventory_items.extend(flat_item)
         
         # check for item collisions
@@ -139,13 +151,6 @@ class InventoryRegistry(Registry):
         config_items = {item.value: item for item in inventory_items}
 
         return config_items
-
-    def _flatten_inventory_item(self, item: InventoryItem) -> List[InventoryItem]:
-        """Recursively flatten an InventoryItem and its children."""
-        items = [item]
-        for child in item.children:
-            items.extend(self._flatten_inventory_item(child))
-        return items
     
     def _get_tokens_from_class(self, item: InventoryItem) -> List[str]:
         """Recursively collect all phone/flag tokens from an InventoryItem subtree."""
@@ -157,7 +162,29 @@ class InventoryRegistry(Registry):
         return tokens
 
 @dataclass
-class InventoryItem:
+class Acceptor:
+    """
+    Wrapper for strings that represent acceptor patterns in rules.
+    """
+    value: str
+    fsa: Optional[pynini.Fst] = None
+
+    def __post_init__(self):
+        self.acceptor_built = False
+
+        if self.fsa is not None:
+            raise ValueError("Acceptor should not be passed on init but constructed by an FstRegistry object.")
+
+    def set_acceptor(self, fsa: pynini.Fst):
+        if self.acceptor_built:
+            raise ValueError("Acceptor cannot be overridden.")
+        if not fsa.properties(pynini.ACCEPTOR, True):
+            raise ValueError("Must be an fsa FST")
+        self.fsa = fsa
+        self.acceptor_built = True
+
+@dataclass
+class InventoryItem(Acceptor):
     """
     Represents an item in the inventory, which may be a phone,
     flag or class.
@@ -176,7 +203,6 @@ class InventoryItem:
     children: List[InventoryItem] = field(default_factory=list)
     parent: Optional[InventoryItem] = None
     source: Optional[os.PathLike] = None
-    acceptor: Optional[pynini.Fst] = None
 
     def __post_init__(self):
         if self.value in ReservedSymbolMixin.reserved_symbols:
@@ -204,9 +230,6 @@ class InventoryItem:
             (self.value.startswith("<") or self.value.startswith("["))
         ):
             raise ValueError("Phone items cannot have values that start with '<' or '['")
-
-        if self.acceptor is not None:
-            raise ValueError("Acceptor should not be passed on init but constructed by a Registry object.")
 
     @classmethod
     def from_config(
@@ -247,6 +270,13 @@ class InventoryItem:
 
         inventory_item.children = children
         return inventory_item
+    
+    def flatten(self) -> List[InventoryItem]:
+        """Recursively InventoryItem into a list including itself and all children."""
+        items = [self]
+        for child in self.children:
+            items.extend(child.flatten)
+        return items
 
 class PatternRegistry(Registry):
     """
@@ -329,26 +359,6 @@ class PatternRegistry(Registry):
         pattern_refs_sorted = list(TopologicalSorter(dependency_graph).static_order())
         patterns_sorted = [self.data[ref] for ref in pattern_refs_sorted]
         self.patterns_sorted = patterns_sorted
-
-@dataclass
-class Acceptor:
-    """
-    Wrapper for strings that represent acceptor patterns in rules.
-    """
-    value: str
-    fsa: Optional[pynini.Fst] = None
-
-    def __post_init__(self):
-        self.acceptor_built = False
-
-        if self.fsa is not None:
-            raise ValueError("Acceptor should not be passed on init but constructed by an FstRegistry object.")
-
-    def set_acceptor(self, fsa: pynini.Fst):
-        if not fsa.properties(pynini.ACCEPTOR, True):
-            raise ValueError("Must be an fsa FST")
-        self.fsa = fsa
-        self.acceptor_built = True
 
 @dataclass
 class Pattern(Acceptor):
@@ -606,15 +616,24 @@ class FstRegistry(Registry):
         self.pattern_registry = pattern_registry
         self.rule_registry = rule_registry
 
-        self.inventory = inventory_registry.data
-        self.phones = inventory_registry.phones
-        self.flags = inventory_registry.flags
-        self.classes = inventory_registry.classes
-        self.patterns = pattern_registry.data
-        self.rules = rule_registry.data        
+        self.inventory: Dict[str, InventoryItem] = inventory_registry.data
+        self.phones: Dict[str, InventoryItem] = inventory_registry.phones
+        self.flags: Dict[str, InventoryItem] = inventory_registry.flags
+        self.classes: Dict[str, InventoryItem] = inventory_registry.classes
+        self.patterns: Dict[str, Pattern] = pattern_registry.data
+        self.patterns_sorted: Tuple[Pattern, ...] = pattern_registry.patterns_sorted
+        self.rules: Dict[str, Rule] = rule_registry.data 
+        self.rules_sorted: Tuple[Rule, ...] = rule_registry.rules_sorted       
+
+        self._symbol_table_built = False
+        self._inventory_acceptors_built = False
+        self._pattern_acceptors_built = False
+        self._rule_transducers_built = False
+        self.initialized = False
 
         self._build_symbol_table()
         self._init_fsas()
+        self.initialized = True
     
     @classmethod
     def from_config_dir(cls, config_dir: str) -> FstRegistry:
@@ -629,54 +648,369 @@ class FstRegistry(Registry):
             symbols.add_symbol(item)
         for item in self.flags:
             symbols.add_symbol(item)
+        self.symbols = symbols
+        self._symbol_table_built = True
 
-    def _build_token_list(self):
-        tokens = []
+    def _token_acceptor(self, token_str: str) -> pynini.Fst:
+        """
+        Builds an acceptor for a single token.
+        Checks that `token_str` is mapped to a symbol in `self.symbols`
+        """
+        if self.symbols.find(token_str) == -1:
+            raise KeyError("Token not found in symbol table")
+        return pynini.accep(token_str, token_type=self.symbols)
+
+    def _build_token_map(self):
+        # store tokens as a dict mapping token type to list of token values
+        # acting as an incomplete Aho-Corasick trie for tokenization of pattern strings
+        tokens = defaultdict(list)
         for l_delimiter in self.left_delimiters:
-            tokens.append(Token(value=l_delimiter, type="left_delimiter"))
+            tokens["left_delimiter"].append(Token(value=l_delimiter, type="left_delimiter"))
         for r_delimiter in self.right_delimiters:
-            tokens.append(Token(value=r_delimiter, type="right_delimiter"))
-        for op in self.operators:
-            tokens.append(Token(value=op, type="op"))
+            tokens["right_delimiter"].append(Token(value=r_delimiter, type="right_delimiter"))
+        for op in self.unary_operators:
+            tokens["unary_operator"].append(Token(value=op, type="unary_operator"))
+        for op in self.pipe_operators:
+            tokens["pipe_operator"].append(Token(value=op, type="pipe_operator"))
         for ref in self.reserved_refs:
-            tokens.append(Token(value=ref, type="special_ref"))
+            acceptor = self._token_acceptor(ref)
+            tokens["ref"].append(Token(value=ref, type="special_ref", acceptor=acceptor))
         for flag in self.reserved_flags:
-            tokens.append(Token(value=flag, type="special_flag"))
+            acceptor = self._token_acceptor(flag)
+            tokens["flag"].append(Token(value=flag, type="special_flag", acceptor=acceptor))
         for boundary in self.boundary_symbols:
-            tokens.append(Token(value=boundary, type="boundary"))
-        for phone in self.phones:
-            tokens.append(Token(value=phone, type="phone"))
-        for flag in self.flags:
-            tokens.append(Token(value=flag, type="flag"))
-        for class_ref in self.classes:
-            tokens.append(Token(value=class_ref, type="class_ref"))
-        for pattern_ref in self.patterns:
-            tokens.append(Token(value=pattern_ref, type="pattern_ref"))
+            fsa_input = self.boundary2fsa_input[boundary]
+            acceptor = self._token_acceptor(fsa_input)
+            tokens["boundary"].append(Token(value=boundary, type="boundary", acceptor=acceptor))
+        for phone, phone_obj in self.phones.items():
+            tokens["phone"].append(Token(value=phone, type="phone", acceptor=phone_obj))
+        for flag, flag_obj in self.flags.items():
+            tokens["flag"].append(Token(value=flag, type="flag", acceptor=flag_obj))
+        for class_ref, class_obj in self.classes.items():
+            tokens["ref"].append(Token(value=class_ref, type="class_ref", acceptor=class_obj))
+        for pattern_ref, pattern_obj in self.patterns.items():
+            tokens["ref"].append(Token(value=pattern_ref, type="pattern_ref", acceptor=pattern_obj))
+
 
         # sort tokens by length in descending order so that longest matches
         # are found first during tokenization
-        tokens = sorted(tokens, key=lambda t: len(t), reverse=True)
+        for token_type, token_list in tokens.items():
+            token_list = sorted(token_list, key=lambda t: len(t),    reverse=True)
+            tokens[token_type] = token_list
+        self.tokens: Dict[str, List[Token]] = tokens
 
+    def _infer_token_type(self, input_str: str) -> Optional[str]:
+        """
+        Token type can be inferred from the first character of the token string:
+        - '[' -> flag
+        - '<' -> ref
+        - operators and delimiters are single characters that can be looked up in a set
+        """
+        if not input_str:
+            raise ValueError("Cannot infer token type from empty string")
+        
+        starting_char = input_str[0]
+        # greedily use hashmap to find phone from starting char
+        # some phones will be multiple characters though, which is
+        # why we return 'phone' as default at the end
+        if self.phones.get(starting_char):
+            return "phones"
+        elif starting_char == "[":
+            return "flag"
+        elif starting_char == "<":
+            return "ref"
+        elif starting_char in self.operators:
+            return "operator"
+        elif starting_char in self.left_delimiters:
+            return "left_delimiter"
+        elif starting_char in self.right_delimiters:
+            return "right_delimiter"
+        # defaulting to "phone" will not cause any false positives
+        # as the string will be checked against the phone registry later
+        # since this function just tells `_tokenize_str` which token dictionary
+        # to check the current substring against
+        return "phone"
 
-    def _token_fsa(self, fsa_input: str) -> pynini.Fst:
+    def _tokenize_str(self, input_str: str) -> List[Token]:
         """
-        Convert a string of phones/flags into an FSA that accepts that exact sequence.
+        Tokenize an input string into a list of Tokens.
+
+        Uses the token lists built in `_build_token_list` to find the longest
+        matching token at each position in the input string, and infers token
+        type from the token string itself (e.g. flags start with '[', refs start with '<', etc.)
         """
-        fsa = pynini.accep(fsa_input, token_type=self.symbols)
-        return fsa
+        tokens = []
+        i = 0
+        while i < len(input_str):
+            current_token_type = self._infer_token_type(input_str[i:])
+            # Find the longest matching token
+            match = None
+            for token in self.tokens[current_token_type]:
+                if input_str.startswith(token.value, i):
+                    match = token
+                    break
+            if not match:
+                error = f"Unrecognized token starting at position {i} in string '{input_str}'"
+                logger.error(error)
+                raise ValueError(error)
+            tokens.append(match)
+            i += len(match)
+
+        return tokens
     
-    # TODO:
-    # - function to tokenize strings (Aho Corasick or similar algorithm for efficient multi-pattern matching)
-    # - function to compile pattern strings into FSAs using the tokenization function and a recursive descent parser for regex operators
+    def _build_inventory_acceptors(self):
+        """
+        Before any patterns can be parsed, all InventoryItems must be compiled with acceptors.
+        """
+        for item in self.phones.values():
+            acceptor = pynini.accep(item.value, token_type=self.symbols)
+            item.set_acceptor(acceptor)
+        for item in self.flags.values():
+            acceptor = pynini.accep(item.value, token_type=self.symbols)
+            item.set_acceptor(acceptor)
+        for item in self.classes.values():
+            children = item.flatten()
+            child_values = [
+                child.value for child in children
+                if child.type != 'class'
+            ]
+            acceptor = pynini.union(*child_values)
+            item.set_acceptor(acceptor)
+        self._inventory_acceptors_built = True
 
+    def _build_pattern_acceptors(self):
+        """
+        Parse patterns using recursive descent.
+        """
+        for pattern in self.patterns_sorted:
+            tokens = self._tokenize_str(pattern.value)
+            acceptor = self._parse_tokens(tokens)
+            pattern.set_acceptor(acceptor)
+        self._pattern_acceptors_built = True
+
+    def _build_rule_transducer(self):
+        """
+        Parse rules...
+        """
+        # simple rule
+        # string map
+        # rule chain
+
+    def _parse_tokens(self, tokens: List[Token]) -> pynini.Fst:
+        """
+        Parse a list of tokens into an FST.
+
+        Uses recursive descent parsing to handle grouping and operator precedence,
+        and looks up refs in the registry.
+
+        Build acceptor as a list of FST objects, then concatenate at end.
+
+        Recursive descent logic:
+        - Expression -> Term Expression*
+        - Expression* -> Factor Term*
+        - Term* -> | Factor Expression*
+        - Factor -> (Expression) | Ref | Atom
+        - Atom -> Phone | Flag | Class | Pattern
+        """
+        acceptor, current_index = self._parse_expression(tokens, current_index=0)
+        if current_index != len(tokens):
+            raise ValueError(f"Tokens remaining after parsing expression for token array {tokens}")
+        return acceptor
+
+    def _parse_expression(
+            self,
+            tokens: List[Token],
+            current_index: int,
+        ) -> Tuple[pynini.Fst, int]:
+        """
+        Parses an expression in the token array starting at `current_index`, where
+        an expression is a single term or any sequence of term | term | term ...
+        """
+        term, current_index = self._parse_term(tokens, current_index)
+        terms = [term]
+        current_type = tokens[current_index].type
+        while current_type == "pipe_operator" and current_index < len(tokens):
+            current_term, current_index = self._parse_term(tokens, current_index)
+            terms.append(current_term)
+
+            current_type = tokens[current_index].type
+            if current_type == "right_delimiter":
+                # let parent handle
+                break
+        
+        acceptor = pynini.union(terms)
+        return acceptor, current_index
+
+    def _parse_term(
+        self,
+        tokens: List[Token],
+        current_index: int,
+    ) -> Tuple[pynini.Fst, int]:
+        """
+        Parses a term, i.e. a sequence of factors and unary operators of
+        arbitrary length.
+        """
+        current_type = tokens[current_index].type
+        if current_type in ("right_delimiter", "pipe_operator"):
+            raise ValueError(
+                f"Got unexpected token type {current_type} at start of term, tokens {tokens} current index {current_index}"
+            )
+        factors_w_operators = []
+        while (
+            (current_type not in ("right_delimiter", "pipe_operator")) and
+            (current_index < len(tokens))
+        ):
+            factor, current_index = self._parse_factor(tokens, current_index)
+            current_type = tokens[current_index].type
+            if current_type == 'unary_operator':
+                operator = tokens[current_type].value
+                factor = self._interpret_unary_operator(factor, operator)
+                current_index+=1
+            factors_w_operators.append(factor)
+        
+        if not factors_w_operators:
+            raise ValueError(f"Empty term detected in token sequence {tokens} current index {current_index}")
+        if len(factors_w_operators) == 1:
+            return factors_w_operators[0]
+        output_factor = factors_w_operators[0]
+        for factor in factors_w_operators[1:]:
+            output_factor = pynini.concat(output_factor, factor)
+        return output_factor
+
+    def _parse_factor(
+            self,
+            tokens: List[Token],
+            current_index: int,
+            group_behavior: Literal['concatenation', 'union'] = 'concatenation'
+        ) -> Tuple[pynini.Fst, int]:
+        """
+        Consume tokens starting at `current_index` and until the end of the
+        current factor is reached. Then return an acceptor over the factor
+        alongside the index of the first token after the current factor.
+
+        By default assume all tokens within the factor are to be concatenated
+        into a sequence. If `group_behavior='union'` is passed, compute a union
+        over all tokens/sub-factors (e.g. for factors delimited by curly braces)
+        """
+        acceptors = []
+        while current_index < len(tokens):
+            token_acceptor = tokens[current_index].acceptor
+            token_type = tokens[current_index].type
+            if token_acceptor is not None and token_acceptor.acceptor_built:
+                acceptors.append(token_acceptor)
+                current_index += 1
+            elif isinstance(token_acceptor, Pattern) and not token_acceptor.acceptor_built:
+                token_val = tokens[current_index].value
+                raise ValueError(
+                    "Uninitialized pattern found while parsing with recursive descent. "
+                    f"pattern ref {token_val} tokens {tokens} current index {current_index}. "
+                    "Check topological sort for pattern objects."
+                )
+            elif isinstance(token_acceptor, InventoryItem) and not token_acceptor.acceptor_built:
+                token_val = tokens[current_index].value
+                raise ValueError(
+                    "Uninitialized inventory item found while parsing with recursive descent. "
+                    f"item ref {token_val} tokens {tokens} current index {current_index}. "
+                )
+            elif token_type == 'left_delimiter':
+                acceptor, current_index = self._parse_delimited_factor(
+                    tokens, current_index
+                )
+            elif token_type in ("pipe_operator", "unary_operator", "right_delimiter"):
+                # let parent function handle
+                break
+
+        if not acceptors:
+            raise ValueError(f"Empty factor detected in token sequence {tokens} current index {current_index}")
+        elif len(acceptors) == 1:
+            return acceptors[0]
+
+        if group_behavior == 'concatenation':
+            output_acceptor = acceptors[0]
+            for acceptor in acceptors[1:]:
+                output_acceptor = pynini.concat(output_acceptor, acceptor)
+        else:
+            output_acceptor = pynini.union(*acceptors)
+        return output_acceptor
+            
+    def _parse_delimited_factor(
+            self,
+            tokens: List[Token],
+            current_index: int,
+    ) -> Tuple[pynini.Fst, int]:
+        left_delimiter = tokens[current_index].value
+        
+        # curly braces indicate union of tokens
+        if left_delimiter == r'{':
+            group_behavior = 'union'
+            expected_right_delimiter = r'}'
+            inner_expression, current_index = self._parse_factor(
+                tokens=tokens,
+                group_behavior=group_behavior,
+                current_index=current_index,
+            )
+
+        # parentheses indicate a single expression
+        elif left_delimiter == r'(':
+            expected_right_delimiter = r')'
+            inner_expression, current_index = self._parse_expression(
+                tokens=tokens,
+                current_index=current_index,
+            )
+        
+        else:
+            raise ValueError(
+                f"Unrecognized left delimiter {left_delimiter}, tokens {tokens} current index {current_index}"
+            )
+
+        current_token = tokens[current_index].value
+        assert current_token == expected_right_delimiter
+        current_index+=1
+        return inner_expression, current_index
+
+
+    def _interpret_unary_operator(term: pynini.Fst, operator: str) -> pynini.Fst:
+        if operator == '?':
+            return term.ques
+        if operator == '+':
+            return term.plus
+        if operator == '*':
+            return term.star
+        raise ValueError(f"Unrecognized unary operator {operator}")
+    
 @dataclass
 class Token:
     value: str
     type: Literal[
         "phone", "flag", "class_ref", "pattern_ref",
-        "special_flag", "special_ref", "op", "boundary",
-        "left_delimiter", "right_delimiter",
+        "special_flag", "special_ref", "unary_operator",
+        "pipe_operator", "boundary", "left_delimiter",
+        "right_delimiter",
     ]
+    acceptor: Optional[Acceptor] = None
+
+    def __post_init__(self):
+        """
+        Check if Token has acceptor if it is of the appropriate type.
+        'op', 'left_delimiter' and 'right_delimiter' should not have acceptors,
+        all other types should have them.
+        """
+        if (
+            (self.type in (
+                'unary_operator', 'pipe_operator',
+                'left_delimiter', 'right_delimiter',
+            ))
+            and (self.acceptor is not None)
+        ):
+                raise ValueError(
+                    "Operators and delimiters should not have Acceptor objects passed. "
+                    f"Token value: {self.value}, token type: {self.type}"
+                )
+        elif self.acceptor is None:
+            raise ValueError(
+                "All tokens except operators and delimiters should have Acceptor objects. "
+                f"Token value: {self.value}, token type: {self.type}"
+            )
 
     def __len__(self):
         return len(self.value)
@@ -839,7 +1173,7 @@ def _tokenize_pattern(pattern_str: str) -> List[Tuple[str, str]]:
 
         ch = text[i]
         if ch in "*+?|":
-            tokens.append(("op", ch))
+            tokens.append(("operator", ch))
             i += 1
         elif ch in "()":
             tokens.append(("paren", ch))
@@ -897,7 +1231,7 @@ class _PatternParser:
     def parse_expr(self) -> pynini.Fst:
         """expr ::= term ('|' term)*"""
         left = self._parse_term()
-        while self._peek() == ("op", "|"):
+        while self._peek() == ("operator", "|"):
             self._consume()
             right = self._parse_term()
             left = pynini.union(left, right).optimize()
@@ -914,7 +1248,7 @@ class _PatternParser:
                 break
             if tok == ("paren", ")"):
                 break
-            if tok == ("op", "|"):
+            if tok == ("operator", "|"):
                 break
             next_factor = self._parse_factor()
             result = pynini.concat(result, next_factor)
@@ -924,7 +1258,7 @@ class _PatternParser:
         """factor ::= atom ('*' | '+' | '?')?"""
         atom = self._parse_atom()
         tok = self._peek()
-        if tok is not None and tok[0] == "op" and tok[1] in "*+?":
+        if tok is not None and tok[0] == "operator" and tok[1] in "*+?":
             self._consume()
             if tok[1] == "*":
                 atom = pynini.closure(atom).optimize()
