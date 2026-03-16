@@ -8,10 +8,26 @@ from src.config_utils import load_schema
 from loguru import logger
 
 class Registry:
-    def __init__(self, kind: str, config_list: Optional[List[dict]]=None): 
+    def __init__(
+            self,
+            kind: str,
+            data: Optional[dict]=None,
+            config_list: Optional[List[dict]]=None
+        ): 
         self.kind = kind
         self.schema = load_schema(kind)
-        self.config_list = config_list
+
+        if data is None and config_list is None:
+            self.data = {}
+            self.config_list = []
+        elif data is not None and config_list is None:
+            self.data = data
+            self.config_list = []
+        elif data is None and config_list is not None:
+            self.config_list = config_list
+            self.data = self.load_all_configs()
+        else:
+            raise ValueError("Cannot specify both data and config_list")
 
     @classmethod
     def from_config_dir(cls, kind: str, config_dir: os.PathLike) -> 'Registry':
@@ -100,3 +116,13 @@ class Registry:
         with path.open(encoding="utf-8") as f:
             raw = yaml.safe_load(f)
         return self._resolve_values(raw)
+
+    def load_all_configs(self) -> dict:
+        raise NotImplementedError(
+            "Must be implemented by subclass to load and merge all configs in config_list."
+        )
+    
+    def load_data_from_config(self) -> dict:
+        raise NotImplementedError(
+            "Must be implemented by subclass to load data from a single config dict."
+        )

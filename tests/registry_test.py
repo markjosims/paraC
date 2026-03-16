@@ -1,7 +1,8 @@
 from src.fst_registry import (
     InventoryRegistry, InventoryItem,
-    Pattern, PatternList,
-    Rule, RuleList,
+    Pattern, PatternRegistry,
+    Rule, RuleRegistry,
+    FstRegistry,
 )
 
 def test_inventory_registry():
@@ -49,86 +50,11 @@ def test_inventory_registry():
 
     assert "<TONE_SLOT>" in data
     assert data["<TONE_SLOT>"].type == 'class'
-    expected_flags = ["<TBU>", "<FLOAT>"]
+    expected_flags = ["[TBU]", "[FLOAT]"]
 
     for item in data["<TONE_SLOT>"].children:
         assert item.type == 'flag'
         assert item.value in expected_flags
-
-def test_inventory_registry_symbols():
-    reg = InventoryRegistry.from_config_dir('config/')
-
-    expected_phones = [
-        'b', 'd̪', 'd', 'ɟ', 'g',
-        'p', 't̪', 't', 'c', 'k', 'ʔ',
-        'm', 'n', 'ɲ', 'ŋ',
-        'f', 'v', 'ð', 's', 'ʃ', 'h',
-        'l', 'r', 'ɾ', 'ɽ',
-        'j', 'w',
-        'i', 'ɪ', 'u', 'ʊ',
-        'e', 'ɛ', 'ə', 'ɜ', 'o', 'ɔ',
-        'a',
-        '\u0300', '\u0301', '\u0302', '\u030C',
-    ]
-
-    expected_flags = ["<TBU>", "<FLOAT>"]
-
-    assert hasattr(reg, 'sigma')
-    assert hasattr(reg, 'sigma_star')
-
-    assert hasattr(reg, 'phone_acceptor')
-    assert hasattr(reg, 'phone_star')    
-
-    assert hasattr(reg, 'flag_acceptor')
-    assert hasattr(reg, 'flag_star')
-
-    for phone in expected_phones:
-        # test sigma and phone acceptors recognize phone
-        assert reg.fsm_string(
-            reg.fsa(phone)@reg.sigma
-        ) == phone
-        assert reg.fsm_string(
-            reg.fsa(phone+phone)@reg.sigma_star
-        ) == phone+phone
-
-        assert reg.fsm_string(
-            reg.fsa(phone)@reg.phone_acceptor
-        ) == phone
-        assert reg.fsm_string(
-            reg.fsa(phone+phone)@reg.phone_star
-        ) == phone+phone
-
-        # test flag acceptor rejects phone
-        assert reg.fsm_string(
-            reg.fsa(phone)@reg.flag_acceptor
-        ) == ''
-        assert reg.fsm_string(
-            reg.fsa(phone+phone)@reg.flag_star
-        ) == ''
-
-    for flag in expected_flags:
-        # test sigma and flag acceptors recognize flag
-        assert reg.fsm_string(
-            reg.fsa(flag)@reg.sigma
-        ) == flag
-        assert reg.fsm_string(
-            reg.fsa(flag+flag)@reg.sigma_star
-        ) == flag+flag
-
-        assert reg.fsm_string(
-            reg.fsa(flag)@reg.flag_acceptor
-        ) == flag
-        assert reg.fsm_string(
-            reg.fsa(flag+flag)@reg.flag_star
-        ) == flag+flag
-
-        # test flag acceptor rejects flag
-        assert reg.fsm_string(
-            reg.fsa(flag)@reg.phone_acceptor
-        ) == ''
-        assert reg.fsm_string(
-            reg.fsa(flag+flag)@reg.phone_star
-        ) == ''
 
 def test_pattern_list():
     pattern_list = PatternList.from_config_dir('config/')
@@ -272,3 +198,77 @@ def test_rule_list():
 def test_fst_registry():
     expected_nonhigh_vowels = ['e', 'ɛ', 'ə', 'ɜ', 'o', 'ɔ', 'a']
     
+def test_fst_registry_acceptors():
+    reg = FstRegistry.from_config_dir('config/')
+
+    expected_phones = [
+        'b', 'd̪', 'd', 'ɟ', 'g',
+        'p', 't̪', 't', 'c', 'k', 'ʔ',
+        'm', 'n', 'ɲ', 'ŋ',
+        'f', 'v', 'ð', 's', 'ʃ', 'h',
+        'l', 'r', 'ɾ', 'ɽ',
+        'j', 'w',
+        'i', 'ɪ', 'u', 'ʊ',
+        'e', 'ɛ', 'ə', 'ɜ', 'o', 'ɔ',
+        'a',
+        '\u0300', '\u0301', '\u0302', '\u030C',
+    ]
+
+    expected_flags = ["<TBU>", "<FLOAT>"]
+
+    assert hasattr(reg, 'sigma')
+    assert hasattr(reg, 'sigma_star')
+
+    assert hasattr(reg, 'phone_acceptor')
+    assert hasattr(reg, 'phone_star')    
+
+    assert hasattr(reg, 'flag_acceptor')
+    assert hasattr(reg, 'flag_star')
+
+    for phone in expected_phones:
+        # test sigma and phone acceptors recognize phone
+        assert reg.fsm_string(
+            reg.fsa(phone)@reg.sigma
+        ) == phone
+        assert reg.fsm_string(
+            reg.fsa(phone+phone)@reg.sigma_star
+        ) == phone+phone
+
+        assert reg.fsm_string(
+            reg.fsa(phone)@reg.phone_acceptor
+        ) == phone
+        assert reg.fsm_string(
+            reg.fsa(phone+phone)@reg.phone_star
+        ) == phone+phone
+
+        # test flag acceptor rejects phone
+        assert reg.fsm_string(
+            reg.fsa(phone)@reg.flag_acceptor
+        ) == ''
+        assert reg.fsm_string(
+            reg.fsa(phone+phone)@reg.flag_star
+        ) == ''
+
+    for flag in expected_flags:
+        # test sigma and flag acceptors recognize flag
+        assert reg.fsm_string(
+            reg.fsa(flag)@reg.sigma
+        ) == flag
+        assert reg.fsm_string(
+            reg.fsa(flag+flag)@reg.sigma_star
+        ) == flag+flag
+
+        assert reg.fsm_string(
+            reg.fsa(flag)@reg.flag_acceptor
+        ) == flag
+        assert reg.fsm_string(
+            reg.fsa(flag+flag)@reg.flag_star
+        ) == flag+flag
+
+        # test flag acceptor rejects flag
+        assert reg.fsm_string(
+            reg.fsa(flag)@reg.phone_acceptor
+        ) == ''
+        assert reg.fsm_string(
+            reg.fsa(flag+flag)@reg.phone_star
+        ) == ''

@@ -41,7 +41,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^<[^>]+>$"
+            "pattern": "^\\[[^\\]]+\\]$"
           },
           "description": "Array of flag symbols in angle brackets"
         }

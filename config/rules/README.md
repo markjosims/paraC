@@ -22,8 +22,9 @@ rules:
         right_context: "pattern string"
         ...
     chain_of_rules:
-        rule_sequence: ["rule_name", "rule_name"]
-        # no other keys
+        rule_sequence: ["$rule_name", "$rule_name"]
+        left_context: "pattern string"
+        right_context: "pattern string"
 ```
 That is, the rule may directly define the input to the `pynini.cdrewrite` function, or it may contain a list of other rules to be applied.
 If it is a list of rules, the rules will be combined via composition, i.e. \Sigma* @ Rule1 @ Rule2...
