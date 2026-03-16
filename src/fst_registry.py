@@ -1,12 +1,24 @@
 """
-src/fst.py - Config-driven FST compilation for Tira morphological parser.
+Implements following Registry classes:
+- `InventoryRegistry`: stores inventory items including phones, flags
+    and classes
+- `PatternRegistry`: stores patterns and tracks dependencies across them
+- `RuleRegistry`: stores rules and tracks dependencies across them
+- `FstRegistry`: orchestrates the above three registries and provides
+    logic for building pattern acceptors and rule transducers
 
-Functions for loading YAML configs, building inventory registries,
-compiling pattern strings, phonological rules, and morphological markers
-into pynini FSTs/FSAs.
+Registries are supported by the following classes, each representing
+a single item from the relevant config.
+- `InventoryItem` (inventory config)
+- `Pattern` (pattern config)
+- `Rule` (rule config)
 
-This module is the foundational layer of the config-driven refactor.
-All higher-level config-driven code will depend on it.
+In addition, the `Acceptor` class defines a general FSA, allowing
+for association between the human-specified config string and the
+FST object, and the `Token` is used by `FstRegistry` to represent
+a single token, which may be a phone, flag, class or special symbol,
+and (with the exception of delimiters and operators) maps to an FSA.
+
 """
 
 from __future__ import annotations
@@ -693,6 +705,16 @@ class FstRegistry(Registry):
         return cls(inventory_registry, pattern_registry, rule_registry)
 
     def initialize(self):
+        """
+        Initializes all data in the registry, in the following order:
+        - Symbol table (mapping strings to token indices used by FSMs)
+        - Inventory acceptors (FSAs for each inventory item or class over items)
+        - 'Sigmas' (sigma, the acceptor over all symbols, as well as phone_fsa
+            and flag_fsa, acceptors over all phones and flags respectively, and
+            their repsective closures.)
+        - Pattern acceptors (FSAs for each pattern config)
+        - Rule transducers (FSTs for each rule config)
+        """
         if self.initialized:
             logger.warning("FstRegistry already initialized, returning...")
             return
@@ -704,6 +726,10 @@ class FstRegistry(Registry):
         self.initialized = True()
 
     def _build_symbol_table(self):
+        """
+        Creates a symbol table with a token for each phone and flag
+        in the inventory, as well as special symbols.
+        """
         symbols = pynini.SymbolTable()
         for item in self.phones:
             symbols.add_symbol(item)
