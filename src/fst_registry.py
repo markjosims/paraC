@@ -34,6 +34,7 @@ from pynini import FstProperties
 from graphlib import TopologicalSorter
 from constants import CONFIG_DIR
 
+from src.fst_utils import Acceptor, Transducer
 from src.registry_utils import Registry
 
 class ReservedSymbolMixin:
@@ -171,28 +172,6 @@ class InventoryRegistry(Registry):
         for child in item.children:
             tokens.extend(self._get_tokens_from_class(child))
         return tokens
-
-@dataclass
-class Acceptor:
-    """
-    Wrapper for strings that represent acceptor patterns in rules.
-    """
-    value: Optional[str] = None
-    fsa: Optional[pynini.Fst] = None
-
-    def __post_init__(self):
-        self.acceptor_built = False
-
-        if self.fsa is not None:
-            raise ValueError("Acceptor should not be passed on init but constructed by an FstRegistry object.")
-
-    def set_acceptor(self, fsa: pynini.Fst):
-        if self.acceptor_built:
-            raise ValueError("Acceptor cannot be overridden.")
-        if not fsa.properties(pynini.ACCEPTOR, True):
-            raise ValueError("Must be an fsa FST")
-        self.fsa = fsa
-        self.acceptor_built = True
 
 @dataclass
 class InventoryItem(Acceptor):
@@ -546,7 +525,7 @@ class RuleRegistry(Registry, ReservedSymbolMixin):
         self.rules_sorted = rules_sorted
 
 @dataclass
-class Rule:
+class Rule(Transducer):
     """
     Dataclass for phonological rules. Rules can be of three types:
     - Simple rules: defined by input and output patterns
@@ -590,22 +569,17 @@ class Rule:
     source: Optional[os.PathLike] = None
     description: Optional[str] = None
 
-    # initialized by FstRegistry
-    fst: Optional[pynini.Fst] = None
 
     def __post_init__(self):
+        super().__post_init__()
+
         self.dependencies_built = False
-        self.transducer_built = False
 
         if self._ref in ReservedSymbolMixin.reserved_symbols:
             error = f"Rule ref '{self._ref}' cannot be a reserved symbol."
             logger.error(error)
             raise ValueError(error)
 
-        if self.fst is not None:
-            raise ValueError(
-                "Transducer should not be passed on init but constructed by an FstRegistry object."
-            )
         if self.used_by:
             raise ValueError(
                 "Used_by should not be passed on init but constructed by a RuleRegistry object."
@@ -633,14 +607,6 @@ class Rule:
             raise ValueError("Only chain_of_rules can have a rule sequence")
         self.rule_sequence = rule_sequence
         self.dependencies_built = True
-
-    def set_transducer(self, fst: pynini.Fst):
-        if self.transducer_built:
-            raise ValueError("Transducer cannot be overridden.")
-        if fst.properties(pynini.ACCEPTOR, True):
-            raise ValueError("Must be a non-vacuous FST")
-        self.fst = fst
-        self.transducer_built = True
 
     def __str__(self):
         return f"Rule(_ref='{self._ref}', kind='{self.kind}')"
