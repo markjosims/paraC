@@ -128,8 +128,8 @@ for tone slots and placeholders:
     to an appropriate segment.
 """
 
-TONE_SLOT_STR = '<TBU>'
-TONE_PLACEHOLDER_STR = '<FLOAT>'
+TONE_SLOT_STR = '[TBU]'
+TONE_PLACEHOLDER_STR = '[FLOAT]'
 
 """
 ### Other special symbols

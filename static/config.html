@@ -2454,7 +2454,7 @@ function addInventoryNode(container, name, nodeData, depth) {
             itemsInput.value = existing.join(', ');
             itemsInput.placeholder = type === 'phones'
                 ? "e.g. p, t, k, b, d, g"
-                : "e.g. <TBU>, <FLOAT>";
+                : "e.g. [TBU], [FLOAT]";
             itemsDiv.appendChild(itemsInput);
             body.appendChild(itemsDiv);
         } else {

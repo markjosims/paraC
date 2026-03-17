@@ -1,12 +1,12 @@
 kind: Patterns
 patterns:
   - Ng cluster:
-    pattern: "ŋ<VelStop>"
-    _ref: "<Ng>"
+      pattern: "ŋ<VelStop>"
+      _ref: "<Ng>"
   - Coronal sequence:
-    pattern: "<CorObs><CorObs>+"
-    _ref: "<CorSeq>"
+      pattern: "<CorObs><CorObs>+"
+      _ref: "<CorSeq>"
   - Velar-coronal cluster:
     # doesn't actually happen in Tira (afaik) but useful for demoing Pattern composition
-    pattern: "<VelStop><CorObs>"
-    _ref: "<VelCor>"
+      pattern: "<VelStop><CorObs>"
+      _ref: "<VelCor>"

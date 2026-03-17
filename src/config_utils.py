@@ -3,13 +3,14 @@ import json
 from loguru import logger
 from jsonschema import validate, ValidationError
 from pathlib import Path
+from constants import SCHEMA_DIR
 
 CONFIG_KINDS = [
     'ContingentFeatureMarkers', 'FeatureCombinations', 'FeatureDefinitions',
     'FeatureMarkers', 'Inventory', 'Paradigm', 'PartOfSpeech', 'Patterns'
 ]
 
-def load_schema(target_kind: str, schema_dir="config/schemas"):
+def load_schema(target_kind: str, schema_dir=SCHEMA_DIR):
     # Generate schema filename from kind
     schema_filename = f"{target_kind}.json"
     schema_path = Path(schema_dir)

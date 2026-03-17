@@ -26,11 +26,13 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 import os
-from typing import Dict, List, Optional, Tuple, Literal
+from typing import Dict, List, Optional, Tuple, Literal, Union
 from loguru import logger
 import pynini
+from pynini.lib import rewrite
 from pynini import FstProperties
 from graphlib import TopologicalSorter
+from constants import CONFIG_DIR
 
 from src.registry_utils import Registry
 
@@ -42,9 +44,10 @@ class ReservedSymbolMixin:
     """
     bos = "[BOS]"
     eos = "[EOS]"
-    phone = "<Phone>"
-    flag = "<Flag>"
-    epsilon = "<Empty>"
+    phone_ref = "<Phone>"
+    flag_ref = "<Flag>"
+    sigma_ref = "<Sigma>"
+    epsilon_ref = "<Empty>"
 
     affix_boundary = "-"
     clitic_boundary = "="
@@ -52,7 +55,7 @@ class ReservedSymbolMixin:
     affix_boundary_fsa_str = "[AFFIX]"
     clitic_boundary_fsa_str = "[CLITIC]"
 
-    boundary2fsa_iput = {
+    boundary2fsa_input = {
         affix_boundary: affix_boundary_fsa_str,
         clitic_boundary: clitic_boundary_fsa_str,
     }
@@ -69,15 +72,15 @@ class ReservedSymbolMixin:
     left_delimiters = (left_paren, left_brace)
     right_delimiters = (right_paren, right_brace)
     unary_operators = (star, plus, optional)
-    pipe_operators = (union,)
-    reserved_refs = (phone, flag, epsilon)
-    reserved_flags = (bos, eos)
+    pipe_operator = union # (for now) pipe operator is only binary operator
+    reserved_refs = (phone_ref, flag_ref, epsilon_ref, sigma_ref)
+    bos_eos_flags = (bos, eos)
     boundary_symbols = (affix_boundary, clitic_boundary)
     boundary_fsa_symbols = (affix_boundary_fsa_str, clitic_boundary_fsa_str)
 
     reserved_symbols = left_delimiters + right_delimiters + \
-        unary_operators + pipe_operators+ reserved_refs + \
-        reserved_flags + boundary_symbols
+        unary_operators + (pipe_operator,) + reserved_refs + \
+        bos_eos_flags + boundary_symbols
 
 class InventoryRegistry(Registry):
     """
@@ -94,28 +97,28 @@ class InventoryRegistry(Registry):
             config_lists: Optional[List[dict]] = None,
         ):
         super().__init__(kind="Inventory", data=data, config_list=config_lists)
-        self._populate_sublists()
+        self._populate_subdicts()
 
-    def _populate_sublists(self):
-        phones = []
-        flags = []
-        classes = []
+    def _populate_subdicts(self):
+        phones = {}
+        flags = {}
+        classes = {}
         for item in self.data.values():
             if item.type == "phone":
-                phones.append(item.value)
+                phones[item.value] = item
             elif item.type == "flag":
-                flags.append(item.value)
+                flags[item.value] = item
             elif item.type == "class":
-                classes.append(item.value)
+                classes[item.value] = item
         self.phones = phones
         self.flags = flags
         self.classes = classes
 
     @classmethod
     def from_config_dir(cls, config_dir: str) -> InventoryRegistry:
-        registry = super().from_config_dir(kind="Inventory", config_dir=config_dir)
+        registry = super().from_config_dir(config_dir=config_dir)
         registry.data = registry.load_all_configs()
-        registry._populate_sublists()
+        registry._populate_subdicts()
 
         return registry
         
@@ -174,7 +177,7 @@ class Acceptor:
     """
     Wrapper for strings that represent acceptor patterns in rules.
     """
-    value: str
+    value: Optional[str] = None
     fsa: Optional[pynini.Fst] = None
 
     def __post_init__(self):
@@ -206,13 +209,15 @@ class InventoryItem(Acceptor):
             Note this should NOT be passed as an argument but instead be assigned by an
             InventoryRegistry class.
     """
-    value: str
-    type: Literal["phone", "flag", "class"]
+    value: str = ''
+    type: Literal["phone", "flag", "class"] = 'phone'
     children: List[InventoryItem] = field(default_factory=list)
     parent: Optional[InventoryItem] = None
     source: Optional[os.PathLike] = None
 
     def __post_init__(self):
+        super().__post_init__()
+
         if self.value in ReservedSymbolMixin.reserved_symbols:
             error = f"Inventory item value '{self.value}' is a reserved symbol and cannot be used."
             logger.error(error)
@@ -283,8 +288,14 @@ class InventoryItem(Acceptor):
         """Recursively InventoryItem into a list including itself and all children."""
         items = [self]
         for child in self.children:
-            items.extend(child.flatten)
+            items.extend(child.flatten())
         return items
+
+    def __str__(self):
+        return f"InventoryItem(value='{self.value}')"
+    
+    def __repr__(self):
+        return self.__str__()
 
 class PatternRegistry(Registry):
     """
@@ -306,7 +317,7 @@ class PatternRegistry(Registry):
 
     @classmethod
     def from_config_dir(cls, config_dir: str) -> PatternRegistry:
-        pattern_registry = super().from_config_dir(kind="Patterns", config_dir=config_dir)
+        pattern_registry = super().from_config_dir(config_dir=config_dir)
         pattern_registry.data = pattern_registry.load_all_configs()
         pattern_registry.build_dependency_graph()
         return pattern_registry
@@ -328,10 +339,14 @@ class PatternRegistry(Registry):
             self,
             config: dict,
         ) -> Dict[str, Pattern]:
-        patterns = config.get("data", [])
+        patterns = config.get("patterns", [])
         if not patterns:
-            logger.error("No patterns found in config")
+            logger.error(f"No patterns found in config: {config}")
             return
+        # each pattern is stored as a dict {'Pattern_name': {**data}}
+        # since the _ref key in the pattern data is used as a unique
+        # identifier internally, we ignore the user-specified pattern name
+        patterns = [p.popitem()[1] for p in patterns]
         
         patterns_list = [Pattern.from_config(p) for p in patterns]
 
@@ -379,12 +394,11 @@ class Pattern(Acceptor):
         source: Optional string indicating filepath pattern originates from.
         fsa: pynini.Fst accepting the pattern language.
     """
-    value: str
-    _ref: str
+    value: str = ''
+    _ref: str = ''
     used_by: List[Pattern] = field(default_factory=list)
     uses: List[Pattern] = field(default_factory=list)
     source: Optional[os.PathLike] = None
-    fsa: Optional[pynini.Fst] = None
 
 
     def __post_init__(self):
@@ -433,6 +447,7 @@ class Pattern(Acceptor):
     def __str__(self):
         return f"Pattern(_ref={self._ref}, value={self.value})"
     
+    
     def __eq__(self, other):
         if not isinstance(other, Pattern):
             return self.value == str(other)
@@ -449,7 +464,7 @@ class RuleRegistry(Registry, ReservedSymbolMixin):
 
     @classmethod
     def from_config_dir(cls, config_dir: str) -> PatternRegistry:
-        rule_registry = super().from_config_dir(kind="Rules", config_dir=config_dir)
+        rule_registry = super().from_config_dir(config_dir=config_dir)
         rule_registry.data = rule_registry.load_all_configs()
         rule_registry.build_dependency_graph()
         return rule_registry
@@ -471,12 +486,15 @@ class RuleRegistry(Registry, ReservedSymbolMixin):
             self,
             config: dict,
         ) -> Dict[str, Pattern]:
-        patterns = config.get("data", [])
-        if not patterns:
+        rules = config.get("rules", [])
+        if not rules:
             logger.error("No rules found in config")
             return
-        
-        rule_list = [Rule.from_config(p) for p in patterns]
+
+        rule_list = [
+            Rule.from_config(rule_name, rule_data)
+            for rule_name, rule_data in rules.items()
+        ]
 
         # make dict mapping ref to item
         config_items = {item._ref: item for item in rule_list}
@@ -492,18 +510,23 @@ class RuleRegistry(Registry, ReservedSymbolMixin):
         dependency_graph = {}
 
         for rule in self.data.values():
+            dependency_graph[rule._ref] = set()
             # get list of rules using this rule in their rule_sequence
             used_by = []
             for other_rule in self.data.values():
-                if rule._ref in other_rule.value:
+                if (
+                    (other_rule.rule_sequence) and
+                    (rule._ref in other_rule.rule_sequence)
+                ):
                     used_by.append(other_rule._ref)
 
             if rule.kind == "chain_of_rules":
-                rule_objs = []
+                sub_rules = []
+                sub_rule_refs = rule.rule_sequence[:]
                 for sub_rule in rule.rule_sequence:
                     rule_name = sub_rule.removeprefix("$")
                     if rule_name in self.data:
-                        rule_objs.append(self.data[rule_name])
+                        sub_rules.append(self.data[rule_name])
                     else:
                         raise KeyError(
                             f"Rule '{rule_name}' referenced in rule sequence for "\
@@ -511,9 +534,9 @@ class RuleRegistry(Registry, ReservedSymbolMixin):
                         )
                 rule.set_dependencies(
                     used_by=used_by,
-                    rule_sequence=rule_objs,
+                    rule_sequence=sub_rules,
                 )
-                dependency_graph[rule._ref] = set(rule_objs)
+                dependency_graph[rule._ref] = set(sub_rule_refs)
             else:
                 rule.set_dependencies(used_by=used_by)
 
@@ -565,6 +588,7 @@ class Rule:
 
     # metadata
     source: Optional[os.PathLike] = None
+    description: Optional[str] = None
 
     # initialized by FstRegistry
     fst: Optional[pynini.Fst] = None
@@ -588,7 +612,7 @@ class Rule:
             )
         
         if self.kind == "simple":
-            if not self.input_pattern or not self.output_pattern:
+            if (not self.input_pattern) or (not self.output_pattern):
                 raise ValueError("Simple rules must have input and output patterns")
             if self.string_map:
                 raise ValueError("Simple rules cannot have a string map")
@@ -598,7 +622,7 @@ class Rule:
         if self.kind == "chain_of_rules":
             if not self.rule_sequence:
                 raise ValueError("Chain of rules must have a rule sequence")
-            if self.input_pattern.value != "" or self.output_pattern.value != "":
+            if self.input_pattern.value or self.output_pattern.value:
                 raise ValueError("Chain of rules cannot have input or output patterns")
             if self.string_map:
                 raise ValueError("Chain of rules cannot have a string map")
@@ -613,52 +637,66 @@ class Rule:
     def set_transducer(self, fst: pynini.Fst):
         if self.transducer_built:
             raise ValueError("Transducer cannot be overridden.")
-        if not fst.properties(pynini.ACCEPTOR, False):
+        if fst.properties(pynini.ACCEPTOR, True):
             raise ValueError("Must be a non-vacuous FST")
         self.fst = fst
-        self.acceptor_built = True
+        self.transducer_built = True
+
+    def __str__(self):
+        return f"Rule(_ref='{self._ref}', kind='{self.kind}')"
+    
+    def __repr__(self):
+        return self.__str__()
 
     @classmethod
     def from_config(
             cls,
-            item_dict: dict,
+            rule_name: str,
+            config: dict,
     ) -> Rule:
         """
-        Builds an InventoryItem from a config dict
-        If config has children (nested dicts), recursively
-        build child InventoryItems and attach to parent
+        Builds an Rule from a config dict, inferring the kind
+        from the attributes contained
         """
+        config['_ref'] = rule_name
+
 
         # infer rule type from attrs
         # and set pattern strings to Acceptors
-        if ('input_pattern' in item_dict) and ('output_pattern' in item_dict):
+        if ('input_pattern' in config) and ('output_pattern' in config):
             rule_type = 'simple_rule'
-            item_dict['input_pattern'] = Acceptor(item_dict['input_pattern'])
-            item_dict['output_pattern'] = Acceptor(item_dict['output_pattern'])
-        elif 'string_map' in item_dict:
+            config['input_pattern'] = Acceptor(config['input_pattern'])
+            config['output_pattern'] = Acceptor(config['output_pattern'])
+        elif 'string_map' in config:
             rule_type = 'string_map'
             string_map = []
             for input_str, output_str in string_map:
                 string_map.append(
                     (Acceptor(input_str), Acceptor(output_str))
                 )
-            item_dict['string_map'] = string_map
-        elif 'rule_sequence' in item_dict:
+            config['string_map'] = string_map
+        elif 'rule_sequence' in config:
             rule_type = 'chain_of_rules'
             # no transformation done here: handled by RuleRegistry instead
+        else:
+            raise ValueError(
+                f"Unrecognized rule type for rule {config}, check format"
+            )
         
-        item_dict['kind'] = rule_type
+        config['kind'] = rule_type
 
         # set secondary attrs to Acceptor (if applicable)
         for attr_name in ('left_context', 'right_context'):
-            if attr_name in item_dict:
-                item_dict[attr_name] = Acceptor(item_dict[attr_name])
+            if attr_name in config:
+                config[attr_name] = Acceptor(config[attr_name])
 
-        rule = cls(**item_dict)
+        rule = cls(**config)
         return rule
 
+    def __str__(self):
+        return f"Rule(_ref={self._ref}, type={self.kind})"
 
-class FstRegistry(Registry):
+class FstRegistry(Registry, ReservedSymbolMixin):
     """
     Orchestrates the compilation of inventory items, patterns and rules into FSTs.
     """
@@ -674,7 +712,7 @@ class FstRegistry(Registry):
         self.rule_registry = rule_registry
 
         self.inventory: Dict[str, InventoryItem] = inventory_registry.data
-        self.phones: Dict[str, InventoryItem] = inventory_registry.phones
+        self.phones: Dict[str, InventoryItem] = inventory_registry.phones # TODO change this from list to dict!
         self.flags: Dict[str, InventoryItem] = inventory_registry.flags
         self.classes: Dict[str, InventoryItem] = inventory_registry.classes
         self.patterns: Dict[str, Pattern] = pattern_registry.data
@@ -708,6 +746,7 @@ class FstRegistry(Registry):
         - 'Sigmas' (sigma, the acceptor over all symbols, as well as phone_fsa
             and flag_fsa, acceptors over all phones and flags respectively, and
             their repsective closures.)
+        - Tokens (phones, classes, special symbols to encode strings into)
         - Pattern acceptors (FSAs for each pattern config)
         - Rule transducers (FSTs for each rule config)
         """
@@ -717,9 +756,10 @@ class FstRegistry(Registry):
         self._build_symbol_table()
         self._build_inventory_acceptors()
         self._build_sigmas()
+        self._build_token_map()
         self._build_pattern_acceptors()
         self._build_rule_transducers()
-        self.initialized = True()
+        self.initialized = True
 
     def _build_symbol_table(self):
         """
@@ -727,25 +767,49 @@ class FstRegistry(Registry):
         in the inventory, as well as special symbols.
         """
         symbols = pynini.SymbolTable()
-        symbols.add_symbol(self.epsilon)
-        for item in self.phones:
-            symbols.add_symbol(item)
-        for item in self.flags:
-            symbols.add_symbol(item)
+        symbols.add_symbol(self.epsilon_ref)
+        for item in self.phones.values():
+            symbols.add_symbol(item.value)
+        for item in self.flags.values():
+            symbols.add_symbol(item.value)
         for item in self.boundary_fsa_symbols:
-            symbols.add_symbl(item)
+            symbols.add_symbol(item)
+        # also include native boundary symbol
+        symbols.add_symbol('+')
         
         self.symbols = symbols
         self._symbol_table_built = True
 
-    def _token_acceptor(self, token_str: str) -> pynini.Fst:
+    def _token_acceptor(self, token_str: str) -> Acceptor:
         """
         Builds an acceptor for a single token.
-        Checks that `token_str` is mapped to a symbol in `self.symbols`
         """
-        if self.symbols.find(token_str) == -1:
+        if token_str == self.phone_ref:
+            fsa = self.phone_fsa
+        elif token_str == self.flag_ref:
+            fsa = self.flag_fsa
+        elif token_str == self.sigma_ref:
+            fsa = self.sigma
+        elif token_str in self.boundary_symbols:
+            # boundary symbols, '-' for affixes and '=' for clitics
+            # should be represented in Pynini as '+ [AFFIX] +' and
+            # '+ [CLITIC] +' respectively to ensure behavior is as
+            # expected, since '+' is the default boundary marker
+            fsa_token = self.boundary2fsa_input[token_str]
+            fsa_input = f"+ {fsa_token} +"
+            fsa = pynini.accep(fsa_input, token_type=self.symbols)
+        elif token_str in self.bos_eos_flags:
+            # [BOS] and [EOS] are not included in the symbol table
+            # since Pynini has special logic for handling them
+            fsa = pynini.accep(token_str)
+        elif self.symbols.find(token_str) == -1:
             raise KeyError("Token not found in symbol table")
-        return pynini.accep(token_str, token_type=self.symbols)
+        else:
+            fsa = pynini.accep(token_str, token_type=self.symbols)
+        acceptor = Acceptor(value=token_str)
+        acceptor.set_acceptor(fsa)
+        return acceptor
+        
 
     def _build_token_map(self):
         # store tokens as a dict mapping token type to list of token values
@@ -757,17 +821,16 @@ class FstRegistry(Registry):
             tokens["right_delimiter"].append(Token(value=r_delimiter, type="right_delimiter"))
         for op in self.unary_operators:
             tokens["unary_operator"].append(Token(value=op, type="unary_operator"))
-        for op in self.pipe_operators:
+        for op in self.pipe_operator:
             tokens["pipe_operator"].append(Token(value=op, type="pipe_operator"))
         for ref in self.reserved_refs:
             acceptor = self._token_acceptor(ref)
             tokens["ref"].append(Token(value=ref, type="special_ref", acceptor=acceptor))
-        for flag in self.reserved_flags:
+        for flag in self.bos_eos_flags:
             acceptor = self._token_acceptor(flag)
-            tokens["flag"].append(Token(value=flag, type="special_flag", acceptor=acceptor))
+            tokens["flag"].append(Token(value=flag, type="bos_eos", acceptor=acceptor))
         for boundary in self.boundary_symbols:
-            fsa_input = self.boundary2fsa_input[boundary]
-            acceptor = self._token_acceptor(fsa_input)
+            acceptor = self._token_acceptor(boundary)
             tokens["boundary"].append(Token(value=boundary, type="boundary", acceptor=acceptor))
         for phone, phone_obj in self.phones.items():
             tokens["phone"].append(Token(value=phone, type="phone", acceptor=phone_obj))
@@ -806,12 +869,16 @@ class FstRegistry(Registry):
             return "flag"
         elif starting_char == "<":
             return "ref"
-        elif starting_char in self.operators:
-            return "operator"
+        elif starting_char in self.unary_operators:
+            return "unary_operator"
+        elif starting_char  == self.pipe_operator:
+            return "pipe_operator"
         elif starting_char in self.left_delimiters:
             return "left_delimiter"
         elif starting_char in self.right_delimiters:
             return "right_delimiter"
+        elif starting_char in self.boundary_symbols:
+            return "boundary"
         # defaulting to "phone" will not cause any false positives
         # as the string will be checked against the phone registry later
         # since this function just tells `_tokenize_str` which token dictionary
@@ -831,7 +898,8 @@ class FstRegistry(Registry):
         for item in self.classes.values():
             children = item.flatten()
             child_values = [
-                child.value for child in children
+                pynini.accep(child.value, token_type=self.symbols)
+                for child in children
                 if child.type != 'class'
             ]
             acceptor = pynini.union(*child_values)
@@ -843,13 +911,19 @@ class FstRegistry(Registry):
             raise ValueError(
                 "Cannot build sigma acceptors if inventory accepts are not initialized."
             )
-        phone_acceptor = pynini.union(
-            phone.acceptor for phone in self.phones.values()
+        phone_acceptor = pynini.union(*[
+            phone.fsa for phone in self.phones.values()
+        ])
+        flag_acceptor = pynini.union(*[
+            flag.fsa for flag in self.flags.values()
+        ])
+        boundary_acceptor = pynini.union(*[
+            self._token_acceptor(boundary).fsa
+            for boundary in self.boundary_symbols
+        ])
+        sigma = pynini.union(
+            phone_acceptor, flag_acceptor, boundary_acceptor,
         )
-        flag_acceptor = pynini.union(
-            flag.acceptor for flag in self.flags.values()
-        )
-        sigma = pynini.union(phone_acceptor, flag_acceptor)
 
         self.phone_fsa = phone_acceptor
         self.flag_fsa = flag_acceptor
@@ -866,8 +940,7 @@ class FstRegistry(Registry):
         Parse patterns using recursive descent.
         """
         for pattern in self.patterns_sorted:
-            tokens = self._tokenize_str(pattern.value)
-            acceptor = self.parse_pattern(tokens)
+            acceptor = self.parse_pattern(pattern.value)
             pattern.set_acceptor(acceptor)
         self._pattern_acceptors_built = True
 
@@ -899,7 +972,7 @@ class FstRegistry(Registry):
         return rule_fst
 
     def _parse_rule_tau(self, rule: Rule) -> pynini.Fst:
-        if rule.kind == 'simple':
+        if rule.kind == 'simple_rule':
             input_pattern = rule.input_pattern
             output_pattern = rule.output_pattern
             input_pattern.set_acceptor(
@@ -914,18 +987,21 @@ class FstRegistry(Registry):
             )
         elif rule.kind == 'string_map':
             transducers = []
-            for input_fsa, output_fsa in rule.string_map:
-                input_fsa.set_acceptor(
-                    self.parse_pattern(input_fsa.value)
+            for input_acceptor, output_acceptor in rule.string_map:
+                input_acceptor.set_acceptor(
+                    self.parse_pattern(input_acceptor.value)
                 )
-                output_fsa.set_acceptor(
-                    self.parse_pattern(output_fsa.value)
+                output_acceptor.set_acceptor(
+                    self.parse_pattern(output_acceptor.value)
                 )
-                transducer = pynini.cross(input_fsa, output_fsa)
+                transducer = pynini.cross(
+                    input_acceptor.fsa,
+                    output_acceptor.fsa,
+                )
                 transducers.append(transducer)
             tau = pynini.union(*transducers)
         elif rule.kind == 'chain_of_rules':
-            tau = self.sigmar_star
+            tau = self.sigma_star
             for subrule in rule.rule_sequence:
                 if not subrule.transducer_built:
                     raise ValueError(
@@ -946,14 +1022,25 @@ class FstRegistry(Registry):
             rule.right_context.set_acceptor(right_context_fsa)
         return left_context_fsa, right_context_fsa
         
-    def parse_pattern(self, input_str: Optional[str]) -> pynini.Fst:
+    def parse_pattern(self, input_str: Union[str, Acceptor, None]) -> pynini.Fst:
         """
         Interprets a pattern string as an FSA.
         """
+        if isinstance(input_str, Acceptor):
+            if input_str.acceptor_built:
+                logger.info(f"Redundant call on pattern {input_str._ref} with existing acceptor")
+                return input_str.fsa
+            input_str = input_str.value
         if not input_str:
             return pynini.accep('', token_type=self.symbols)
-        tokens = self._tokenize_str(input_str)
-        acceptor = self._parse_tokens(tokens)
+        try:
+            tokens = self._tokenize_str(input_str)
+            acceptor = self._parse_tokens(tokens)
+        except Exception as e:
+            raise Exception(
+                f"Error occurred while parsing pattern {input_str} ",
+                e
+            )
         return acceptor
 
     def _tokenize_str(self, input_str: str) -> List[Token]:
@@ -999,7 +1086,7 @@ class FstRegistry(Registry):
         - Factor -> (Expression) | Ref | Atom
         - Atom -> Phone | Flag | Class | Pattern
         """
-        acceptor, current_index = self._parse_expression(tokens, current_index=0)
+        acceptor, current_index = self._parse_expression(tokens, initial_index=0)
         if current_index != len(tokens):
             raise ValueError(f"Tokens remaining after parsing expression for token array {tokens}")
         return acceptor
@@ -1007,16 +1094,20 @@ class FstRegistry(Registry):
     def _parse_expression(
             self,
             tokens: List[Token],
-            current_index: int,
+            initial_index: int,
         ) -> Tuple[pynini.Fst, int]:
         """
         Parses an expression in the token array starting at `current_index`, where
         an expression is a single term or any sequence of term | term | term ...
         """
+        current_index = initial_index
         term, current_index = self._parse_term(tokens, current_index)
         terms = [term]
-        current_type = tokens[current_index].type
-        while current_type == "pipe_operator" and current_index < len(tokens):
+        while (
+            (current_index < len(tokens))
+            and tokens[current_index].type == 'pipe_operator'
+        ):
+            current_index+=1
             current_term, current_index = self._parse_term(tokens, current_index)
             terms.append(current_term)
 
@@ -1025,18 +1116,19 @@ class FstRegistry(Registry):
                 # let parent handle
                 break
         
-        acceptor = pynini.union(terms)
+        acceptor = pynini.union(*terms)
         return acceptor, current_index
 
     def _parse_term(
         self,
         tokens: List[Token],
-        current_index: int,
+        initial_index: int,
     ) -> Tuple[pynini.Fst, int]:
         """
         Parses a term, i.e. a sequence of factors and unary operators of
         arbitrary length.
         """
+        current_index = initial_index
         current_type = tokens[current_index].type
         if current_type in ("right_delimiter", "pipe_operator"):
             raise ValueError(
@@ -1044,30 +1136,31 @@ class FstRegistry(Registry):
             )
         factors_w_operators = []
         while (
-            (current_type not in ("right_delimiter", "pipe_operator")) and
-            (current_index < len(tokens))
+            (current_index < len(tokens)) and
+            (current_type not in ("right_delimiter", "pipe_operator"))
         ):
             factor, current_index = self._parse_factor(tokens, current_index)
-            current_type = tokens[current_index].type
-            if current_type == 'unary_operator':
-                operator = tokens[current_type].value
-                factor = self._interpret_unary_operator(factor, operator)
-                current_index+=1
+            if current_index < len(tokens):
+                current_type = tokens[current_index].type
+                if current_type == 'unary_operator':
+                    operator = tokens[current_index].value
+                    factor = self._interpret_unary_operator(factor, operator)
+                    current_index+=1
             factors_w_operators.append(factor)
         
         if not factors_w_operators:
             raise ValueError(f"Empty term detected in token sequence {tokens} current index {current_index}")
         if len(factors_w_operators) == 1:
-            return factors_w_operators[0]
+            return factors_w_operators[0], current_index
         output_factor = factors_w_operators[0]
         for factor in factors_w_operators[1:]:
             output_factor = pynini.concat(output_factor, factor)
-        return output_factor
+        return output_factor, current_index
 
     def _parse_factor(
             self,
             tokens: List[Token],
-            current_index: int,
+            initial_index: int,
             group_behavior: Literal['concatenation', 'union'] = 'concatenation'
         ) -> Tuple[pynini.Fst, int]:
         """
@@ -1080,11 +1173,12 @@ class FstRegistry(Registry):
         over all tokens/sub-factors (e.g. for factors delimited by curly braces)
         """
         acceptors = []
+        current_index = initial_index
         while current_index < len(tokens):
             token_acceptor = tokens[current_index].acceptor
             token_type = tokens[current_index].type
             if token_acceptor is not None and token_acceptor.acceptor_built:
-                acceptors.append(token_acceptor)
+                acceptors.append(token_acceptor.fsa)
                 current_index += 1
             elif isinstance(token_acceptor, Pattern) and not token_acceptor.acceptor_built:
                 token_val = tokens[current_index].value
@@ -1103,14 +1197,19 @@ class FstRegistry(Registry):
                 acceptor, current_index = self._parse_delimited_factor(
                     tokens, current_index
                 )
+                acceptors.append(acceptor)
             elif token_type in ("pipe_operator", "unary_operator", "right_delimiter"):
                 # let parent function handle
                 break
+            else:
+                raise ValueError(
+                    f"Cannot parse token of type {token_type} at index {current_index} tokens {tokens}"
+                )
 
         if not acceptors:
             raise ValueError(f"Empty factor detected in token sequence {tokens} current index {current_index}")
         elif len(acceptors) == 1:
-            return acceptors[0]
+            return acceptors[0], current_index
 
         if group_behavior == 'concatenation':
             output_acceptor = acceptors[0]
@@ -1118,14 +1217,16 @@ class FstRegistry(Registry):
                 output_acceptor = pynini.concat(output_acceptor, acceptor)
         else:
             output_acceptor = pynini.union(*acceptors)
-        return output_acceptor
+        return output_acceptor, current_index
             
     def _parse_delimited_factor(
             self,
             tokens: List[Token],
-            current_index: int,
+            initial_index: int,
     ) -> Tuple[pynini.Fst, int]:
+        current_index = initial_index
         left_delimiter = tokens[current_index].value
+        current_index+=1
         
         # curly braces indicate union of tokens
         if left_delimiter == r'{':
@@ -1134,7 +1235,7 @@ class FstRegistry(Registry):
             inner_expression, current_index = self._parse_factor(
                 tokens=tokens,
                 group_behavior=group_behavior,
-                current_index=current_index,
+                initial_index=current_index,
             )
 
         # parentheses indicate a single expression
@@ -1142,7 +1243,7 @@ class FstRegistry(Registry):
             expected_right_delimiter = r')'
             inner_expression, current_index = self._parse_expression(
                 tokens=tokens,
-                current_index=current_index,
+                initial_index=current_index,
             )
         
         else:
@@ -1156,7 +1257,7 @@ class FstRegistry(Registry):
         return inner_expression, current_index
 
 
-    def _interpret_unary_operator(term: pynini.Fst, operator: str) -> pynini.Fst:
+    def _interpret_unary_operator(self, term: pynini.Fst, operator: str) -> pynini.Fst:
         if operator == '?':
             return term.ques
         if operator == '+':
@@ -1165,12 +1266,55 @@ class FstRegistry(Registry):
             return term.star
         raise ValueError(f"Unrecognized unary operator {operator}")
     
+
+    def fst_strings(
+            self,
+            fst: pynini.Fst,
+            project: Literal['input', 'output'] = 'output',
+            nshortest: int = None
+        ) -> List[str]:
+
+        decoded_outputs = []
+        fsa = pynini.project(fst, project_type=project)
+        if nshortest is not None:
+            fsa = rewrite.lattice_to_nshortest(fsa, nshortest=nshortest)
+
+        path_iter = fsa.paths()
+        while not path_iter.done():
+            label_iter = path_iter.olabels()
+            word = self._decode_labels(label_iter)
+            weight = float(path_iter.weight())
+            if (word, weight) not in  decoded_outputs:
+                decoded_outputs.append((word, weight))
+            path_iter.next()
+
+        decoded_outputs.sort(key=lambda t:t[-1])
+        return decoded_outputs
+        
+    def _decode_labels(self, label_iter) -> str:
+        """
+        Arguments:
+            label_iter:     An iterator over FST labels
+        Returns:
+            word:           Decoded string from the labels
+
+        Decodes a string from the given `label_iter`.
+        """
+        word = ''
+        for label in label_iter:
+            if label == 0:
+                    # epsilon, skip
+                continue
+            symbol = self.symbols.find(label)
+            word += symbol
+        return word
+
 @dataclass
 class Token:
     value: str
     type: Literal[
         "phone", "flag", "class_ref", "pattern_ref",
-        "special_flag", "special_ref", "unary_operator",
+        "bos_eos", "special_ref", "unary_operator",
         "pipe_operator", "boundary", "left_delimiter",
         "right_delimiter",
     ]
@@ -1182,15 +1326,14 @@ class Token:
         'op', 'left_delimiter' and 'right_delimiter' should not have acceptors,
         all other types should have them.
         """
-        if (
-            (self.type in (
+        if (self.type in (
                 'unary_operator', 'pipe_operator',
                 'left_delimiter', 'right_delimiter',
-            ))
-            and (self.acceptor is not None)
+            )
         ):
+            if self.acceptor is not None:
                 raise ValueError(
-                    "Operators and delimiters should not have Acceptor objects passed. "
+                    "Operators and delimiters tokens should not have Acceptor objects passed. "
                     f"Token value: {self.value}, token type: {self.type}"
                 )
         elif self.acceptor is None:
@@ -1207,3 +1350,16 @@ class Token:
         if type(other) is Token:
             other_str = other.value
         return self.value == other_str
+    
+    def __str__(self):
+        return f"Token(value='{self.value}')"
+    
+    def __repr__(self):
+        return self.__str__()
+
+if __name__ == '__main__':
+    # test initializing each config
+    inventory_reg = InventoryRegistry.from_config_dir(CONFIG_DIR)
+    pattern_reg = PatternRegistry.from_config_dir(CONFIG_DIR)
+    rule_reg = RuleRegistry.from_config_dir(CONFIG_DIR)
+    fst_reg = FstRegistry.from_config_dir(CONFIG_DIR)

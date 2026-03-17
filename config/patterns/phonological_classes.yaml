@@ -4,8 +4,8 @@ patterns:
       pattern: "(<V_Mid>|<V_Low>)"
       _ref: "<V_NonHigh>"
   - Coronal obstruent:
-    pattern: "(t|d|s|t̪|d̪)"
-    _ref: "<CorObs>"
+      pattern: "(t|d|s|t̪|d̪)"
+      _ref: "<CorObs>"
   - Velar stop:
-    pattern: "(k|g)"
-    _ref: "<VelStop>"
+      pattern: "(k|g)"
+      _ref: "<VelStop>"

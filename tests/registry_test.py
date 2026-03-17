@@ -214,7 +214,7 @@ def test_fst_registry_acceptors():
         '\u0300', '\u0301', '\u0302', '\u030C',
     ]
 
-    expected_flags = ["<TBU>", "<FLOAT>"]
+    expected_flags = ["[TBU]", "[FLOAT]"]
 
     assert hasattr(reg, 'sigma')
     assert hasattr(reg, 'sigma_star')

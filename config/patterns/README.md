@@ -21,7 +21,7 @@ kind: Patterns
 pattern:
     - tone_bearing_segment:
         pattern: "(<M>|<R>|<V>)"
-        # using <TBU_SEG> rather than <TBU> to avoid confusion with the [TBU] flag
+        # using <TBU_SEG> rather than [TBU] to avoid confusion with the [TBU] flag
         _ref: "<TBU_SEG>"
     - syllable:
         pattern: "<C>?<TBU_SEG><C>?"

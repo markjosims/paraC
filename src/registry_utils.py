@@ -30,8 +30,8 @@ class Registry:
             raise ValueError("Cannot specify both data and config_list")
 
     @classmethod
-    def from_config_dir(cls, kind: str, config_dir: os.PathLike) -> 'Registry':
-        registry = cls(kind=kind)
+    def from_config_dir(cls, config_dir: os.PathLike) -> 'Registry':
+        registry = cls()
         registry.config_dir = Path(config_dir)
         registry.config_list = registry.load_config_files()
         return registry

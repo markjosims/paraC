@@ -254,9 +254,9 @@ def test_add_tbus_inserts_tbu_after_vowel(tone_association_rules):
     src_fsa = fst("a")
     lattice = pynini.compose(src_fsa, rule)
     outputs = get_lattice_strs(lattice)
-    # get_lattice_strs returns <TBU> as a literal string (not decoded to empty)
+    # get_lattice_strs returns [TBU] as a literal string (not decoded to empty)
     assert "a" + TONE_SLOT_STR in outputs, \
-        f"Expected 'a<TBU>' in outputs, got: {outputs}"
+        f"Expected 'a[TBU]' in outputs, got: {outputs}"
 
 
 # ---------------------------------------------------------------------------
