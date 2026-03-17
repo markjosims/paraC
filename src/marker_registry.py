@@ -22,7 +22,6 @@ import os
 from typing import Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass, field
 
-import pandas as pd
 from loguru import logger
 
 from src.fst_utils import Transducer
@@ -341,86 +340,6 @@ def _flatten_contingent_markers(
             ))
 
     return result
-
-
-# ---------------------------------------------------------------------------
-# FeatureValueCombinations
-# ---------------------------------------------------------------------------
-
-class FeatureValueCombinations:
-    """
-    Tracks licit combinations of feature values.  Initialize with a list of
-    combination dicts and a features_to_values mapping for wildcard expansion.
-
-    Each combination dict maps feature names to:
-    - A single value string
-    - A list of values
-    - '*' (wildcard — expands to all values for that feature)
-    Omitted features are treated as 'unmarked'.
-    """
-
-    def __init__(
-        self,
-        combinations: List[Dict[str, Union[str, List[str]]]],
-        features_to_values: Dict[str, List[str]],
-    ):
-        self.features_to_values = features_to_values
-
-        first_combination = combinations[0]
-        expected_features = set(first_combination.keys())
-        self.feature_names = list(sorted(expected_features))
-
-        all_combinations = pd.DataFrame()
-        for combination in combinations:
-            combination_features = set(combination.keys())
-            if combination_features != expected_features:
-                raise ValueError(
-                    f"All combination dictionaries must have the same feature names. "
-                    f"Expected {expected_features}, got {combination_features}."
-                )
-            expanded_df = self._expand_combination_dict(combination)
-            all_combinations = pd.concat(
-                [all_combinations, expanded_df], ignore_index=True
-            )
-        self.valid_combinations = (
-            all_combinations.drop_duplicates().reset_index(drop=True)
-        )
-
-    def _expand_combination_dict(
-        self,
-        combination: Dict[str, Union[List[str], str]],
-    ) -> pd.DataFrame:
-        """Expand a single combination dict into a DataFrame of concrete combos."""
-        row = {}
-        for feature, values in combination.items():
-            if values == '*':
-                values = self.features_to_values[feature]
-            row[feature] = values
-        df = pd.DataFrame(row)
-        for feature in combination.keys():
-            df = df.explode(feature).reset_index(drop=True)
-        return df
-
-    def is_licit_combination(self, **feature_values: str) -> bool:
-        """Check if a given combination of feature values is licit."""
-        for expected_feature in self.feature_names:
-            if expected_feature not in feature_values:
-                feature_values[expected_feature] = 'unmarked'
-
-        for provided_feature in feature_values.keys():
-            if provided_feature not in self.feature_names:
-                raise ValueError(
-                    f"Unexpected feature '{provided_feature}' provided. "
-                    f"Expected features: {self.feature_names}."
-                )
-
-        feature_mask = pd.Series([True] * len(self.valid_combinations))
-        for feature, value in feature_values.items():
-            feature_mask &= self.valid_combinations[feature] == value
-        return bool(feature_mask.any())
-
-    def get_all_combinations(self) -> List[Dict[str, str]]:
-        return self.valid_combinations.to_dict(orient='records')  # type: ignore
 
 
 # ---------------------------------------------------------------------------

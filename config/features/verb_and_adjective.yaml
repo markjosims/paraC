@@ -1,6 +1,6 @@
 kind: FeatureDefinitions
 features:
-  class:
+  class_marker:
     - l
     - g
     - r

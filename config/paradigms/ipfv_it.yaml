@@ -13,11 +13,11 @@ global_markers:
   - rule: "$float_tones"
     order: tone_processes
 features:
-  class: "$class_prefixes"
+  class_marker: "$class_prefixes"
   deixis: itive
   object: "$ipfv_object_markers"
   tam: imperfective
 feature_combinations: ["$ipfv_feature_set"]
 contingent_features:
-  "subject&class": "$ipfv_subject_markers"
+  "subject&class_marker": "$ipfv_subject_markers"
   "subject&object": "$ipfv_3object_markers"

@@ -1,4 +1,7 @@
-class ParadigmMarkers(FeatureQueryMixin):
+from src.registry_utils import Registry
+from src.marker_registry import MarkerRegistry
+
+class ParadigmMarkers(Registry):
     """
     Object for combining marker objects based on multiple feature values.
     Allows combination of standard marker objects (i.e. for one feature each)
@@ -8,9 +11,7 @@ class ParadigmMarkers(FeatureQueryMixin):
 
     def __init__(
         self,
-        feature_value_combinations: FeatureValueCombinations,
-        marker_objects: Dict[str, FeatureMarkers],
-        contingent_marker_objects: List[ContingentMarkers],
+        marker_registry: MarkerRegistry,
         marker_order: List[str],
     ):
         self.feature_value_combinations = feature_value_combinations
