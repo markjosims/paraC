@@ -126,3 +126,41 @@ class Registry:
         raise NotImplementedError(
             "Must be implemented by subclass to load data from a single config dict."
         )
+
+
+class ReservedSymbolMixin:
+    """
+    Mixin class for registries to define reserved symbols that cannot be used as
+    inventory item values. This is to prevent collisions between user-defined
+    inventory items and special symbols used in pattern/rule contexts.
+    """
+    bos = "[BOS]"
+    eos = "[EOS]"
+    phone_ref = "<Phone>"
+    flag_ref = "<Flag>"
+    sigma_ref = "<Sigma>"
+    epsilon_ref = "<Empty>"
+
+    affix_boundary = "-"
+    clitic_boundary = "="
+
+    star = '*'
+    plus = '+'
+    optional = '?'
+    union = '|'
+    left_paren = '('
+    right_paren = ')'
+    left_brace = '{'
+    right_brace = '}'
+
+    left_delimiters = (left_paren, left_brace)
+    right_delimiters = (right_paren, right_brace)
+    unary_operators = (star, plus, optional)
+    pipe_operator = union # (for now) pipe operator is only binary operator
+    reserved_refs = (phone_ref, flag_ref, epsilon_ref, sigma_ref)
+    bos_eos_flags = (bos, eos)
+    boundary_symbols = (affix_boundary, clitic_boundary)
+
+    reserved_symbols = left_delimiters + right_delimiters + \
+        unary_operators + (pipe_operator,) + reserved_refs + \
+        bos_eos_flags + boundary_symbols

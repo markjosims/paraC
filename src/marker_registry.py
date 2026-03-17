@@ -1,27 +1,57 @@
-from typing import Dict, Optional, Tuple, Union, List
-from dataclasses import dataclass, field
-import pandas as pd
-from src.constants import FEATURES_TO_VALUES
-from pynini import Fst
+"""
+Registries and dataclasses for morphological markers.
 
+Registry classes (inherit Registry from src.registry_utils):
+- FeatureMarkersRegistry: loads/manages FeatureMarkers configs
+- ContingentMarkersRegistry: loads/manages ContingentFeatureMarkers configs
+- MarkerRegistry: orchestrates both registries, provides unified lookup
+
+Dataclasses:
+- Marker: single morphological formative (inherits Transducer)
+- FeatureMarkers: maps values of one feature to Markers
+- ContingentMarkers: maps combinations of multiple feature values to Markers
+
+Utilities:
+- FeatureQueryMixin: feature string <-> dict conversion and lookup
+- FeatureValueCombinations: tracks licit feature-value combinations
 """
-Dataclasses and classes for constructing and querying affix markers
-"""
+
+from __future__ import annotations
+
+import os
+from typing import Dict, List, Optional, Tuple, Union
+from dataclasses import dataclass, field
+
+import pandas as pd
+from loguru import logger
+
+from src.fst_utils import Transducer
+from src.registry_utils import Registry
+
+from src.constants import CONFIG_DIR
+
+
+# ---------------------------------------------------------------------------
+# Marker dataclass
+# ---------------------------------------------------------------------------
+
+MARKER_FIELDS = {'prefix', 'suffix', 'replace', 'suppletion', 'rule', 'order'}
+
 
 @dataclass
-class Marker:
+class Marker(Transducer):
     """
-    Dataclass for storing a single affix marker.
-    
+    Single morphological formative (affix, replacement, rule, or suppletion).
+    Inherits `value` and `fst` from Transducer; the FST is built later by a
+    compilation step (not at config-load time).
+
     Attributes:
-        prefix: String to be added as a prefix
-        suffix: String to be added as a suffix
-        replace: Pair of strings indicating a substring to be replaced and its replacement
-        suppletion: Full form to use instead of the base form
-        rule: Name(s) of phonological rule(s) to apply (must be defined elsewhere)
-        order: A unique name for ordering application of rules/affixes
-        fst: Finite State Transducer representing the marker (built by `FstRegistry` object)
-        
+        prefix: String to prepend to stem
+        suffix: String to append to stem
+        replace: (input, output) pair for substring replacement
+        suppletion: Full replacement form (incompatible with other operations)
+        rule: Name(s) of phonological rule(s) to apply ($ reference)
+        order: Stage name controlling application order within a paradigm
     """
     prefix: Optional[str] = None
     suffix: Optional[str] = None
@@ -29,177 +59,313 @@ class Marker:
     suppletion: Optional[str] = None
     rule: Optional[Union[str, List[str]]] = None
     order: Optional[str] = None
-    fst: Optional[Fst] = None  # Placeholder for FST object
 
     def __post_init__(self):
-        if self.fst is not None:
-            raise ValueError("FST should not be provided directly; it will be built automatically.")
+        super().__post_init__()
         if self.suppletion is not None:
             if any([self.prefix, self.suffix, self.replace, self.rule]):
-                raise ValueError("Suppletion cannot be combined with other marker attributes.")
-    
+                raise ValueError(
+                    "Suppletion cannot be combined with other marker attributes."
+                )
+
+    @classmethod
+    def from_config(
+        cls,
+        config: Optional[dict],
+        global_attrs: Optional[dict] = None,
+    ) -> Optional[Marker]:
+        """Build a Marker from a YAML marker dict. Returns None for null (zero-marking)."""
+        if config is None:
+            return None
+        merged = {}
+        if global_attrs:
+            merged.update(global_attrs)
+        merged.update(config)
+        # Only pass recognized Marker fields to the constructor
+        filtered = {k: v for k, v in merged.items() if k in MARKER_FIELDS}
+        # Convert list-form replace to tuple
+        if 'replace' in filtered and isinstance(filtered['replace'], list):
+            filtered['replace'] = tuple(filtered['replace'])
+        return cls(**filtered)
+
+    @classmethod
+    def list_from_config(
+        cls,
+        config,
+        global_attrs: Optional[dict] = None,
+    ) -> List[Marker]:
+        """
+        Build a list of Markers from a YAML value that may be:
+        - None (zero-marking) -> empty list
+        - A dict (single marker) -> one-element list
+        - A list of dicts (ordered multi-step markers) -> list of Markers
+        """
+        if config is None:
+            return []
+        if isinstance(config, dict):
+            marker = cls.from_config(config, global_attrs)
+            return [marker] if marker is not None else []
+        if isinstance(config, list):
+            markers = []
+            for item in config:
+                marker = cls.from_config(item, global_attrs)
+                if marker is not None:
+                    markers.append(marker)
+            return markers
+        raise ValueError(f"Unexpected marker config type: {type(config)}")
+
+    def __str__(self):
+        parts = []
+        if self.prefix:
+            parts.append(f"prefix={self.prefix}")
+        if self.suffix:
+            parts.append(f"suffix={self.suffix}")
+        if self.replace:
+            parts.append(f"replace={self.replace}")
+        if self.suppletion:
+            parts.append(f"suppletion={self.suppletion}")
+        if self.rule:
+            parts.append(f"rule={self.rule}")
+        if self.order:
+            parts.append(f"order={self.order}")
+        return f"Marker({', '.join(parts)})"
+
+    def __repr__(self):
+        return self.__str__()
+
+
+# ---------------------------------------------------------------------------
+# FeatureMarkers dataclass
+# ---------------------------------------------------------------------------
+
 @dataclass
 class FeatureMarkers:
     """
-    Dataclass mapping feature values to marker objects.
-    
-    Usage:
-    >>> marker = MarkerClass()
-    >>> marker.data['first_singular'] = Marker(suffix='-íŋí')
-    >>> marker.data['second_singular'] = Marker(prefix='jɛ́-')
+    Maps values of a single feature to lists of Marker objects.
+    Corresponds to a ``kind: FeatureMarkers`` YAML config.
+
+    Attributes:
+        feature: Name of the feature being marked (e.g. 'subject', 'class')
+        data: Dict mapping feature values to lists of Markers
+        global_attributes: Attributes applied to every marker in this config
+        global_marker: Optional markers applied to ALL feature values
+        source: Filepath this config was loaded from
     """
+    feature: str = ''
     data: Dict[str, List[Marker]] = field(default_factory=dict)
+    global_attributes: dict = field(default_factory=dict)
+    global_marker: Optional[List[Marker]] = None
+    source: Optional[os.PathLike] = None
 
     def __post_init__(self):
-        # Set attributes dynamically based on keys in data
+        # Set dynamic attributes so ParadigmMarkers can use
+        # getattr(marker_map, feature_value) for lookup
         for key, value in self.data.items():
-            if isinstance(value, dict) or isinstance(value, Marker):
-                value = [value]
-            # Cast list of dicts to Markers
-            if isinstance(value[0], dict):
-                value = [Marker(d) for d in value]
-            elif not isinstance(value, list):
-                raise ValueError(f"Marker value for {key} must be a Marker or list of Markers.")
             setattr(self, key, value)
+
+    @classmethod
+    def from_config(cls, config: dict) -> FeatureMarkers:
+        """Build a FeatureMarkers from a full YAML config dict."""
+        feature = config.get('feature', '')
+        source = config.get('source_path')
+        global_attrs = config.get('global_attributes', {})
+        markers_config = config.get('markers', {})
+
+        data = {}
+        global_marker = None
+
+        for value_name, marker_config in markers_config.items():
+            if value_name == 'global_marker':
+                global_marker = Marker.list_from_config(marker_config, global_attrs)
+                continue
+            data[value_name] = Marker.list_from_config(marker_config, global_attrs)
+
+        return cls(
+            feature=feature,
+            data=data,
+            global_attributes=global_attrs,
+            global_marker=global_marker,
+            source=source,
+        )
+
+    def __str__(self):
+        return f"FeatureMarkers(feature='{self.feature}', values={list(self.data.keys())})"
+
+    def __repr__(self):
+        return self.__str__()
+
+
+# ---------------------------------------------------------------------------
+# FeatureQueryMixin
+# ---------------------------------------------------------------------------
 
 class FeatureQueryMixin:
     """
-    Mixin class providing methods for querying markers based on feature dictionaries.
-    Allows retrieving markers by passing a dictionary or string of feature values,
-    where strings have the format 'feature=value feature=value'. Ensures consistent
-    ordering of features in strings regardless of input order.
+    Mixin providing methods for querying markers based on feature dictionaries.
+    Converts between 'feature=value feature=value' strings and dicts, with
+    consistent alphabetical ordering of features.
     """
 
     def _feature_str_to_dict(self, feature_str: str) -> Dict[str, str]:
-        """
-        Convert a feature string of the format 'feature=value feature=value' to a dictionary.
-        """
+        """Convert 'feature=value feature=value' string to a dict."""
         feature_dict = {}
         for feature_value in feature_str.split(' '):
             feature, value = feature_value.split('=')
             feature_dict[feature] = value
         return feature_dict
-    
+
     def _stringify_feature_dict(self, feature_dict: Dict[str, str]) -> str:
-        """
-        Convert a feature dictionary to a string of the format 'feature=value feature=value'.
-        """
+        """Convert a feature dict to a sorted 'feature=value feature=value' string."""
         return ' '.join(
             f"{feature}={value}"
             for feature, value in sorted(feature_dict.items())
         )
 
     def get_marker(self, **feature_dict: str) -> List[Marker]:
-        """
-        Retrieve a marker based on a dictionary of feature values.
-        """
+        """Retrieve markers for a given set of feature values."""
         key = self._stringify_feature_dict(feature_dict)
         data = getattr(self, 'data', None)
         if data is None:
-            raise ValueError("No data attribute found in the object.")
-        if not data:
-            raise ValueError("Data attribute is empty.")
+            raise ValueError("No data attribute found.")
         if key not in data:
             raise KeyError(f"No marker found for feature combination: {key}")
         return data[key]
 
+
+# ---------------------------------------------------------------------------
+# ContingentMarkers dataclass
+# ---------------------------------------------------------------------------
+
 @dataclass
-class ContingentMarkers(FeatureMarkers, FeatureQueryMixin):
+class ContingentMarkers(FeatureQueryMixin):
     """
-    Similar to `FeatureMarkers`, but for markers that depend on several feature values
-    simultaneously (e.g. subject and object person/number). Maps a string of feature
-    values to a marker dictionary, where feature values are specified in the format
-    'feature=value feature=value'.
+    Maps combinations of multiple feature values to Marker lists.
+    Corresponds to a ``kind: ContingentFeatureMarkers`` YAML config.
 
-    Allows retrieving markers based on the string used when setting them, or by
-    passing a dictionary of feature values.
+    Keys in ``data`` are sorted 'feature=value feature=value' strings,
+    enabling O(1) lookup via :meth:`get_marker`.
 
-    Requires that all keys specify the same set of features when creating.
-
-    Usage:
-    >>> subj_obj_marker = ContingentMarkers()
-    >>> subj_obj_marker['object=third_singular subject=first_singular'] = Marker(suffix='-íŋí')
-    >>> subj_obj_marker.get_marker(subject_person='first_singular', object_person='third_singular')
-    [Marker(suffix='-íŋí')]
+    Attributes:
+        features: List of feature names this config covers
+        data: Dict mapping stringified feature combos to Marker lists
+        global_attributes: Attributes applied to every marker
+        source: Filepath this config was loaded from
     """
+    features: List[str] = field(default_factory=list)
+    data: Dict[str, List[Marker]] = field(default_factory=dict)
+    global_attributes: dict = field(default_factory=dict)
+    source: Optional[os.PathLike] = None
+
     def __post_init__(self):
-        # Set feature names from the first key
-        first_key = next(iter(self.data))
-        feature_names = self._feature_str_to_dict(first_key).keys()
-        feature_names = list(sorted(feature_names))
-        self.feature_names = feature_names
+        self.feature_names = list(sorted(self.features))
 
-        # Set attributes dynamically based on keys in data
-        # Sort feature values in keys to ensure consistent ordering
-        for key, value in self.data.items():
-            if not isinstance(value, dict):
-                raise ValueError(f"Marker value for {key} must be a dictionary.")
-            
-            key_feature_dict = self._feature_str_to_dict(key)
-            key_features = list(sorted(key_feature_dict.keys()))
-            if key_features != feature_names:
+    @classmethod
+    def from_config(cls, config: dict) -> ContingentMarkers:
+        """Build a ContingentMarkers from a full YAML config dict."""
+        features = config.get('features', [])
+        source = config.get('source_path')
+        global_attrs = config.get('global_attributes', {})
+        markers_config = config.get('markers', {})
+
+        data = _flatten_contingent_markers(
+            node=markers_config,
+            all_features=features,
+            assigned={},
+            global_attrs=global_attrs,
+        )
+
+        return cls(
+            features=features,
+            data=data,
+            global_attributes=global_attrs,
+            source=source,
+        )
+
+    def __str__(self):
+        return (
+            f"ContingentMarkers(features={self.features}, "
+            f"combos={len(self.data)})"
+        )
+
+    def __repr__(self):
+        return self.__str__()
+
+
+def _flatten_contingent_markers(
+    node: dict,
+    all_features: List[str],
+    assigned: Dict[str, str],
+    global_attrs: dict,
+) -> Dict[str, List[Marker]]:
+    """
+    Recursively flatten a nested contingent-marker YAML structure into a flat
+    dict keyed by sorted 'feature=value feature=value' strings.
+
+    Handles both explicit feature-name nesting (key matches a feature name)
+    and implicit value nesting (key is a value for the next unassigned feature).
+    """
+    result: Dict[str, List[Marker]] = {}
+    unassigned = [f for f in all_features if f not in assigned]
+
+    if not unassigned:
+        # All features assigned — node is a marker config
+        markers = Marker.list_from_config(node, global_attrs)
+        key = ' '.join(f"{f}={v}" for f, v in sorted(assigned.items()))
+        result[key] = markers
+        return result
+
+    node_keys = set(node.keys()) - {'inherits'}
+
+    if node_keys & set(unassigned):
+        # Keys are feature names — explicit feature-name level
+        for feat_name in node_keys:
+            if feat_name not in unassigned:
                 raise ValueError(
-                    f"All keys must have the same feature names. "
-                    f"Expected {feature_names}, got {key_features}."
+                    f"Unexpected key '{feat_name}' in contingent markers. "
+                    f"Expected one of {unassigned}."
                 )
+            for feat_val, sub_node in node[feat_name].items():
+                new_assigned = {**assigned, feat_name: feat_val}
+                result.update(_flatten_contingent_markers(
+                    sub_node, all_features, new_assigned, global_attrs,
+                ))
+    else:
+        # Keys are values for the next unassigned feature (implicit)
+        next_feat = unassigned[0]
+        for feat_val, sub_node in node.items():
+            if feat_val == 'inherits':
+                continue
+            new_assigned = {**assigned, next_feat: feat_val}
+            result.update(_flatten_contingent_markers(
+                sub_node, all_features, new_assigned, global_attrs,
+            ))
 
-            sorted_key = self._stringify_feature_dict(key_feature_dict)
-            setattr(self, sorted_key, value)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# FeatureValueCombinations
+# ---------------------------------------------------------------------------
 
 class FeatureValueCombinations:
     """
-    Class for tracking licit combinations of person (both subject and object)
-    and class values. Initialize with a list of combination dictionaries.
-    Each dictionary specifies valid values for features.
-    A value of '*' indicates all possible values for that feature.
-    Note that every combination dictionary must specify the same set of features.
+    Tracks licit combinations of feature values.  Initialize with a list of
+    combination dicts and a features_to_values mapping for wildcard expansion.
 
-    Usage:
-
-    >>> combinations # list of dicts
-    [{'subject_value': 'unmarked', 'object_value': ...}]
-    >>> feature_combos = FeatureValueCombinations(combinations)
-    >>> feature_combos.get_all_combinations()
-    [{'subject_value': 'first_singular', 'object_value': 'second_singular', 'class_value': 'g'}, ...]
-    >>> feature_combos.is_licit_combination('first_singular', 'second_singular', 'g')
-    True
-    >>> feature_combos.is_licit_combination('first_singular', 'first_singular', 'g')
-    False
-    
-    `combinations` is a list of dicts where each map a valid combination set,
-    e.g.
-
-    ```python
-    [
-        # no subject/object marking, all classes permitted
-        {
-            'subject_value': 'unmarked',
-            'object_value': 'unmarked',
-            'class_value': '*',
-        },
-        # second person subject marking, which co-occurs with g-class agreement
-        {
-            'subject_value': ['second_singular'],
-            'object_value': ['unmarked', 'first_singular', 'first_exclusive_plural'],
-            'class_value': 'g',
-        },
-        # first person subject marking, which co-occurs with g-class agreement
-        {
-            'subject_value': ['first_singular'],
-            'object_value': ['unmarked', 'second_singular', 'second_plural'],
-            'class_value': 'g',
-        },
-    ]
-    ```
-    
-    Creates a list of all possible feature combinations specified
-    in the input dictionaries to use for querying.
+    Each combination dict maps feature names to:
+    - A single value string
+    - A list of values
+    - '*' (wildcard — expands to all values for that feature)
+    Omitted features are treated as 'unmarked'.
     """
 
-    def __init__(self, combinations: List[
-            Dict[str, Union[str, List[str]]]
-        ]
+    def __init__(
+        self,
+        combinations: List[Dict[str, Union[str, List[str]]]],
+        features_to_values: Dict[str, List[str]],
     ):
+        self.features_to_values = features_to_values
+
         first_combination = combinations[0]
         expected_features = set(first_combination.keys())
         self.feature_names = list(sorted(expected_features))
@@ -213,35 +379,34 @@ class FeatureValueCombinations:
                     f"Expected {expected_features}, got {combination_features}."
                 )
             expanded_df = self._expand_combination_dict(combination)
-            all_combinations = pd.concat([all_combinations, expanded_df], ignore_index=True)
-        self.valid_combinations = all_combinations.drop_duplicates().reset_index(drop=True)
+            all_combinations = pd.concat(
+                [all_combinations, expanded_df], ignore_index=True
+            )
+        self.valid_combinations = (
+            all_combinations.drop_duplicates().reset_index(drop=True)
+        )
 
-    def _expand_combination_dict(self, combination: Dict[str, Union[List[str], str]]) -> pd.DataFrame:
-        """
-        Expand a single combination dictionary into a dataframe where each row
-        is a single combination of the specified features.
-        """
+    def _expand_combination_dict(
+        self,
+        combination: Dict[str, Union[List[str], str]],
+    ) -> pd.DataFrame:
+        """Expand a single combination dict into a DataFrame of concrete combos."""
         row = {}
         for feature, values in combination.items():
             if values == '*':
-                values = FEATURES_TO_VALUES[feature]
+                values = self.features_to_values[feature]
             row[feature] = values
         df = pd.DataFrame(row)
         for feature in combination.keys():
             df = df.explode(feature).reset_index(drop=True)
         return df
 
-    def is_licit_combination(
-        self,
-        **feature_values: str
-    ) -> bool:
-        """
-        Check if a given combination of feature values is licit.
-        """
+    def is_licit_combination(self, **feature_values: str) -> bool:
+        """Check if a given combination of feature values is licit."""
         for expected_feature in self.feature_names:
             if expected_feature not in feature_values:
                 feature_values[expected_feature] = 'unmarked'
-        
+
         for provided_feature in feature_values.keys():
             if provided_feature not in self.feature_names:
                 raise ValueError(
@@ -251,8 +416,159 @@ class FeatureValueCombinations:
 
         feature_mask = pd.Series([True] * len(self.valid_combinations))
         for feature, value in feature_values.items():
-            feature_mask &= (self.valid_combinations[feature] == value)
+            feature_mask &= self.valid_combinations[feature] == value
         return bool(feature_mask.any())
 
     def get_all_combinations(self) -> List[Dict[str, str]]:
-        return self.valid_combinations.to_dict(orient='records') #type: ignore
+        return self.valid_combinations.to_dict(orient='records')  # type: ignore
+
+
+# ---------------------------------------------------------------------------
+# Registry classes
+# ---------------------------------------------------------------------------
+
+class FeatureMarkersRegistry(Registry):
+    """
+    Registry for ``kind: FeatureMarkers`` configs.
+    ``data`` maps config filename stems to FeatureMarkers objects.
+    """
+
+    def __init__(
+        self,
+        data: Optional[Dict[str, FeatureMarkers]] = None,
+        config_lists: Optional[List[dict]] = None,
+    ):
+        super().__init__(
+            kind="FeatureMarkers", data=data, config_list=config_lists
+        )
+
+    @classmethod
+    def from_config_dir(cls, config_dir: str) -> FeatureMarkersRegistry:
+        registry = super().from_config_dir(config_dir=config_dir)
+        registry.data = registry.load_all_configs()
+        return registry
+
+    def load_all_configs(self) -> Dict[str, FeatureMarkers]:
+        config_items: Dict[str, FeatureMarkers] = {}
+        for config in self.config_list:
+            config_data = self.load_data_from_config(config)
+            for key in config_data:
+                if key in config_items:
+                    error = (
+                        f"Duplicate FeatureMarkers '{key}' found in "
+                        f"multiple config files."
+                    )
+                    logger.error(error)
+                    raise ValueError(error)
+            config_items.update(config_data)
+        return config_items
+
+    def load_data_from_config(
+        self, config: dict
+    ) -> Dict[str, FeatureMarkers]:
+        source_path = config.get('source_path', '')
+        name = (
+            os.path.splitext(os.path.basename(source_path))[0]
+            if source_path
+            else config.get('feature', '')
+        )
+        feature_markers = FeatureMarkers.from_config(config)
+        return {name: feature_markers}
+
+
+class ContingentMarkersRegistry(Registry):
+    """
+    Registry for ``kind: ContingentFeatureMarkers`` configs.
+    ``data`` maps config filename stems to ContingentMarkers objects.
+    """
+
+    def __init__(
+        self,
+        data: Optional[Dict[str, ContingentMarkers]] = None,
+        config_lists: Optional[List[dict]] = None,
+    ):
+        super().__init__(
+            kind="ContingentFeatureMarkers",
+            data=data,
+            config_list=config_lists,
+        )
+
+    @classmethod
+    def from_config_dir(cls, config_dir: str) -> ContingentMarkersRegistry:
+        registry = super().from_config_dir(config_dir=config_dir)
+        registry.data = registry.load_all_configs()
+        return registry
+
+    def load_all_configs(self) -> Dict[str, ContingentMarkers]:
+        config_items: Dict[str, ContingentMarkers] = {}
+        for config in self.config_list:
+            config_data = self.load_data_from_config(config)
+            for key in config_data:
+                if key in config_items:
+                    error = (
+                        f"Duplicate ContingentMarkers '{key}' found in "
+                        f"multiple config files."
+                    )
+                    logger.error(error)
+                    raise ValueError(error)
+            config_items.update(config_data)
+        return config_items
+
+    def load_data_from_config(
+        self, config: dict
+    ) -> Dict[str, ContingentMarkers]:
+        source_path = config.get('source_path', '')
+        name = (
+            os.path.splitext(os.path.basename(source_path))[0]
+            if source_path
+            else ''
+        )
+        contingent_markers = ContingentMarkers.from_config(config)
+        return {name: contingent_markers}
+
+
+class MarkerRegistry:
+    """
+    Orchestrates FeatureMarkersRegistry and ContingentMarkersRegistry.
+    Analogous to FstRegistry orchestrating Inventory/Pattern/Rule registries.
+    """
+
+    def __init__(
+        self,
+        feature_markers_registry: FeatureMarkersRegistry,
+        contingent_markers_registry: ContingentMarkersRegistry,
+    ):
+        self.feature_markers_registry = feature_markers_registry
+        self.contingent_markers_registry = contingent_markers_registry
+
+        self.feature_markers: Dict[str, FeatureMarkers] = (
+            feature_markers_registry.data
+        )
+        self.contingent_markers: Dict[str, ContingentMarkers] = (
+            contingent_markers_registry.data
+        )
+
+    @classmethod
+    def from_config_dir(cls, config_dir: str) -> MarkerRegistry:
+        feature_markers_registry = FeatureMarkersRegistry.from_config_dir(
+            config_dir
+        )
+        contingent_markers_registry = (
+            ContingentMarkersRegistry.from_config_dir(config_dir)
+        )
+        return cls(feature_markers_registry, contingent_markers_registry)
+
+    def get(self, name: str) -> Union[FeatureMarkers, ContingentMarkers]:
+        """Look up a marker config by filename stem."""
+        if name in self.feature_markers:
+            return self.feature_markers[name]
+        if name in self.contingent_markers:
+            return self.contingent_markers[name]
+        raise KeyError(f"No marker config found with name '{name}'.")
+
+if __name__ == '__main__':
+    # test initializing each config
+    feature_reg = FeatureMarkersRegistry.from_config_dir(CONFIG_DIR)
+    conting_marker_reg = ContingentMarkersRegistry.from_config_dir(CONFIG_DIR)
+    marker_reg = MarkerRegistry.from_config_dir(CONFIG_DIR)
+    breakpoint()

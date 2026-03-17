@@ -104,23 +104,5 @@ Compiled FSTs are cached to `.cache/`. When changing config or form-building cod
 - Transcription data is inconsistent across sources; fuzzy search accounts for IPA variation.
 
 ## TODO
-- [x] Update Reserved symbols to reflect changes in config/inventory/README.md (use `<angle brackets>` instead of backslash and add `<Empty>` symbol)
-- [x] Fix bolding issue in Inventory preview (voiced stops unbolded for some reason)
-- [x] Don't expose directory structure to user directly. Instead, user only sees Features, Inventory, Markers, Paradigms, Part of Speech and Rules tabs.
-  - Upon creating a new config, users are prompted only with the NAME and TYPE. The app handles directory location automatically
-  - Directory map:
-    - Inventory > `config/inventory`
-    - FeatureDefinition, FeatureCombinations > `config/features`
-    - Rules > `config/rules`
-    - Paradigms > `config/paradigms`
-    - PartsOfSpeech > `config/parts_of_speech`
-    - Patterns > `config/patterns`
-    - FeatureMarkers, ContingentFeatureMarkers > `config/markers`
-- [x] Make it clear to the user when the current config has unsaved changes, and prompt to save when navigating out of config or closing tab
-- [x] Allow the user to rename a config file
-- [x] Change Pattern preview in right tab to show the `<REPR>` of the pattern
-  - Upon clicking on the preview, it should display the underlying RegEx string
-- [ ] ~~Treat class `<REPR>`'s defined in the Inventory as Patterns in the right display tab~~ (reverted — Inventory classes shown hierarchically in Inventory section instead)
-- [x] Clicking on the preview of a Rule should display following:
-  - User description, if any
-  - A regex shorthand for the rule equivalent to {input_pattern} > {output_pattern} / {left_context} _ {right_context}
+
+### Marker registry refactor

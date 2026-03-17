@@ -3,7 +3,7 @@ import json
 from loguru import logger
 from jsonschema import validate, ValidationError
 from pathlib import Path
-from constants import SCHEMA_DIR
+from src.constants import SCHEMA_DIR
 
 CONFIG_KINDS = [
     'ContingentFeatureMarkers', 'FeatureCombinations', 'FeatureDefinitions',

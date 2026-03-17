@@ -32,56 +32,10 @@ import pynini
 from pynini.lib import rewrite
 from pynini import FstProperties
 from graphlib import TopologicalSorter
-from constants import CONFIG_DIR
+from src.constants import CONFIG_DIR
 
-from src.fst_utils import Acceptor, Transducer
-from src.registry_utils import Registry
-
-class ReservedSymbolMixin:
-    """
-    Mixin class for registries to define reserved symbols that cannot be used as
-    inventory item values. This is to prevent collisions between user-defined
-    inventory items and special symbols used in pattern/rule contexts.
-    """
-    bos = "[BOS]"
-    eos = "[EOS]"
-    phone_ref = "<Phone>"
-    flag_ref = "<Flag>"
-    sigma_ref = "<Sigma>"
-    epsilon_ref = "<Empty>"
-
-    affix_boundary = "-"
-    clitic_boundary = "="
-
-    affix_boundary_fsa_str = "[AFFIX]"
-    clitic_boundary_fsa_str = "[CLITIC]"
-
-    boundary2fsa_input = {
-        affix_boundary: affix_boundary_fsa_str,
-        clitic_boundary: clitic_boundary_fsa_str,
-    }
-
-    star = '*'
-    plus = '+'
-    optional = '?'
-    union = '|'
-    left_paren = '('
-    right_paren = ')'
-    left_brace = '{'
-    right_brace = '}'
-
-    left_delimiters = (left_paren, left_brace)
-    right_delimiters = (right_paren, right_brace)
-    unary_operators = (star, plus, optional)
-    pipe_operator = union # (for now) pipe operator is only binary operator
-    reserved_refs = (phone_ref, flag_ref, epsilon_ref, sigma_ref)
-    bos_eos_flags = (bos, eos)
-    boundary_symbols = (affix_boundary, clitic_boundary)
-    boundary_fsa_symbols = (affix_boundary_fsa_str, clitic_boundary_fsa_str)
-
-    reserved_symbols = left_delimiters + right_delimiters + \
-        unary_operators + (pipe_operator,) + reserved_refs + \
-        bos_eos_flags + boundary_symbols
+from src.fst_utils import Acceptor, Transducer, is_acceptor
+from src.registry_utils import Registry, ReservedSymbolMixin
 
 class InventoryRegistry(Registry):
     """
@@ -349,10 +303,10 @@ class PatternRegistry(Registry):
             dependency_graph[pattern._ref] = set()
             for other_pattern in self.data.values():
                 if pattern._ref in other_pattern.value:
-                    used_by.append(other_pattern._ref)
+                    used_by.append(other_pattern)
 
                 if other_pattern._ref in pattern.value:
-                    uses.append(other_pattern._ref)
+                    uses.append(other_pattern)
                     dependency_graph[pattern._ref].add(other_pattern._ref)
 
             pattern.set_dependencies(used_by=used_by, uses=uses)
@@ -426,6 +380,11 @@ class Pattern(Acceptor):
     def __str__(self):
         return f"Pattern(_ref={self._ref}, value={self.value})"
     
+    def __repr__(self):
+        return self.__str__()
+
+    def __hash__(self):
+        return hash(self._ref)
     
     def __eq__(self, other):
         if not isinstance(other, Pattern):
@@ -497,9 +456,9 @@ class RuleRegistry(Registry, ReservedSymbolMixin):
                     (other_rule.rule_sequence) and
                     (rule._ref in other_rule.rule_sequence)
                 ):
-                    used_by.append(other_rule._ref)
+                    used_by.append(other_rule)
 
-            if rule.kind == "chain_of_rules":
+            if rule.type == "rule_sequence":
                 sub_rules = []
                 sub_rule_refs = rule.rule_sequence[:]
                 for sub_rule in rule.rule_sequence:
@@ -530,7 +489,7 @@ class Rule(Transducer):
     Dataclass for phonological rules. Rules can be of three types:
     - Simple rules: defined by input and output patterns
     - String map rules: defined by a list of input-output string pairs
-    - Chain of rules: defined by a sequence of other rules to apply in order
+    - Rule sequence: defined by a sequence of other rules to apply in order
 
     Any rule can also have left and right context patterns that must be satisfied
     for the rule to apply.
@@ -543,8 +502,8 @@ class Rule(Transducer):
     is handled by the `FstRegistry` class which compiles patterns and rules into FSTs.
     """
 
-    kind: Literal["simple", "string_map", "chain_of_rules"]
-    _ref: str
+    type: Literal["simple_rule", "string_map", "rule_sequence"] = "simple_rule"
+    _ref: str = ""
 
     # attributes for simple rules
     input_pattern: Acceptor = field(default_factory=Acceptor)
@@ -556,10 +515,13 @@ class Rule(Transducer):
     # attributes for chain of rules
     rule_sequence: List[Rule] = field(default_factory=list)
 
-    # attributes for all rule types
+    # attributes for simple and string map rules with contexts
     left_context: Acceptor = field(default_factory=Acceptor)
     right_context: Acceptor = field(default_factory=Acceptor)
-    direction: Literal['ltr', 'rtl', 'sim'] = 'ltr'    
+
+    # attributes for all rules
+    direction: Literal['ltr', 'rtl', 'sim'] = 'ltr'   
+    transducer: Union[pynini.Fst, List[pynini.Fst]] = None
 
 
     # references to other objects
@@ -575,6 +537,9 @@ class Rule(Transducer):
 
         self.dependencies_built = False
 
+        if not self._ref:
+            raise ValueError("_ref key must have a non-empty string.")
+
         if self._ref in ReservedSymbolMixin.reserved_symbols:
             error = f"Rule ref '{self._ref}' cannot be a reserved symbol."
             logger.error(error)
@@ -582,10 +547,10 @@ class Rule(Transducer):
 
         if self.used_by:
             raise ValueError(
-                "Used_by should not be passed on init but constructed by a RuleRegistry object."
+                "used_by should not be passed on init but constructed by a RuleRegistry object."
             )
         
-        if self.kind == "simple":
+        if self.type == "simple_rule":
             if (not self.input_pattern) or (not self.output_pattern):
                 raise ValueError("Simple rules must have input and output patterns")
             if self.string_map:
@@ -593,23 +558,51 @@ class Rule(Transducer):
             if self.rule_sequence:
                 raise ValueError("Simple rules cannot have a rule sequence")
             
-        if self.kind == "chain_of_rules":
+        if self.type == "rule_sequence":
             if not self.rule_sequence:
-                raise ValueError("Chain of rules must have a rule sequence")
+                raise ValueError("Rule sequence must have a rule sequence")
             if self.input_pattern.value or self.output_pattern.value:
-                raise ValueError("Chain of rules cannot have input or output patterns")
+                raise ValueError("Rule sequence cannot have input or output patterns")
             if self.string_map:
-                raise ValueError("Chain of rules cannot have a string map")
+                raise ValueError("Rule sequence cannot have a string map")
+            if self.left_context.value or self.right_context.value:
+                raise ValueError("Rule sequence cannot have left or right context")
+        
+        if self.type == "string_map":
+            if not self.string_map:
+                raise ValueError("String map rules must have a string map")
+            if self.input_pattern.value or self.output_pattern.value:
+                raise ValueError("String map rules cannot have input or output patterns")
+            if self.rule_sequence:
+                raise ValueError("String map rules cannot have a rule sequence")
 
     def set_dependencies(self, used_by: List[Rule], rule_sequence: Optional[List[Rule]] = None):
         self.used_by = used_by
-        if rule_sequence is not None and self.kind != "chain_of_rules":
-            raise ValueError("Only chain_of_rules can have a rule sequence")
+        if rule_sequence is not None and self.type != "rule_sequence":
+            raise ValueError(
+                f"if `rule_sequence` is passed expect type='rule_sequence' but got type={self.type}"
+            )
         self.rule_sequence = rule_sequence
         self.dependencies_built = True
 
+    def set_transducer(self, fst: Union[pynini.Fst, List[pynini.Fst]]):
+        if self.transducer is not None:
+            raise ValueError("Transducer cannot be overridden.")
+        
+        if isinstance(fst, list):
+            for f in fst:
+                if is_acceptor(f):
+                    raise ValueError("Transducer must be a non-vacuous FST or list of non-vacuous FSTs")
+        elif isinstance(fst, pynini.Fst):
+            if is_acceptor(fst):
+                raise ValueError("Transducer must be a non-vacuous FST or list of non-vacuous FSTs")
+        
+        self.fst = fst
+        self.transducer_built = True
+        
+
     def __str__(self):
-        return f"Rule(_ref='{self._ref}', kind='{self.kind}')"
+        return f"Rule(_ref='{self._ref}', type='{self.type}')"
     
     def __repr__(self):
         return self.__str__()
@@ -621,7 +614,7 @@ class Rule(Transducer):
             config: dict,
     ) -> Rule:
         """
-        Builds an Rule from a config dict, inferring the kind
+        Builds an Rule from a config dict, inferring the type
         from the attributes contained
         """
         config['_ref'] = rule_name
@@ -642,14 +635,14 @@ class Rule(Transducer):
                 )
             config['string_map'] = string_map
         elif 'rule_sequence' in config:
-            rule_type = 'chain_of_rules'
+            rule_type = 'rule_sequence'
             # no transformation done here: handled by RuleRegistry instead
         else:
             raise ValueError(
                 f"Unrecognized rule type for rule {config}, check format"
             )
         
-        config['kind'] = rule_type
+        config['type'] = rule_type
 
         # set secondary attrs to Acceptor (if applicable)
         for attr_name in ('left_context', 'right_context'):
@@ -660,7 +653,7 @@ class Rule(Transducer):
         return rule
 
     def __str__(self):
-        return f"Rule(_ref={self._ref}, type={self.kind})"
+        return f"Rule(_ref={self._ref}, type={self.type})"
 
 class FstRegistry(Registry, ReservedSymbolMixin):
     """
@@ -720,6 +713,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             logger.warning("FstRegistry already initialized, returning...")
             return
         self._build_symbol_table()
+        self._build_boundary_acceptors()
         self._build_inventory_acceptors()
         self._build_sigmas()
         self._build_token_map()
@@ -738,32 +732,95 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             symbols.add_symbol(item.value)
         for item in self.flags.values():
             symbols.add_symbol(item.value)
-        for item in self.boundary_fsa_symbols:
+        for item in self.boundary_symbols:
             symbols.add_symbol(item)
-        # also include native boundary symbol
-        symbols.add_symbol('+')
         
         self.symbols = symbols
         self._symbol_table_built = True
+        
+    def _build_boundary_acceptors(self):
+        """
+        Build acceptors for the affix boundary token '-' and clitic boundary
+        token '='
+        """
+        self.affix_boundary_fsa = pynini.accep(
+            self.affix_boundary,
+            token_type=self.symbols,
+        )
+        self.clitic_boundary_fsa = pynini.accep(
+            self.clitic_boundary,
+            token_type=self.symbols,
+        )
+
+    def _build_inventory_acceptors(self):
+        """
+        Before any patterns can be parsed, all InventoryItems must be compiled with acceptors.
+        """
+        for item in self.phones.values():
+            acceptor = pynini.accep(item.value, token_type=self.symbols)
+            item.set_acceptor(acceptor)
+        for item in self.flags.values():
+            acceptor = pynini.accep(item.value, token_type=self.symbols)
+            item.set_acceptor(acceptor)
+        for item in self.classes.values():
+            children = item.flatten()
+            child_values = [
+                pynini.accep(child.value, token_type=self.symbols)
+                for child in children
+                if child.type != 'class'
+            ]
+            acceptor = pynini.union(*child_values)
+            item.set_acceptor(acceptor)
+        self._inventory_acceptors_built = True
+
+    def _build_sigmas(self):
+        if not self._inventory_acceptors_built:
+            raise ValueError(
+                "Cannot build sigma acceptors if inventory acceptors are not initialized."
+            )
+        phone_fsa = pynini.union(*[
+            phone.fsa for phone in self.phones.values()
+        ])
+        flag_fsa = pynini.union(*[
+            flag.fsa for flag in self.flags.values()
+        ])
+        boundary_fsa = pynini.union(
+            self.affix_boundary_fsa,
+            self.clitic_boundary_fsa,
+        )
+        sigma = pynini.union(
+            phone_fsa, flag_fsa, boundary_fsa,
+        )
+
+        self.phone_fsa = phone_fsa
+        self.flag_fsa = flag_fsa
+        self.sigma = sigma
+
+        self.phone_star = phone_fsa.star
+        self.flag_star = flag_fsa.star
+        self.sigma_star = sigma.star
+        self._sigmas_built = True
 
     def _token_acceptor(self, token_str: str) -> Acceptor:
         """
         Builds an acceptor for a single token.
         """
+        if not self._sigmas_built:
+            raise ValueError(
+                "Cannot call `_token_acceptor` until universal FSAs "
+                "('sigmas') are built using `self._build_sigmas()`"
+            )
+
         if token_str == self.phone_ref:
             fsa = self.phone_fsa
         elif token_str == self.flag_ref:
             fsa = self.flag_fsa
         elif token_str == self.sigma_ref:
             fsa = self.sigma
-        elif token_str in self.boundary_symbols:
-            # boundary symbols, '-' for affixes and '=' for clitics
-            # should be represented in Pynini as '+ [AFFIX] +' and
-            # '+ [CLITIC] +' respectively to ensure behavior is as
-            # expected, since '+' is the default boundary marker
-            fsa_token = self.boundary2fsa_input[token_str]
-            fsa_input = f"+ {fsa_token} +"
-            fsa = pynini.accep(fsa_input, token_type=self.symbols)
+        elif token_str == self.affix_boundary:
+            fsa = self.affix_boundary_fsa
+        elif token_str == self.clitic_boundary:
+            fsa = self.clitic_boundary_fsa
         elif token_str in self.bos_eos_flags:
             # [BOS] and [EOS] are not included in the symbol table
             # since Pynini has special logic for handling them
@@ -775,7 +832,6 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         acceptor = Acceptor(value=token_str)
         acceptor.set_acceptor(fsa)
         return acceptor
-        
 
     def _build_token_map(self):
         # store tokens as a dict mapping token type to list of token values
@@ -850,56 +906,6 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         # since this function just tells `_tokenize_str` which token dictionary
         # to check the current substring against
         return "phone"
-    
-    def _build_inventory_acceptors(self):
-        """
-        Before any patterns can be parsed, all InventoryItems must be compiled with acceptors.
-        """
-        for item in self.phones.values():
-            acceptor = pynini.accep(item.value, token_type=self.symbols)
-            item.set_acceptor(acceptor)
-        for item in self.flags.values():
-            acceptor = pynini.accep(item.value, token_type=self.symbols)
-            item.set_acceptor(acceptor)
-        for item in self.classes.values():
-            children = item.flatten()
-            child_values = [
-                pynini.accep(child.value, token_type=self.symbols)
-                for child in children
-                if child.type != 'class'
-            ]
-            acceptor = pynini.union(*child_values)
-            item.set_acceptor(acceptor)
-        self._inventory_acceptors_built = True
-
-    def _build_sigmas(self):
-        if not self._inventory_acceptors_built:
-            raise ValueError(
-                "Cannot build sigma acceptors if inventory accepts are not initialized."
-            )
-        phone_acceptor = pynini.union(*[
-            phone.fsa for phone in self.phones.values()
-        ])
-        flag_acceptor = pynini.union(*[
-            flag.fsa for flag in self.flags.values()
-        ])
-        boundary_acceptor = pynini.union(*[
-            self._token_acceptor(boundary).fsa
-            for boundary in self.boundary_symbols
-        ])
-        sigma = pynini.union(
-            phone_acceptor, flag_acceptor, boundary_acceptor,
-        )
-
-        self.phone_fsa = phone_acceptor
-        self.flag_fsa = flag_acceptor
-        self.sigma = sigma
-
-        self.phone_star = phone_acceptor.star
-        self.flag_star = flag_acceptor.star
-        self.sigma_star = sigma.star
-        self._sigmas_built = True
-
 
     def _build_pattern_acceptors(self):
         """
@@ -919,10 +925,12 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             rule.set_transducer(rule_transducer)
         self._rule_transducers_built = True
 
-    def _parse_rule(self, rule: Rule) -> pynini.Fst:
+    def _parse_rule(self, rule: Rule) -> Union[pynini.Fst, List[pynini.Fst]]:
         """
         Constructs all acceptors and transducers
         """
+        if rule.type == "rule_sequence":
+            return [sub_rule.fst for sub_rule in rule.rule_sequence]
         # tau = main transducer, the rational relation effected by the rule
         tau = self._parse_rule_tau(rule)
         left_context, right_context = self._parse_rule_context(rule)
@@ -938,7 +946,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         return rule_fst
 
     def _parse_rule_tau(self, rule: Rule) -> pynini.Fst:
-        if rule.kind == 'simple_rule':
+        if rule.type == 'simple_rule':
             input_pattern = rule.input_pattern
             output_pattern = rule.output_pattern
             input_pattern.set_acceptor(
@@ -951,7 +959,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
                 input_pattern.fsa,
                 output_pattern.fsa
             )
-        elif rule.kind == 'string_map':
+        elif rule.type == 'string_map':
             transducers = []
             for input_acceptor, output_acceptor in rule.string_map:
                 input_acceptor.set_acceptor(
@@ -966,17 +974,8 @@ class FstRegistry(Registry, ReservedSymbolMixin):
                 )
                 transducers.append(transducer)
             tau = pynini.union(*transducers)
-        elif rule.kind == 'chain_of_rules':
-            tau = self.sigma_star
-            for subrule in rule.rule_sequence:
-                if not subrule.transducer_built:
-                    raise ValueError(
-                        f"Uninitialized rule {subrule._ref} found in rule sequence {rule._ref}, "
-                        "check RuleRegistry topological sort."
-                    )
-                tau@=subrule.fst
         else:
-            raise ValueError(f"Unknown rule type {rule.kind}")
+            raise ValueError(f"Cannot interpret tau for rule type {rule.type}")
         return tau
     
     def _parse_rule_context(self, rule: Rule) -> Tuple[pynini.Fst, pynini.Fst]:
@@ -1105,14 +1104,18 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             (current_index < len(tokens)) and
             (current_type not in ("right_delimiter", "pipe_operator"))
         ):
-            factor, current_index = self._parse_factor(tokens, current_index)
+            factor_list, current_index = self._parse_factor_sequence(tokens, current_index)
+            # check if `_parse_factor_sequence` stopped before a unary operator
+            # and if so apply the operator to the last factor
             if current_index < len(tokens):
                 current_type = tokens[current_index].type
                 if current_type == 'unary_operator':
                     operator = tokens[current_index].value
-                    factor = self._interpret_unary_operator(factor, operator)
+                    last_factor = factor_list[-1]
+                    last_factor = self._interpret_unary_operator(last_factor, operator)
+                    factor_list[-1] = last_factor
                     current_index+=1
-            factors_w_operators.append(factor)
+            factors_w_operators.extend(factor_list)
         
         if not factors_w_operators:
             raise ValueError(f"Empty term detected in token sequence {tokens} current index {current_index}")
@@ -1123,20 +1126,16 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             output_factor = pynini.concat(output_factor, factor)
         return output_factor, current_index
 
-    def _parse_factor(
+    def _parse_factor_sequence(
             self,
             tokens: List[Token],
             initial_index: int,
-            group_behavior: Literal['concatenation', 'union'] = 'concatenation'
-        ) -> Tuple[pynini.Fst, int]:
+        ) -> Tuple[List[pynini.Fst], int]:
         """
         Consume tokens starting at `current_index` and until the end of the
-        current factor is reached. Then return an acceptor over the factor
-        alongside the index of the first token after the current factor.
-
-        By default assume all tokens within the factor are to be concatenated
-        into a sequence. If `group_behavior='union'` is passed, compute a union
-        over all tokens/sub-factors (e.g. for factors delimited by curly braces)
+        current factor is reached. Then return a list of acceptors for each
+        token,alongside the index of the first token after the current
+        factor sequence.
         """
         acceptors = []
         current_index = initial_index
@@ -1174,16 +1173,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
 
         if not acceptors:
             raise ValueError(f"Empty factor detected in token sequence {tokens} current index {current_index}")
-        elif len(acceptors) == 1:
-            return acceptors[0], current_index
-
-        if group_behavior == 'concatenation':
-            output_acceptor = acceptors[0]
-            for acceptor in acceptors[1:]:
-                output_acceptor = pynini.concat(output_acceptor, acceptor)
-        else:
-            output_acceptor = pynini.union(*acceptors)
-        return output_acceptor, current_index
+        return acceptors, current_index
             
     def _parse_delimited_factor(
             self,
@@ -1196,13 +1186,12 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         
         # curly braces indicate union of tokens
         if left_delimiter == r'{':
-            group_behavior = 'union'
             expected_right_delimiter = r'}'
-            inner_expression, current_index = self._parse_factor(
+            factor_list, current_index = self._parse_factor_sequence(
                 tokens=tokens,
-                group_behavior=group_behavior,
                 initial_index=current_index,
             )
+            inner_expression = pynini.union(*factor_list)
 
         # parentheses indicate a single expression
         elif left_delimiter == r'(':
@@ -1232,13 +1221,58 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             return term.star
         raise ValueError(f"Unrecognized unary operator {operator}")
     
+    def fsa(self, fsa_input: str) -> pynini.Fst:
+        """
+        Constructs FSA for input string.
+        Wraps `self.parse_pattern`.
+        """
+        return self.parse_pattern(fsa_input)
+    
+    def apply_rule(
+            self,
+            rule_input: Union[str, pynini.Fst],
+            rule_ref: str
+        ) -> pynini.Fst:
+        """
+        Applies the rule specified by `rule_ref` to the input string or FST
+        and returns the output FST.
+        """
+        if rule_ref not in self.rules:
+            raise KeyError(f"Rule ref '{rule_ref}' not found in registry.")
+        rule = self.rules[rule_ref]
 
-    def fst_strings(
+        if not rule.transducer_built:
+            raise ValueError(f"Rule '{rule_ref}' has uninitialized transducer, check logs for details.")
+        
+        if isinstance(rule_input, str):
+            input_fsa = self.fsa(rule_input)
+        elif isinstance(rule_input, pynini.Fst):
+            input_fsa = rule_input
+        else:
+            raise ValueError(f"rule_input must be a string or FST, got {type(rule_input)}")
+
+        if isinstance(rule.fst, list):
+            output_fsa = input_fsa
+            for subrule_fst in rule.fst:
+                output_fsa = rewrite.rewrite_lattice(
+                    string=output_fsa,
+                    rule=subrule_fst,
+                    token_type=self.symbols,
+                )
+            return output_fsa
+        return rewrite.rewrite_lattice(
+            string=input_fsa,
+            rule=rule.fst,
+            token_type=self.symbols,
+        )
+        
+
+    def fsm_strings_and_weights(
             self,
             fst: pynini.Fst,
             project: Literal['input', 'output'] = 'output',
             nshortest: int = None
-        ) -> List[str]:
+    ) -> List[Tuple[str, float]]:
 
         decoded_outputs = []
         fsa = pynini.project(fst, project_type=project)
@@ -1250,12 +1284,46 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             label_iter = path_iter.olabels()
             word = self._decode_labels(label_iter)
             weight = float(path_iter.weight())
-            if (word, weight) not in  decoded_outputs:
+            if word not in  decoded_outputs:
                 decoded_outputs.append((word, weight))
             path_iter.next()
 
         decoded_outputs.sort(key=lambda t:t[-1])
         return decoded_outputs
+
+    def fsm_strings(
+            self,
+            fst: pynini.Fst,
+            project: Literal['input', 'output'] = 'output',
+            nshortest: int = None
+    ) -> List[Tuple[str, float]]:
+        """
+        Return all (or nshortest) strings for an input FSM.
+        Wraps `self.fsm_strings_and_weights` but only passes string.
+        """
+        strs_and_weights = self.fsm_strings_and_weights(
+            fst=fst,
+            project=project,
+            nshortest=nshortest
+        )
+        string_list = [string for string, _ in strs_and_weights]
+        return string_list
+
+    def fsm_string(
+            self,
+            fst: pynini.Fst,
+            project: Literal['input', 'output'] = 'output',
+    ) -> str:
+        """
+        Wraps `self.fsm_strings` with `nshortest=1` and returns
+        single string instead of list of strings.
+        """
+        string_list = self.fsm_strings(fst, project, nshortest=1)
+        if len(string_list) != 1:
+            raise ValueError(
+                f"Expected single string, got {string_list}"
+            )
+        return string_list[0]
         
     def _decode_labels(self, label_iter) -> str:
         """

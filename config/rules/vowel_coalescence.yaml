@@ -22,4 +22,4 @@ rules:
     description: >
       Resolve vowel hiatus: if the first vowel is non-high and the second vowel is /i/,
       coalesce them to /ɛ/; otherwise, delete the first vowel.
-    rule_sequence: [delete_vowel_in_hiatus, coalesce_before_i]
+    rule_sequence: [coalesce_before_i, delete_vowel_in_hiatus]
