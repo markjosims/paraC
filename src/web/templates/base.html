@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}M4 Config{% endblock %}</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; color: #222; }
+    a { color: inherit; text-decoration: none; }
+    main { padding: 1rem; }
+    .tabs { display: flex; gap: 0.75rem; border-bottom: 1px solid #ccc; padding: 0.75rem 1rem 0.5rem; }
+    .tab { padding: 0.35rem 0.6rem; border: 1px solid #ccc; border-bottom: 0; background: #f7f7f7; }
+    .tab.active { background: #fff; font-weight: 600; }
+    .layout { display: grid; grid-template-columns: 18rem 1fr; gap: 1rem; align-items: start; }
+    .panel { border: 1px solid #ccc; padding: 0.9rem; background: #fff; }
+    .panel h2, .panel h3 { margin-top: 0; }
+    .file-list { display: grid; gap: 0.35rem; margin-bottom: 1rem; }
+    .file-link { padding: 0.35rem 0.45rem; background: #f7f7f7; border: 1px solid #ddd; }
+    .file-link.active { background: #eaf2ff; border-color: #7fa7e6; }
+    .accordion { display: grid; gap: 0.5rem; margin-bottom: 1rem; }
+    .accordion-item { border: 1px solid #ddd; background: #fafafa; }
+    .accordion-item summary { cursor: pointer; padding: 0.55rem 0.65rem; font-weight: 600; }
+    .accordion-item .file-list { margin: 0; padding: 0 0.65rem 0.65rem; }
+    .grid { display: grid; gap: 0.75rem; }
+    .two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+    label { display: grid; gap: 0.25rem; font-size: 0.95rem; }
+    input, select, textarea, button { font: inherit; padding: 0.45rem; }
+    textarea { min-height: 6rem; }
+    .editor { min-height: 28rem; font-family: monospace; }
+    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .notice { padding: 0.6rem 0.75rem; margin-bottom: 1rem; border: 1px solid; }
+    .notice.ok { background: #eef8ee; border-color: #8eb88e; }
+    .notice.error { background: #fff1f1; border-color: #cf8d8d; }
+    .node { border-left: 2px solid #bbb; margin: 0.9rem 0 0 0.8rem; padding-left: 0.9rem; }
+    .node-header { display: grid; gap: 0.6rem; }
+    .preview { white-space: pre-wrap; background: #f7f7f7; border: 1px solid #ddd; padding: 0.75rem; overflow-x: auto; }
+    .muted { color: #666; font-size: 0.92rem; }
+    @media (max-width: 900px) {
+      .layout, .two-col { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  {% block body %}{% endblock %}
+</body>
+</html>

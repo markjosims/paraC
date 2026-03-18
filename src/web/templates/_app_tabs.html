@@ -1,0 +1,4 @@
+<nav class="tabs">
+  <a class="tab {% if active_tab == 'config' %}active{% endif %}" href="{% if config_token %}{{ url_for('web.index', config_token=config_token) }}{% elif selected_config_dir %}{{ url_for('web.index', config_dir=selected_config_dir) }}{% else %}{{ url_for('web.index') }}{% endif %}">Grammar config</a>
+  <a class="tab {% if active_tab == 'parser' %}active{% endif %}" href="{% if config_token %}{{ url_for('web.parser_test', config_token=config_token) }}{% elif selected_config_dir %}{{ url_for('web.parser_test', config_dir=selected_config_dir) }}{% else %}{{ url_for('web.parser_test') }}{% endif %}">Test parser</a>
+</nav>

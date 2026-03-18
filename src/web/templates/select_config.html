@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Select Config{% endblock %}
+
+{% block body %}
+  <nav class="tabs">
+    <span class="tab active">Grammar config</span>
+  </nav>
+  <main>
+    {% if error %}
+      <div class="notice error">{{ error }}</div>
+    {% endif %}
+
+    <section class="panel" style="max-width: 32rem;">
+      <h2>Select config directory</h2>
+      <p class="muted">Choose a directory with the browser file picker. The page will scan all `.yaml` and `.yml` files locally before handing the result to Flask.</p>
+      <form id="config-scan-form" method="post" action="{{ url_for('web.scan_config') }}" class="grid">
+        <label>
+          Config directory
+          <input id="config-files-input" type="file" webkitdirectory directory multiple required>
+        </label>
+        <p id="scan-summary" class="muted">No directory selected.</p>
+        <textarea id="manifest-input" name="manifest" hidden></textarea>
+        <button type="submit">Scan directory</button>
+      </form>
+    </section>
+  </main>
+  <script>
+    const form = document.getElementById("config-scan-form");
+    const filesInput = document.getElementById("config-files-input");
+    const manifestInput = document.getElementById("manifest-input");
+    const summary = document.getElementById("scan-summary");
+
+    function readFileText(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(file);
+      });
+    }
+
+    function yamlKind(content) {
+      const match = content.match(/^kind:\s*([^\s#]+)/m);
+      return match ? match[1] : "";
+    }
+
+    filesInput.addEventListener("change", () => {
+      const yamlCount = Array.from(filesInput.files || []).filter((file) => {
+        return file.webkitRelativePath.endsWith(".yaml") || file.webkitRelativePath.endsWith(".yml");
+      }).length;
+      summary.textContent = yamlCount ? `${yamlCount} YAML files selected.` : "No YAML files found in selection.";
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const files = Array.from(filesInput.files || []).filter((file) => {
+        return file.webkitRelativePath.endsWith(".yaml") || file.webkitRelativePath.endsWith(".yml");
+      });
+      if (!files.length) {
+        window.alert("Choose a directory containing YAML files.");
+        return;
+      }
+
+      try {
+        summary.textContent = "Scanning YAML files...";
+        const manifestFiles = await Promise.all(files.map(async (file) => {
+          const content = await readFileText(file);
+          return {
+            path: file.webkitRelativePath,
+            kind: yamlKind(content),
+            content
+          };
+        }));
+        manifestInput.value = JSON.stringify({
+          label: "Selected directory",
+          files: manifestFiles
+        });
+        form.submit();
+      } catch (_error) {
+        window.alert("Directory scan failed.");
+      }
+    });
+  </script>
+{% endblock %}

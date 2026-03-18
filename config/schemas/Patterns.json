@@ -42,14 +42,14 @@
               "pattern": "^<.+>$",
               "description": "A unique string surrounded by angle braces used to refer to this pattern in other rules or patterns."
             },
-            "test_include": {
+            "test_includes": {
               "type": "array",
               "description": "List of strings the pattern should accept.",
               "items": {
                 "type": "string"
               }
             },
-            "test_exclude": {
+            "test_excludes": {
               "type": "array",
               "description": "List of strings the pattern should not accept.",
               "items": {

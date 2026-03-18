@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Test Parser{% endblock %}
+
+{% block body %}
+  {% include "_app_tabs.html" %}
+  <main>
+    {% if message %}
+      <div class="notice ok">{{ message }}</div>
+    {% endif %}
+    {% if error %}
+      <div class="notice error">{{ error }}</div>
+    {% endif %}
+
+    <div class="layout">
+      <aside class="panel">
+        <h2>Parser inputs</h2>
+        <p class="muted"><code>{{ selected_source_label }}</code></p>
+        <div class="accordion">
+          {% for group in accordion_groups %}
+            <details class="accordion-item" id="{{ group.dom_id }}" open>
+              <summary>{{ group.kind }} <span class="muted">({{ group.count }})</span></summary>
+              <div class="file-list">
+                {% for item in group.config_items %}
+                  <a class="file-link {% if item.path == selected_path %}active{% endif %}" href="{% if config_token %}{{ url_for('web.parser_test', config_token=config_token, path=item.path) }}{% else %}{{ url_for('web.parser_test', config_dir=selected_config_dir, path=item.path) }}{% endif %}">{{ item.label }}</a>
+                {% endfor %}
+              </div>
+            </details>
+          {% endfor %}
+        </div>
+      </aside>
+
+      <section class="panel">
+        <h2>Test parser</h2>
+        {% if selected_pattern_obj %}
+          <p class="muted">Selected pattern: <code>{{ selected_pattern }}</code></p>
+          <p class="muted">Definition: <code>{{ selected_pattern_obj.value }}</code></p>
+
+          <form method="post" action="{{ url_for('web.parser_test') }}" class="grid">
+            <input type="hidden" name="config_dir" value="{{ selected_config_dir }}">
+            <input type="hidden" name="config_token" value="{{ config_token }}">
+            <input type="hidden" name="path" value="{{ selected_pattern }}">
+
+            <label>
+              Input string
+              <input type="text" name="parser_input" value="{{ parser_input }}" placeholder="e">
+            </label>
+
+            <div class="actions">
+              <button type="submit">Run parser</button>
+            </div>
+          </form>
+
+          <section>
+            <h3>Outputs</h3>
+            {% if outputs %}
+              <div class="file-list">
+                {% for output in outputs %}
+                  <div class="file-link">{{ output }}</div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="muted">No outputs yet.</p>
+            {% endif %}
+          </section>
+        {% else %}
+          <p class="muted">Choose a pattern from the left to test parser behavior.</p>
+        {% endif %}
+      </section>
+    </div>
+  </main>
+{% endblock %}

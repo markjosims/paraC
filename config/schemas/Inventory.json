@@ -23,7 +23,7 @@
   "$defs": {
     "inventoryNode": {
       "type": "object",
-      "description": "A node in the inventory tree, can contain phones, flags, repr, or child nodes",
+      "description": "A node in the inventory tree, can contain phones, flags, ref, or child nodes",
       "properties": {
         "_ref": {
           "type": "string",

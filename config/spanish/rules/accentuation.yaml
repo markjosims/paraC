@@ -1,0 +1,8 @@
+kind: Rules
+rules:
+  diphthongization:
+    description: shifts /o/ > [ue] and /e/ > [ie] in last syllable of stem
+    string_map:
+    - [o, ue]
+    - [e, ie]
+    right_context: "C+"

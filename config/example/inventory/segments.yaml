@@ -23,7 +23,7 @@
 kind: Inventory
 data:
   consonants:
-  # the `repr` key gives a short representation for the entire class
+  # the `ref` key gives a short representation for the entire class
     _ref: "<C>"
     stops:
       _ref: "<Plsv>"

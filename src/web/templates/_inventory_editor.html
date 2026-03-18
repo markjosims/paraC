@@ -1,0 +1,184 @@
+{% macro render_inventory_node(node, depth=0) %}
+  <section class="node" id="node-{{ node.id }}" data-node-id="{{ node.id }}">
+    <div class="node-header">
+      <div class="two-col">
+        <label>
+          Node name
+          <input type="text" name="name-{{ node.id }}" value="{{ node.name }}" placeholder="class name here...">
+        </label>
+        <label>
+          Reference
+          <input type="text" name="ref-{{ node.id }}" value="{{ node.ref }}" placeholder="<Class shorthand>">
+        </label>
+      </div>
+      <div class="two-col">
+        {% if node.children %}
+          <label>
+            Node contents
+            <input type="text" value="Child nodes" disabled>
+          </label>
+          <p class="muted">This node has children, so phones and flags are disabled.</p>
+        {% else %}
+          <label>
+            Item type
+            <select name="items_kind-{{ node.id }}">
+              <option value="phones" {% if node.items_kind == "phones" %}selected{% endif %}>Phones</option>
+              <option value="flags" {% if node.items_kind == "flags" %}selected{% endif %}>Flags</option>
+            </select>
+          </label>
+          <label>
+            Items
+            <textarea name="items_text-{{ node.id }}" placeholder="p, t, k">{{ node.items_text }}</textarea>
+          </label>
+        {% endif %}
+      </div>
+      <div class="actions">
+        <button type="submit" name="action" value="add-child" formaction="{{ url_for('web.inventory_add_child', node_id=node.id) }}">Add child</button>
+        <button type="submit" name="action" value="remove-node" formaction="{{ url_for('web.inventory_remove_node', node_id=node.id) }}">Remove</button>
+      </div>
+    </div>
+    {% for child in node.children %}
+      {{ render_inventory_node(child, depth + 1) }}
+    {% endfor %}
+  </section>
+{% endmacro %}
+
+<style>
+  .node.new-node-highlight {
+    border-left-color: #3f7dd9;
+    background: #eef5ff;
+    box-shadow: 0 0 0 1px #b9d0f3 inset;
+    transition: background 1.2s ease, box-shadow 1.2s ease, border-left-color 1.2s ease;
+  }
+</style>
+
+<section class="panel" id="config-editor-panel">
+  <h2>Inventory editor</h2>
+  <p class="muted">Inventory files use the structured tree editor. Other config kinds use a raw YAML editor.</p>
+
+  <form method="post" action="{{ url_for('web.config_editor') }}" class="grid" id="inventory-editor-form">
+    <input type="hidden" name="config_token" value="{{ config_token }}">
+    <input type="hidden" name="config_dir" value="{{ selected_config_dir }}">
+    <input type="hidden" name="editor_kind" value="Inventory">
+    <textarea name="state" hidden>{{ state_json }}</textarea>
+
+    <label>
+      File path
+      <input type="text" name="path" value="{{ state.path }}" placeholder="inventory/segments.yaml">
+    </label>
+
+    <div class="actions">
+      <button type="submit" name="action" value="add-root">Add top-level node</button>
+      <button type="submit" name="action" value="save">Save YAML</button>
+    </div>
+
+    <div id="inventory-node-list">
+      {% if state.nodes %}
+        {% for node in state.nodes %}
+          {{ render_inventory_node(node) }}
+        {% endfor %}
+      {% else %}
+        <p class="muted">No nodes yet. Start with a top-level node like `consonants` or `vowels`.</p>
+      {% endif %}
+    </div>
+
+    <section>
+      <h3>YAML preview</h3>
+      <pre class="preview">{{ yaml_preview }}</pre>
+    </section>
+  </form>
+</section>
+
+<script>
+  document.addEventListener("submit", async (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || form.id !== "inventory-editor-form") {
+      return;
+    }
+
+    const submitter = event.submitter;
+    if (!(submitter instanceof HTMLElement)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const targetNode = submitter.closest("[data-node-id]");
+    const targetNodeId = targetNode ? targetNode.getAttribute("data-node-id") : null;
+    const actionValue = submitter instanceof HTMLButtonElement ? submitter.value : "";
+    const action = submitter.getAttribute("formaction") || form.action;
+    const formData = new FormData(form);
+
+    if (submitter instanceof HTMLButtonElement && submitter.name) {
+      formData.set(submitter.name, submitter.value);
+    }
+
+    submitter.setAttribute("disabled", "disabled");
+
+    try {
+      const response = await fetch(action, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-Requested-With": "fetch",
+        },
+      });
+
+      if (!response.ok) {
+        window.location.href = response.url || window.location.href;
+        return;
+      }
+
+      const html = await response.text();
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const nextPanel = doc.querySelector("#config-editor-panel");
+      const nextNotices = doc.querySelector("#page-notices");
+      const currentPanel = document.querySelector("#config-editor-panel");
+      const currentNotices = document.querySelector("#page-notices");
+
+      if (!nextPanel || !currentPanel) {
+        window.location.reload();
+        return;
+      }
+
+      if (nextNotices && currentNotices) {
+        currentNotices.replaceWith(nextNotices);
+      }
+
+      currentPanel.replaceWith(nextPanel);
+
+      let focusNode = null;
+      if (actionValue === "add-child" && targetNodeId) {
+        const parentNode = document.querySelector(`#node-${targetNodeId}`);
+        if (parentNode) {
+          const directChildren = Array.from(parentNode.children).filter(
+            (child) => child instanceof HTMLElement && child.classList.contains("node")
+          );
+          focusNode = directChildren[directChildren.length - 1] || parentNode;
+        }
+      } else if (actionValue === "add-root") {
+        const nodeList = document.querySelector("#inventory-node-list");
+        if (nodeList) {
+          const rootNodes = Array.from(nodeList.children).filter(
+            (child) => child instanceof HTMLElement && child.classList.contains("node")
+          );
+          focusNode = rootNodes[rootNodes.length - 1] || null;
+        }
+      } else if (targetNodeId) {
+        focusNode = document.querySelector(`#node-${targetNodeId}`);
+      }
+
+      if (focusNode) {
+        focusNode.classList.add("new-node-highlight");
+        focusNode.scrollIntoView({ block: "center", behavior: "smooth" });
+        window.setTimeout(() => {
+          focusNode.classList.remove("new-node-highlight");
+        }, 1800);
+      }
+    } catch (error) {
+      window.location.reload();
+    } finally {
+      submitter.removeAttribute("disabled");
+    }
+  });
+</script>

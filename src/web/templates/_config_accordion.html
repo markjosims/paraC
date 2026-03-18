@@ -1,0 +1,39 @@
+<aside class="panel">
+  <h2>YAML files</h2>
+  <p class="muted"><code>{{ selected_source_label }}</code></p>
+  <div class="actions" style="margin-bottom: 1rem;">
+    <a class="file-link" href="{{ url_for('web.index') }}">Change config</a>
+  </div>
+
+  <div class="accordion">
+    {% for group in yaml_groups %}
+      <details class="accordion-item" id="{{ group.dom_id }}" {% if group.kind == selected_kind %}open{% endif %}>
+        <summary>{{ group.kind }} <span class="muted">({{ group.count }})</span></summary>
+        <div class="file-list">
+          {% for item in group.config_items %}
+            <a class="file-link {% if item.path == selected_path %}active{% endif %}" href="{% if config_token %}{{ url_for('web.index', config_token=config_token, path=item.path) }}{% else %}{{ url_for('web.index', config_dir=selected_config_dir, path=item.path) }}{% endif %}">{{ item.label }}</a>
+          {% endfor %}
+        </div>
+      </details>
+    {% endfor %}
+  </div>
+
+  <form method="post" action="{{ url_for('web.config_editor') }}" class="grid">
+    <h3>Create config file</h3>
+    <input type="hidden" name="config_token" value="{{ config_token }}">
+    <input type="hidden" name="config_dir" value="{{ selected_config_dir }}">
+    <label>
+      Config type
+      <select name="new_kind">
+        {% for kind in available_kinds %}
+          <option value="{{ kind }}" {% if kind == (selected_kind or 'Inventory') %}selected{% endif %}>{{ kind }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      File name
+      <input type="text" name="file_stem" placeholder="segments">
+    </label>
+    <button type="submit" name="action" value="new">Start new file</button>
+  </form>
+</aside>

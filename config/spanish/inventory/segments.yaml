@@ -1,44 +1,79 @@
-# Spanish orthographic inventory
-# All digraphs (ch, ll, rr, qu, gu, gü) are atomic multi-char symbols.
-# The tokenizer's longest-match strategy resolves ambiguity.
 kind: Inventory
 data:
   consonants:
-    _ref: "<C>"
+    _ref: <C>
     stops:
-      _ref: "<Stop>"
+      _ref: <Stop>
       voiceless:
-        _ref: "<P>"
-        _phones: [p, t, c, k, qu]
+        _ref: <P>
+        _phones:
+        - p
+        - t
+        - c
+        - k
+        - qu
       voiced:
-        _ref: "<B>"
-        _phones: [b, d, g, gu]
+        _ref: <B>
+        _phones:
+        - b
+        - d
+        - g
+        - gu
     fricatives:
-      _ref: "<Fric>"
-      _phones: [f, s, z, j, h, x, v]
+      _ref: <Fric>
+      _phones:
+      - f
+      - s
+      - z
+      - j
+      - h
+      - x
+      - v
     affricates:
-      _ref: "<Affr>"
-      _phones: [ch]
+      _ref: <Affr>
+      _phones:
+      - ch
     nasals:
-      _ref: "<N>"
-      _phones: [m, n, ñ]
+      _ref: <N>
+      _phones:
+      - m
+      - n
+      - ñ
     liquids:
-      _ref: "<Liq>"
-      _phones: [l, ll, r, rr]
+      _ref: <Liq>
+      _phones:
+      - l
+      - ll
+      - r
+      - rr
     glides:
-      _ref: "<Glide>"
-      _phones: [y, w]
+      _ref: <Glide>
+      _phones:
+      - y
+      - w
     labiovelar:
-      _ref: "<Labvel>"
-      _phones: [gü]
+      _ref: <Labvel>
+      _phones:
+      - gü
   vowels:
-    _ref: "<V>"
+    _ref: <V>
     plain:
-      _ref: "<V_Plain>"
-      _phones: [a, e, i, o, u]
+      _ref: <V_Plain>
+      _phones:
+      - a
+      - e
+      - i
+      - o
+      - u
     accented:
-      _ref: "<V_Acc>"
-      _phones: [á, é, í, ó, ú]
+      _ref: <V_Acc>
+      _phones:
+      - á
+      - é
+      - í
+      - ó
+      - ú
     diaeresis:
-      _ref: "<V_Diaer>"
-      _phones: [ü]
+      _ref: <V_Diaer>
+      _phones:
+      - ü

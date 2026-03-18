@@ -632,7 +632,7 @@ class Rule(Transducer):
         elif 'string_map' in config:
             rule_type = 'string_map'
             string_map = []
-            for input_str, output_str in string_map:
+            for input_str, output_str in config['string_map']:
                 string_map.append(
                     (Acceptor(input_str), Acceptor(output_str))
                 )
@@ -656,6 +656,7 @@ class Rule(Transducer):
         if 'test_mappings' in config:
             config['test_mappings'] = [tuple(mapping) for mapping in config['test_mappings']]
 
+        breakpoint()
         rule = cls(**config)
         return rule
 
@@ -790,12 +791,23 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             raise ValueError(
                 "Cannot build sigma acceptors if inventory acceptors are not initialized."
             )
+        if not self.phones:
+            raise ValueError(
+                "Cannot build FstRegistry without any phones in inventory, "
+                "but no phones found. Check inventory config files."
+            )
         phone_fsa = pynini.union(*[
             phone.fsa for phone in self.phones.values()
         ])
-        flag_fsa = pynini.union(*[
-            flag.fsa for flag in self.flags.values()
-        ])
+
+        # unlike phones, an inventory may have zero flags
+        # in which case the flag_fsa is just the empty language
+        if self.flags:
+            flag_fsa = pynini.union(*[
+                flag.fsa for flag in self.flags.values()
+            ])
+        else:
+            flag_fsa = pynini.accep("")
         boundary_fsa = pynini.union(
             self.affix_boundary_fsa,
             self.clitic_boundary_fsa,

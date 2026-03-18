@@ -1,0 +1,174 @@
+{% macro render_pattern_entry(pattern) %}
+  <section class="node" id="pattern-{{ pattern.id }}" data-pattern-id="{{ pattern.id }}">
+    <div class="node-header">
+      <div class="two-col">
+        <label>
+          Pattern name
+          <input type="text" name="name-{{ pattern.id }}" value="{{ pattern.name }}" placeholder="Front vowel">
+        </label>
+        <label>
+          Reference
+          <input type="text" name="ref-{{ pattern.id }}" value="{{ pattern.ref }}" placeholder="<V_Front>">
+        </label>
+      </div>
+      <div class="two-col">
+        <label>
+          Pattern type
+          <select name="pattern_kind-{{ pattern.id }}">
+            <option value="regex" {% if pattern.pattern_kind == "regex" %}selected{% endif %}>Regex</option>
+            <option value="list" {% if pattern.pattern_kind == "list" %}selected{% endif %}>String list</option>
+          </select>
+        </label>
+        <label>
+          Pattern
+          <textarea name="pattern_text-{{ pattern.id }}" placeholder="(e|i|é|í)">{{ pattern.pattern_text }}</textarea>
+        </label>
+      </div>
+      <div class="two-col">
+        <label>
+          Test includes
+          <textarea name="test_includes-{{ pattern.id }}" placeholder="e, i, é, í">{{ pattern.test_includes }}</textarea>
+        </label>
+        <label>
+          Test excludes
+          <textarea name="test_excludes-{{ pattern.id }}" placeholder="a, o, u">{{ pattern.test_excludes }}</textarea>
+        </label>
+      </div>
+      <div class="actions">
+        <button type="submit" name="action" value="remove-pattern" formaction="{{ url_for('web.patterns_remove_entry', pattern_id=pattern.id) }}">Remove</button>
+      </div>
+    </div>
+  </section>
+{% endmacro %}
+
+<style>
+  .pattern-new-highlight {
+    border-left-color: #2d8a57;
+    background: #eef9f2;
+    box-shadow: 0 0 0 1px #b8e2c7 inset;
+    transition: background 1.2s ease, box-shadow 1.2s ease, border-left-color 1.2s ease;
+  }
+</style>
+
+<section class="panel" id="config-editor-panel">
+  <h2>Pattern editor</h2>
+  <p class="muted">Pattern files use a structured list editor with regex or string-list definitions and include/exclude tests.</p>
+
+  <form method="post" action="{{ url_for('web.config_editor') }}" class="grid" id="pattern-editor-form">
+    <input type="hidden" name="config_token" value="{{ config_token }}">
+    <input type="hidden" name="config_dir" value="{{ selected_config_dir }}">
+    <input type="hidden" name="editor_kind" value="Patterns">
+    <textarea name="state" hidden>{{ state_json }}</textarea>
+
+    <label>
+      File path
+      <input type="text" name="path" value="{{ state.path }}" placeholder="patterns/vowel_classes.yaml">
+    </label>
+
+    <div class="actions">
+      <button type="submit" name="action" value="add-pattern" formaction="{{ url_for('web.patterns_add_entry') }}">Add pattern</button>
+      <button type="submit" name="action" value="save">Save YAML</button>
+    </div>
+
+    <div id="pattern-entry-list">
+      {% if state.patterns %}
+        {% for pattern in state.patterns %}
+          {{ render_pattern_entry(pattern) }}
+        {% endfor %}
+      {% else %}
+        <p class="muted">No patterns yet. Add an entry like `Front vowel` or `Ng cluster`.</p>
+      {% endif %}
+    </div>
+
+    <section>
+      <h3>YAML preview</h3>
+      <pre class="preview">{{ yaml_preview }}</pre>
+    </section>
+  </form>
+</section>
+
+<script>
+  document.addEventListener("submit", async (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || form.id !== "pattern-editor-form") {
+      return;
+    }
+
+    const submitter = event.submitter;
+    if (!(submitter instanceof HTMLElement)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const targetPattern = submitter.closest("[data-pattern-id]");
+    const targetPatternId = targetPattern ? targetPattern.getAttribute("data-pattern-id") : null;
+    const actionValue = submitter instanceof HTMLButtonElement ? submitter.value : "";
+    const action = submitter.getAttribute("formaction") || form.action;
+    const formData = new FormData(form);
+
+    if (submitter instanceof HTMLButtonElement && submitter.name) {
+      formData.set(submitter.name, submitter.value);
+    }
+
+    submitter.setAttribute("disabled", "disabled");
+
+    try {
+      const response = await fetch(action, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-Requested-With": "fetch",
+        },
+      });
+
+      if (!response.ok) {
+        window.location.href = response.url || window.location.href;
+        return;
+      }
+
+      const html = await response.text();
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const nextPanel = doc.querySelector("#config-editor-panel");
+      const nextNotices = doc.querySelector("#page-notices");
+      const currentPanel = document.querySelector("#config-editor-panel");
+      const currentNotices = document.querySelector("#page-notices");
+
+      if (!nextPanel || !currentPanel) {
+        window.location.reload();
+        return;
+      }
+
+      if (nextNotices && currentNotices) {
+        currentNotices.replaceWith(nextNotices);
+      }
+
+      currentPanel.replaceWith(nextPanel);
+
+      let focusPattern = null;
+      if (actionValue === "add-pattern") {
+        const patternList = document.querySelector("#pattern-entry-list");
+        if (patternList) {
+          const patternNodes = Array.from(patternList.children).filter(
+            (child) => child instanceof HTMLElement && child.classList.contains("node")
+          );
+          focusPattern = patternNodes[patternNodes.length - 1] || null;
+        }
+      } else if (targetPatternId) {
+        focusPattern = document.querySelector(`#pattern-${targetPatternId}`);
+      }
+
+      if (focusPattern) {
+        focusPattern.classList.add("pattern-new-highlight");
+        focusPattern.scrollIntoView({ block: "center", behavior: "smooth" });
+        window.setTimeout(() => {
+          focusPattern.classList.remove("pattern-new-highlight");
+        }, 1800);
+      }
+    } catch (error) {
+      window.location.reload();
+    } finally {
+      submitter.removeAttribute("disabled");
+    }
+  });
+</script>
