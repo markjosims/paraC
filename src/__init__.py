@@ -1,6 +1,10 @@
 import os
 import sys
 from loguru import logger
+from dotenv import load_dotenv
+
+# Load environment variables from .env file if it exists
+load_dotenv() 
 
 # Configure logging level from environment variable
 # Set TIRA_LOG_LEVEL=DEBUG to see debug messages, otherwise defaults to INFO
