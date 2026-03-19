@@ -17,66 +17,19 @@ from src.web.configs import (
     suggested_config_path,
 )
 from src.registry.fst_registry import FstRegistry
-from src.web.inventory import (
-    add_child_node,
-    add_root_node,
-    inventory_yaml,
-    load_inventory_state,
-    remove_node,
-    save_inventory,
-    state_from_json,
-    state_to_json,
-    update_state_from_form,
-)
-from src.web.patterns import (
-    add_pattern,
-    load_patterns_state,
-    patterns_yaml,
-    remove_pattern,
-    save_patterns,
-    state_from_json as patterns_state_from_json,
-    state_to_json as patterns_state_to_json,
-    update_state_from_form as update_patterns_state_from_form,
-)
-from src.web.rules import (
-    add_rule,
-    load_rules_state,
-    remove_rule,
-    rules_yaml,
-    save_rules,
-    state_from_json as rules_state_from_json,
-    state_to_json as rules_state_to_json,
-    update_state_from_form as update_rules_state_from_form,
-)
+from src.web.inventory import InventoryEditor
+from src.web.patterns import PatternsEditor
+from src.web.rules import RulesEditor
 from flask import current_app as app
 
 
 bp = Blueprint("web", __name__)
 FST_REGISTRY_CACHE: dict[str, tuple[float, FstRegistry]] = {}
-STRUCTURED_LOADERS = {
-    "Inventory": load_inventory_state,
-    "Patterns": load_patterns_state,
-    "Rules": load_rules_state,
-}
-STRUCTURED_SAVERS = {
-    "Inventory": save_inventory,
-    "Patterns": save_patterns,
-    "Rules": save_rules,
-}
-FORM_STATE_HANDLERS = {
-    "Inventory": (state_from_json, update_state_from_form),
-    "Patterns": (patterns_state_from_json, update_patterns_state_from_form),
-    "Rules": (rules_state_from_json, update_rules_state_from_form),
-}
-STATE_JSON_SERIALIZERS = {
-    "Inventory": state_to_json,
-    "Patterns": patterns_state_to_json,
-    "Rules": rules_state_to_json,
-}
-STATE_YAML_PREVIEWERS = {
-    "Inventory": inventory_yaml,
-    "Patterns": patterns_yaml,
-    "Rules": rules_yaml,
+
+EDITORS = {
+    "Inventory": InventoryEditor(),
+    "Patterns": PatternsEditor(),
+    "Rules": RulesEditor(),
 }
 
 
@@ -91,6 +44,7 @@ def index():
         state = new_text_config_state(relative_path=selected_path)
         return _render_page(
             state,
+            page_context=page_context,
             selected_path=selected_path,
             selected_kind=state.get("kind") or None,
             error=page_context["error"],
@@ -99,6 +53,7 @@ def index():
     state = _load_editor_state(selected_path)
     return _render_page(
         state,
+        page_context=page_context,
         selected_path=selected_path,
         selected_kind=state.get("kind") or None,
         message=message,
@@ -122,12 +77,14 @@ def config_editor():
         new_kind = form.get("new_kind", "").strip() or "Inventory"
         file_stem = form.get("file_stem", "").strip()
         state = _new_editor_state(new_kind, suggested_config_path(new_kind, file_stem))
-        if new_kind == "Inventory":
-            state = add_root_node(state)
+        editor = EDITORS.get(new_kind)
+        if new_kind == "Inventory" and editor is not None:
+            state = editor.add_item(state)
     else:
         state = _state_from_form(form, editor_kind)
         if action == "add-root" and state.get("kind") == "Inventory":
-            state = add_root_node(state)
+            editor = EDITORS["Inventory"]
+            state = editor.add_item(state)
 
     if action == "save":
         try:
@@ -139,6 +96,7 @@ def config_editor():
     selected_path = state.get("path", "")
     return _render_page(
         state,
+        page_context=page_context,
         selected_path=selected_path,
         selected_kind=state.get("kind") or None,
         message=message,
@@ -153,11 +111,13 @@ def inventory_add_child(node_id: str):
     if page_context.get("error"):
         return redirect(url_for("web.index", error=page_context["error"]))
 
-    state = state_from_json(form.get("state"))
-    state = update_state_from_form(state, form)
-    state = add_child_node(state, node_id)
+    editor = EDITORS["Inventory"]
+    state = editor.state_from_json(form.get("state"))
+    state = editor.update_from_form(state, form)
+    state = editor.add_child_node(state, node_id)
     return _render_page(
         state,
+        page_context=page_context,
         selected_path=state.get("path", ""),
         selected_kind="Inventory",
     )
@@ -169,11 +129,13 @@ def inventory_remove_node(node_id: str):
     if page_context.get("error"):
         return redirect(url_for("web.index", error=page_context["error"]))
 
-    state = state_from_json(request.form.get("state"))
-    state = update_state_from_form(state, request.form)
-    state = remove_node(state, node_id)
+    editor = EDITORS["Inventory"]
+    state = editor.state_from_json(request.form.get("state"))
+    state = editor.update_from_form(state, request.form)
+    state = editor.remove_item(state, node_id)
     return _render_page(
         state,
+        page_context=page_context,
         selected_path=state.get("path", ""),
         selected_kind="Inventory",
     )
@@ -181,34 +143,12 @@ def inventory_remove_node(node_id: str):
 
 @bp.post("/patterns/add-entry")
 def patterns_add_entry():
-    page_context = _config_page_context()
-    if page_context.get("error"):
-        return redirect(url_for("web.index", error=page_context["error"]))
-
-    state = patterns_state_from_json(request.form.get("state"))
-    state = update_patterns_state_from_form(state, request.form)
-    state = add_pattern(state)
-    return _render_page(
-        state,
-        selected_path=state.get("path", ""),
-        selected_kind="Patterns",
-    )
+    return _add_item_handler("Patterns")
 
 
 @bp.post("/patterns/remove-entry/<pattern_id>")
 def patterns_remove_entry(pattern_id: str):
-    page_context = _config_page_context()
-    if page_context.get("error"):
-        return redirect(url_for("web.index", error=page_context["error"]))
-
-    state = patterns_state_from_json(request.form.get("state"))
-    state = update_patterns_state_from_form(state, request.form)
-    state = remove_pattern(state, pattern_id)
-    return _render_page(
-        state,
-        selected_path=state.get("path", ""),
-        selected_kind="Patterns",
-    )
+    return _remove_item_handler("Patterns", pattern_id)
 
 
 @bp.post("/patterns/run-tests/<pattern_id>")
@@ -217,8 +157,9 @@ def patterns_run_tests(pattern_id: str):
     if page_context.get("error"):
         return redirect(url_for("web.index", error=page_context["error"]))
 
-    state = patterns_state_from_json(request.form.get("state"))
-    state = update_patterns_state_from_form(state, request.form)
+    editor = EDITORS["Patterns"]
+    state = editor.state_from_json(request.form.get("state"))
+    state = editor.update_from_form(state, request.form)
 
     error = None
     target = next((p for p in state["patterns"] if p["id"] == pattern_id), None)
@@ -240,6 +181,7 @@ def patterns_run_tests(pattern_id: str):
 
     return _render_page(
         state,
+        page_context=page_context,
         selected_path=state.get("path", ""),
         selected_kind="Patterns",
         error=error,
@@ -248,33 +190,45 @@ def patterns_run_tests(pattern_id: str):
 
 @bp.post("/rules/add-entry")
 def rules_add_entry():
-    page_context = _config_page_context()
-    if page_context.get("error"):
-        return redirect(url_for("web.index", error=page_context["error"]))
-
-    state = rules_state_from_json(request.form.get("state"))
-    state = update_rules_state_from_form(state, request.form)
-    state = add_rule(state)
-    return _render_page(
-        state,
-        selected_path=state.get("path", ""),
-        selected_kind="Rules",
-    )
+    return _add_item_handler("Rules")
 
 
 @bp.post("/rules/remove-entry/<rule_id>")
 def rules_remove_entry(rule_id: str):
+    return _remove_item_handler("Rules", rule_id)
+
+
+def _add_item_handler(kind: str):
     page_context = _config_page_context()
     if page_context.get("error"):
         return redirect(url_for("web.index", error=page_context["error"]))
 
-    state = rules_state_from_json(request.form.get("state"))
-    state = update_rules_state_from_form(state, request.form)
-    state = remove_rule(state, rule_id)
+    editor = EDITORS[kind]
+    state = editor.state_from_json(request.form.get("state"))
+    state = editor.update_from_form(state, request.form)
+    state = editor.add_item(state)
     return _render_page(
         state,
+        page_context=page_context,
         selected_path=state.get("path", ""),
-        selected_kind="Rules",
+        selected_kind=kind,
+    )
+
+
+def _remove_item_handler(kind: str, item_id: str):
+    page_context = _config_page_context()
+    if page_context.get("error"):
+        return redirect(url_for("web.index", error=page_context["error"]))
+
+    editor = EDITORS[kind]
+    state = editor.state_from_json(request.form.get("state"))
+    state = editor.update_from_form(state, request.form)
+    state = editor.remove_item(state, item_id)
+    return _render_page(
+        state,
+        page_context=page_context,
+        selected_path=state.get("path", ""),
+        selected_kind=kind,
     )
 
 
@@ -303,9 +257,9 @@ def _load_editor_state(selected_path: str) -> dict[str, Any]:
     except (FileNotFoundError, ValueError):
         return new_text_config_state(relative_path=selected_path)
 
-    loader = STRUCTURED_LOADERS.get(entry.get("kind"))
-    if loader is not None:
-        return loader(_local_config_dir(), selected_path)
+    editor = EDITORS.get(entry.get("kind"))
+    if editor is not None:
+        return editor.load_state(_local_config_dir(), selected_path)
 
     return {
         "path": selected_path,
@@ -315,33 +269,17 @@ def _load_editor_state(selected_path: str) -> dict[str, Any]:
 
 
 def _new_editor_state(kind: str, relative_path: str) -> dict[str, Any]:
-    if kind == "Inventory":
-        return {
-            "path": relative_path,
-            "kind": "Inventory",
-            "nodes": [],
-        }
-    if kind == "Patterns":
-        return {
-            "path": relative_path,
-            "kind": "Patterns",
-            "patterns": [],
-        }
-    if kind == "Rules":
-        return {
-            "path": relative_path,
-            "kind": "Rules",
-            "rules": [],
-        }
+    editor = EDITORS.get(kind)
+    if editor is not None:
+        return editor.new_state(relative_path)
     return new_text_config_state(kind, relative_path)
 
 
 def _state_from_form(form: Any, editor_kind: str) -> dict[str, Any]:
-    handler = FORM_STATE_HANDLERS.get(editor_kind)
-    if handler is not None:
-        state_from_payload, update_from_form = handler
-        state = state_from_payload(form.get("state"))
-        return update_from_form(state, form)
+    editor = EDITORS.get(editor_kind)
+    if editor is not None:
+        state = editor.state_from_json(form.get("state"))
+        return editor.update_from_form(state, form)
 
     content = form.get("content", "")
     return {
@@ -352,21 +290,23 @@ def _state_from_form(form: Any, editor_kind: str) -> dict[str, Any]:
 
 
 def _save_state(state: dict[str, Any]) -> str:
-    saver = STRUCTURED_SAVERS.get(state.get("kind"))
-    if saver is not None:
-        return saver(_local_config_dir(), state)
+    editor = EDITORS.get(state.get("kind"))
+    if editor is not None:
+        return editor.save(_local_config_dir(), state)
 
     return save_config_text(_local_config_dir(), state["path"], state["content"])
 
 
 def _render_page(
     state: dict[str, Any],
+    page_context: dict[str, Any] | None = None,
     selected_path: str = "",
     selected_kind: str | None = None,
     message: str | None = None,
     error: str | None = None,
 ):
-    page_context = _config_page_context()
+    if page_context is None:
+        page_context = _config_page_context()
     yaml_files = page_context["yaml_files"]
     return render_template(
         "index.html",
@@ -396,13 +336,13 @@ def _kind_from_content(content: str) -> str:
 
 
 def _editor_state_json(state: dict[str, Any]) -> str:
-    serializer = STATE_JSON_SERIALIZERS.get(state.get("kind"))
-    return serializer(state) if serializer is not None else ""
+    editor = EDITORS.get(state.get("kind"))
+    return editor.state_to_json(state) if editor is not None else ""
 
 
 def _editor_yaml_preview(state: dict[str, Any]) -> str:
-    previewer = STATE_YAML_PREVIEWERS.get(state.get("kind"))
-    return previewer(state) if previewer is not None else state.get("content", "")
+    editor = EDITORS.get(state.get("kind"))
+    return editor.to_yaml(state) if editor is not None else state.get("content", "")
 
 
 def _local_config_dir() -> str:
@@ -431,27 +371,19 @@ def _yaml_tree_mtime(config_dir: str) -> float:
 
 
 def _parse_test_strings(value: str) -> list[str]:
-    """
-    Split a comma-separated test string into a list,
-    stripping whitespace
-    """
-    value = unicodedata.normalize('NFKD', value)
+    value = unicodedata.normalize("NFKD", value)
     if not value:
         return []
     return [s.strip() for s in value.split(",") if s.strip()]
 
+
 def _normalize_form_data(
-        form, skip=frozenset(
-            ['state', 'name', 'editor_kind', 'path']
-        )
-    ):
+    form, skip=frozenset(["state", "name", "editor_kind", "path"])
+):
     normalized_form = {}
     for key, value in form.items():
         if key in skip:
-            normalized_form[key]=value
+            normalized_form[key] = value
             continue
-        normalized_form[key] = unicodedata.normalize(
-            'NFKD', value
-        )
+        normalized_form[key] = unicodedata.normalize("NFKD", value)
     return normalized_form
-    

@@ -15,55 +15,67 @@ from src.constants import EXAMPLE_CONFIG_DIR
 
 
 def test_marker_from_config_merges_global_attributes_and_normalizes_replace():
-    marker = Marker.from_config(
-        {"suffix": "-te", "replace": ["dt", "tt"], "ignored": "value"},
-        global_attrs={"order": "suffixation", "prefix": "ke-"},
+    marker_list = Marker.list_from_config(
+        [
+            {"type": "suffix", "value": "-te"},
+            {"type": "replace", "value": ["dt", "tt"]},
+        ],
+        global_order="suffixation",
+        global_markers=[{"type": "prefix", "value": "ke-"}]
     )
 
-    assert isinstance(marker, Marker)
-    assert marker.prefix == "ke-"
-    assert marker.suffix == "-te"
-    assert marker.replace == ("dt", "tt")
-    assert marker.order == "suffixation"
-    assert not hasattr(marker, "ignored")
+    assert isinstance(marker_list, list)
+    for marker in marker_list:
+        assert isinstance(marker, Marker)
+        if marker.type == "prefix":
+            assert marker.value == "ke-"
+        elif marker.type == "suffix":
+            assert marker.value == "-te"
+        elif marker.type == "replace":
+            assert marker.value == ("dt", "tt")
+        assert marker.order == "suffixation"
 
 
 def test_marker_list_from_config_handles_none_single_and_multiple_markers():
-    assert Marker.list_from_config(None, {"order": "x"}) == []
+    assert Marker.list_from_config(
+        [None, None], global_order="x"
+    ) == []
 
-    single = Marker.list_from_config({"suffix": "-ap"}, {"order": "outer"})
+    single = Marker.list_from_config([{"suffix": "-ap"}], global_order="outer")
     assert len(single) == 1
     assert single[0].suffix == "-ap"
     assert single[0].order == "outer"
 
     multiple = Marker.list_from_config(
         [{"suffix": "-te"}, {"replace": ["dt", "tt"]}],
-        {"order": "shared"},
+        global_order="shared"
     )
     assert len(multiple) == 2
-    assert multiple[0].suffix == "-te"
+    assert multiple[0].type == "suffix"
+    assert multiple[0].value == "-te"
     assert multiple[0].order == "shared"
-    assert multiple[1].replace == ("dt", "tt")
+    assert multiple[1].type == "replace"
+    assert multiple[1].value == ("dt", "tt")
     assert multiple[1].order == "shared"
 
 
-def test_marker_rejects_suppletion_combined_with_other_attributes():
-    with pytest.raises(ValueError, match="Suppletion cannot be combined"):
-        Marker.from_config({"suppletion": "pok", "suffix": "-ap"})
+def test_marker_rejects_unsupported_type():
+    with pytest.raises(ValueError, match="Unrecognized marker type"):
+        Marker.from_config({"type": "foo", "value": "bar"})
 
 
 def test_feature_markers_from_config_builds_dynamic_attributes_and_global_marker():
     config_path = os.path.join(EXAMPLE_CONFIG_DIR, "markers", "person_markers.yaml")
     config = {
         "feature": "person",
-        "global_attributes": {"order": "outer_suffixation"},
+        "global_order": "outer_suffixation",
+        "global_markers": [{"type": "prefix", "value": "pre-"}],
         "markers": {
-            "global_marker": {"prefix": "pre-"},
-            "1sg": {"suffix": "-o"},
+            "1sg": {"type": "suffix", "value": "-o"},
             "2sg": [
-                {"suffix": "-te", "order": "suffixation"},
-                {"replace": ["dt", "tt"], "order": "assimilation"},
-            ],
+                {"type": "suffix", "value": "-te", "order": "suffixation"},
+                {"type": "replace", "value": ["dt", "tt"], "order": "assimilation"},
+            ], #STOPPEDHERE
             "3sg": None,
         },
         "source_path": config_path,
