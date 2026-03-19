@@ -6,6 +6,14 @@ Registry classes (inherit Registry from src.registry_utils):
 - ContingentMarkersRegistry: loads/manages ContingentFeatureMarkers configs
 - MarkerRegistry: orchestrates both registries, provides unified lookup
 
+Unlike `FstRegistry` classes, where each pattern and rule contained
+must be unique, there is no unique feature vector <---> marker relation.
+Rather, an arbitrary number of different `FeatureMarkers` or
+`ContingentMarkers` may exist for a single feature value/combination.
+The `MarkerRegistry` class, along with its `FeatureMarkersRegistry`
+and `ContingentMarkersRegistry` children, allow for querying of entire
+(Contingent)Marker *files*.
+
 Dataclasses:
 - Marker: single morphological formative (inherits Transducer)
 - FeatureMarkers: maps values of one feature to Markers
@@ -19,115 +27,92 @@ Utilities:
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Literal, Any
 from dataclasses import dataclass, field
 
 from loguru import logger
 
-from src.fst_utils import Transducer
-from src.registry_utils import Registry
+from src.fst_utils import TransducerList, Prefix, Suffix
+from src.registry.fst_registry import FstRegistry
+from src.registry.registry_utils import Registry
 
-from src.constants import CONFIG_DIR
-
+from src.constants import EXAMPLE_CONFIG_DIR
 
 # ---------------------------------------------------------------------------
 # Marker dataclass
 # ---------------------------------------------------------------------------
 
-MARKER_FIELDS = {'prefix', 'suffix', 'replace', 'suppletion', 'rule', 'order'}
-
-
 @dataclass
-class Marker(Transducer):
+class Marker(TransducerList):
     """
     Single morphological formative (affix, replacement, rule, or suppletion).
-    Inherits `value` and `fst` from Transducer; the FST is built later by a
+    Inherits `value` and `fst` from TransducerList; the FST is built later by a
     compilation step (not at config-load time).
 
     Attributes:
-        prefix: String to prepend to stem
-        suffix: String to append to stem
-        replace: (input, output) pair for substring replacement
-        suppletion: Full replacement form (incompatible with other operations)
-        rule: Name(s) of phonological rule(s) to apply ($ reference)
+        type: Type of formative represented, including:
+        - prefix: String to prepend to stem
+        - suffix: String to append to stem
+        - replace: (input, output) pair for substring replacement
+        - suppletion: Full replacement form (incompatible with other operations)
+        - rule: Name(s) of phonological rule(s) to apply ($ reference)
+        value: String to be interpreted as formative
         order: Stage name controlling application order within a paradigm
     """
-    prefix: Optional[str] = None
-    suffix: Optional[str] = None
-    replace: Optional[Tuple[str, str]] = None
-    suppletion: Optional[str] = None
-    rule: Optional[Union[str, List[str]]] = None
+    type: Literal["prefix", "suffix", "replace", "suppletion", "rule"]
     order: Optional[str] = None
-
-    def __post_init__(self):
-        super().__post_init__()
-        if self.suppletion is not None:
-            if any([self.prefix, self.suffix, self.replace, self.rule]):
-                raise ValueError(
-                    "Suppletion cannot be combined with other marker attributes."
-                )
+    comment: Optional[str] = None
 
     @classmethod
     def from_config(
         cls,
-        config: Optional[dict],
-        global_attrs: Optional[dict] = None,
+        config: Optional[Dict[str, Any]] = None,
+        global_order: Optional[str] = None,
     ) -> Optional[Marker]:
-        """Build a Marker from a YAML marker dict. Returns None for null (zero-marking)."""
-        if config is None:
-            return None
-        merged = {}
-        if global_attrs:
-            merged.update(global_attrs)
-        merged.update(config)
-        # Only pass recognized Marker fields to the constructor
-        filtered = {k: v for k, v in merged.items() if k in MARKER_FIELDS}
+        """
+        Build a Marker from a YAML marker dict. Returns None for null (zero-marking).
+        """
+        order = config.get('order', global_order)
+        value = config['value']
+        marker_type = config['type']
+
         # Convert list-form replace to tuple
-        if 'replace' in filtered and isinstance(filtered['replace'], list):
-            filtered['replace'] = tuple(filtered['replace'])
-        return cls(**filtered)
+        if marker_type == "replace" and isinstance(value, list):
+            value = tuple(value)
+
+        return Marker(value=value, type=marker_type, order=order)
 
     @classmethod
     def list_from_config(
         cls,
         config,
-        global_attrs: Optional[dict] = None,
+        global_order: Optional[str] = None,
+        global_markers: List[Marker] = list(),
     ) -> List[Marker]:
         """
         Build a list of Markers from a YAML value that may be:
         - None (zero-marking) -> empty list
         - A dict (single marker) -> one-element list
         - A list of dicts (ordered multi-step markers) -> list of Markers
+
+        This should be the default `Marker` constructor, as we generally expect
+        that Marker definitions in the config may be a list, singleton, or null.
         """
         if config is None:
-            return []
-        if isinstance(config, dict):
-            marker = cls.from_config(config, global_attrs)
-            return [marker] if marker is not None else []
-        if isinstance(config, list):
-            markers = []
-            for item in config:
-                marker = cls.from_config(item, global_attrs)
-                if marker is not None:
-                    markers.append(marker)
-            return markers
-        raise ValueError(f"Unexpected marker config type: {type(config)}")
+            config = []
+        elif isinstance(config, dict):
+            config = [config]    
+
+        markers = []
+        for item in config:
+            marker = cls.from_config(item, global_order=global_order)
+            if marker is not None:
+                markers.append(marker)
+        markers.extend(global_markers)
+        return markers
 
     def __str__(self):
-        parts = []
-        if self.prefix:
-            parts.append(f"prefix={self.prefix}")
-        if self.suffix:
-            parts.append(f"suffix={self.suffix}")
-        if self.replace:
-            parts.append(f"replace={self.replace}")
-        if self.suppletion:
-            parts.append(f"suppletion={self.suppletion}")
-        if self.rule:
-            parts.append(f"rule={self.rule}")
-        if self.order:
-            parts.append(f"order={self.order}")
-        return f"Marker({', '.join(parts)})"
+        return f"Marker(type={self.type}, value={self.value})"
 
     def __repr__(self):
         return self.__str__()
@@ -146,14 +131,14 @@ class FeatureMarkers:
     Attributes:
         feature: Name of the feature being marked (e.g. 'subject', 'class')
         data: Dict mapping feature values to lists of Markers
-        global_attributes: Attributes applied to every marker in this config
-        global_marker: Optional markers applied to ALL feature values
+        global_order: Optional default order for all markers in config
+        global_markers: Optional markers applied to all feature values
         source: Filepath this config was loaded from
     """
     feature: str = ''
     data: Dict[str, List[Marker]] = field(default_factory=dict)
-    global_attributes: dict = field(default_factory=dict)
-    global_marker: Optional[List[Marker]] = None
+    global_order: Optional[str] = None
+    global_markers: List[Marker] = field(default_factory=list)
     source: Optional[os.PathLike] = None
 
     def __post_init__(self):
@@ -167,23 +152,23 @@ class FeatureMarkers:
         """Build a FeatureMarkers from a full YAML config dict."""
         feature = config.get('feature', '')
         source = config.get('source_path')
-        global_attrs = config.get('global_attributes', {})
+        global_order = config.get('global_order', None)
+        global_markers = config.get('global_markers', [])
         markers_config = config.get('markers', {})
 
         data = {}
-        global_marker = None
-
         for value_name, marker_config in markers_config.items():
-            if value_name == 'global_marker':
-                global_marker = Marker.list_from_config(marker_config, global_attrs)
-                continue
-            data[value_name] = Marker.list_from_config(marker_config, global_attrs)
+            data[value_name] = Marker.list_from_config(
+                marker_config,
+                global_markers=global_markers,
+                global_order=global_order,
+            )
 
         return cls(
             feature=feature,
             data=data,
-            global_attributes=global_attrs,
-            global_marker=global_marker,
+            global_order=global_order,
+            global_markers=global_markers,
             source=source,
         )
 
@@ -193,9 +178,8 @@ class FeatureMarkers:
     def __repr__(self):
         return self.__str__()
 
-
 # ---------------------------------------------------------------------------
-# FeatureQueryMixin
+## FeatureQueryMixin
 # ---------------------------------------------------------------------------
 
 class FeatureQueryMixin:
@@ -304,10 +288,14 @@ def _flatten_contingent_markers(
     and implicit value nesting (key is a value for the next unassigned feature).
     """
     result: Dict[str, List[Marker]] = {}
+
+    # On first call, no features have been assigned
+    # Accumulate assign features during recursion
     unassigned = [f for f in all_features if f not in assigned]
 
     if not unassigned:
-        # All features assigned — node is a marker config
+        # All features assigned — node is a marker config (base case)
+        # Build Marker objects
         markers = Marker.list_from_config(node, global_attrs)
         key = ' '.join(f"{f}={v}" for f, v in sorted(assigned.items()))
         result[key] = markers
@@ -341,10 +329,10 @@ def _flatten_contingent_markers(
 
     return result
 
-
 # ---------------------------------------------------------------------------
 # Registry classes
 # ---------------------------------------------------------------------------
+
 
 class FeatureMarkersRegistry(Registry):
     """
@@ -356,15 +344,19 @@ class FeatureMarkersRegistry(Registry):
         self,
         data: Optional[Dict[str, FeatureMarkers]] = None,
         config_lists: Optional[List[dict]] = None,
+        fst_registry: Optional[FstRegistry] = None,
     ):
         super().__init__(
             kind="FeatureMarkers", data=data, config_list=config_lists
         )
+        self.fst_registry = fst_registry
 
     @classmethod
     def from_config_dir(cls, config_dir: str) -> FeatureMarkersRegistry:
         registry = super().from_config_dir(config_dir=config_dir)
         registry.data = registry.load_all_configs()
+        fst_registry = FstRegistry.from_config_dir(config_dir)
+        registry.fst_registry = fst_registry
         return registry
 
     def load_all_configs(self) -> Dict[str, FeatureMarkers]:
@@ -448,14 +440,16 @@ class ContingentMarkersRegistry(Registry):
 
 class MarkerRegistry:
     """
-    Orchestrates FeatureMarkersRegistry and ContingentMarkersRegistry.
-    Analogous to FstRegistry orchestrating Inventory/Pattern/Rule registries.
+    Orchestrates FeatureMarkersRegistry, ContingentMarkersRegistry
+    and FstRegistry. Uses the lattermost to compile FSTs for markers
+    contained in the former two classes.
     """
 
     def __init__(
         self,
         feature_markers_registry: FeatureMarkersRegistry,
         contingent_markers_registry: ContingentMarkersRegistry,
+        fst_registry: FstRegistry,
     ):
         self.feature_markers_registry = feature_markers_registry
         self.contingent_markers_registry = contingent_markers_registry
@@ -466,16 +460,59 @@ class MarkerRegistry:
         self.contingent_markers: Dict[str, ContingentMarkers] = (
             contingent_markers_registry.data
         )
+        self.fst_registry = fst_registry
+
+        self.is_initialized = False
+        self.initialize()
+        if not self.is_initialized:
+            raise ValueError("Error occurred while initializing MarkerRegistry, check logs.")
 
     @classmethod
     def from_config_dir(cls, config_dir: str) -> MarkerRegistry:
         feature_markers_registry = FeatureMarkersRegistry.from_config_dir(
             config_dir
         )
-        contingent_markers_registry = (
-            ContingentMarkersRegistry.from_config_dir(config_dir)
+        contingent_markers_registry = ContingentMarkersRegistry.from_config_dir(
+            config_dir
         )
-        return cls(feature_markers_registry, contingent_markers_registry)
+        fst_registry = FstRegistry.from_config_dir(
+            config_dir
+        )
+        return cls(
+            feature_markers_registry,
+            contingent_markers_registry,
+            fst_registry,
+        )
+    
+    def initialize(self):
+        self._build_all_marker_transducers()
+        self.is_initialized = True
+
+    def _build_all_marker_transducers(self):
+        for marker_list in self.feature_markers.values():
+            for marker in marker_list:
+                self._build_marker_transducer(marker)
+        for marker_list in self.contingent_markers.values():
+            for marker in marker_list:
+                self._build_marker_transducer(marker)
+
+    def _build_marker_transducer(self, marker: Marker):
+        if marker.type == 'rule':
+            marker_rule = self.fst_registry.rules[marker.value]
+        elif marker.type == 'prefix':
+            marker_rule = self.fst_registry.prefix(marker.value)
+        elif marker.type == 'suffix':
+            marker_rule = self.fst_registry.suffix(marker.value)
+        elif marker.type == 'replace':
+            marker_rule = self.fst_registry.replace_transducer(
+                marker.value[0], marker.value[1]
+            )
+        elif marker.type == 'suppletion':
+            sigma_star = '<Sigma>*'
+            marker_rule = self.fst_registry.replace_transducer(
+                sigma_star, marker.value
+            )
+        marker.set_transducer(marker_rule.fst)
 
     def get(self, name: str) -> Union[FeatureMarkers, ContingentMarkers]:
         """Look up a marker config by filename stem."""
@@ -487,7 +524,7 @@ class MarkerRegistry:
 
 if __name__ == '__main__':
     # test initializing each config
-    feature_reg = FeatureMarkersRegistry.from_config_dir(CONFIG_DIR)
-    conting_marker_reg = ContingentMarkersRegistry.from_config_dir(CONFIG_DIR)
-    marker_reg = MarkerRegistry.from_config_dir(CONFIG_DIR)
+    feature_reg = FeatureMarkersRegistry.from_config_dir(EXAMPLE_CONFIG_DIR)
+    conting_marker_reg = ContingentMarkersRegistry.from_config_dir(EXAMPLE_CONFIG_DIR)
+    marker_reg = MarkerRegistry.from_config_dir(EXAMPLE_CONFIG_DIR)
     breakpoint()

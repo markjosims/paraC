@@ -12,10 +12,13 @@ kind: FeatureMarkers
 feature: person
 markers:
   1sg:
-    suffix: -o
+    type: suffix
+    value: -o
   2sg:
+    type: suffix
     suffix: -as
   3sg:
+    type: suffix
     suffix: -a
 ```
 
@@ -31,31 +34,25 @@ markers:
     tense:
         present:
             1sg:
-                suffix: -o
+                type: suffix
+                value: -o
             2sg:
-                suffix: -as
+                type: suffix
+                value: -as
             3sg:
-                suffix: -a
+                type: suffix
+                value: -a
         past:
             1sg:
-                suffix: -é
+                type: suffix
+                value: -é
             2sg:
-                suffix: -aste
+                type: suffix
+                value: -aste
             3sg:
-                suffix: -ó
+                type: suffix
+                value: -ó
 ```
-Rather than list the formatives for all feature combinations, sub-paradigms can be imported from separate files using the `inherits` key:
-```yaml
-kind: ContingentFeatureMarkers
-features: [person, tense]
-markers:
-    tense:
-        present:
-            inherits: $present_tense_markers
-        past:
-            inherits: $past_tense_markers
-```
-This allows for efficient organization and orchestration of paradigms with several interacting features.
 
 ## Marker keys
 The marker dictionary corresponds to the `Marker` class in `src/forms/form_constructors.py`.
@@ -67,7 +64,8 @@ In the Spanish examples above, the only formative type used is 'suffix,' but sev
 - Rule: Name of rule to be applied to stem. Must be defined in a `Rules` YAML file.
 - Suppletion: Replace the entire stem with the given string. Note suppletion is not **not** compatible with any of the above operations, and attempting to combine them will throw an error when compiling the marker.
 
-Alternatively, a feature attribute may simply contain `null`, indicating that the feature is zero-marked.
+The type of formative is indicated with the `type` attr and the `value` attr contains string to be interpreted as a formative.
+A marker may contain a single formative or multiple formatives stored as a list.
 
 See below for examples of all rule types with a toy language:
 ```yaml
@@ -77,42 +75,47 @@ feature: person
 markers:
   # e.g. ket > pe-ket-ap
   1sg:
-    suffix: -ap
-    prefix: ke-
+  - type: suffix
+    value: -ap
+  - type: prefix
+    value: ke-
   # e.g. ket > gat
   2sg:
-    replace: [e, a]
-    rule: $initial_voicing
+  - type: replace
+    value: [e, a]
+  - type: rule
+    value: $initial_voicing
   # no change, e.g. ket > ket
   3sg: null
   # e.g. ket > pok
   1pl:
-    suppletion: pok
+    type: suppletion
+    value: pok
   # e.g. ket > re-keet
   2pl:
-    rule: $vowel_lengthening
-    prefix: re-
+  - type: rule
+    value: $vowel_lengthening
+  - type: prefix
+    value: re-
   # e.g. ket > kets
   3pl:
-    rule: $affrication
+    type: rule
+    value: $affrication
     
 ```
-Feature values may contain a list of dictionaries rather than a single dictionary.
-For example, imagine we apply a suffix *-te* alongside a simple assimilation rule that changes /dt/ > [tt].
+Sometimes different formatives can interact and feed each other, e.g.:
 ```yaml
 kind: FeatureMarkers
 feature: person
 markers:
-  # e.g. ked > ked-ap
   1sg:
-    suffix: -ap
-  2sg:
   # e.g. ked > ket-te
-  - suffix: -te
-  - replace: [dt, tt]
+  - type: suffix
+    value: -te
+  - type: replace
+    value: [dt, tt]
 ```
-Since we can specify both the 'suffix' and 'replace' attributes in a single marker dictionary, why would this be necessary?
-Notice that these markers interact, the *-te* suffix feeds the assimilation /dt/.
+Here, the *-te* suffix feeds the assimilation /dt/.
 If assimilation applies before suffixation, we'd get a malformed output \*ked-te.
 We need to make sure suffixation precedes assimilation.
 
@@ -125,12 +128,15 @@ feature: person
 markers:
   # e.g. ked > ked-ap
   1sg:
-    suffix: -ap
+    type: suffix
+    value: -ap
   2sg:
   # e.g. ked > ket-te
-  - suffix: -te
+  - type: suffix
+    value: -te
     order: suffixation
-  - replace: [dt, tt]
+  - type: replace
+    value: [dt, tt]
     order: stem_assimilation
 ```
 Since stages are identified by their name rather than a numeric value, a stage order needs to be specified which determines the sequence of processes.
@@ -147,7 +153,8 @@ inherits: $person_markers_a_stem_present
 features: person
 markers:
   1sg:
-    suffix: -oy
+    type: suffix
+    value: -oy
 ```
 This allows easy creation of irregular or sub-regular paradigms where only a few forms differ from some other paradigm specified in the 'inherits' attribute.
 The example above could be applied to the Spanish verbs *dar* and *estar*, which take regular a-stem suffixes in the present tense except for the 1sg form which instead takes the suffix *-oy* (ignoring for now the accent on *está*, *estás* and *están*).
@@ -162,14 +169,18 @@ markers:
   tense:
     present:
       1sg:
-        suffix: -oy
+        type: suffix
+        value: -oy
     past:
       1sg:
-        suffix: -uv-e
+        type: suffix
+        value: -uv-e
       2sg:
-        suffix: -uv-iste
+        type: suffix
+        value: -uv-iste
       3sg:
-        suffix: -uv-o  
+        type: suffix
+        value: -uv-o  
 ```
 For a verb like *dar*, which takes a-stem suffixes in the present (excepting 1sg *-oy*) and e/i-stem suffixes in the past, we can use inheritance and overriding multiple times in the same file.
 ```yaml
@@ -189,67 +200,76 @@ markers:
 ```
 
 ## Global attributes and markers
-A `FeatureMarkers` or `ContingentFeatureMarkers` config may also specify 'global_attributes', which sets a given attribute for all markers defined in the file.
+A `FeatureMarkers` or `ContingentFeatureMarkers` config may specify the order globally, rather than needing to define it for every marker individually.
 For example, imagine that all tense markers apply at the 'inner suffixation' stage and all person markers at the 'outer suffixation' stage.
-Rather than write the 'order' attribute for each marker, we can specify it under 'global_attributes'.
+Rather than write the 'order' attribute for each marker, we can specify it under 'global_order'.
 ```yaml
 kind: FeatureMarkers
 feature: tense
-global_attributes:
-  order: inner suffixation
+global_order: inner suffixation
 markers:
   present: null
   past:
-    suffix: -et
+    type: suffix
+    value: -et
   future:
-    suffix: -ol
+    type: suffix
+    value: -ol
 ```
 
 ```yaml
 kind: FeatureMarkers
 feature: person
-global_attributes:
-  order: outer suffixation
+global_order: outer suffixation
 markers:
   1sg:
-    rule: $palatalization
+    type: rule
+    value: $palatalization
   2sg:
-    suffix: -ek
+    type: suffix
+    value: -ek
   3sg:
-    suffix: -ut
+    type: suffix
+    value: -ut
 ```
 If an individual marker specifies the same attribute as a global attribute, the individual marker's specification for that attribute will win.
 ```yaml
 kind: FeatureMarkers
 feature: person
-global_attributes:
-  order: outer suffixation
+global_order: outer suffixation
 markers:
   1sg:
-    rule: $palatalization
+    type: rule
+    value: $palatalization
     order: stem_mutation
   2sg:
-    suffix: -ek
+    type: suffix
+    order: -ek
   3sg:
-    suffix: -ut
+    type: suffix
+    order: -ut
 ```
 Rather than assgining a single attribute for all markers in the config, we may wish to apply an entire marker to all forms, and then let each feature value add it's own marker if needed.
 For example, let's create a paradigm for the Spanish verb *estar* where we insert a suffix *-uv* to the past tense stem before the person marker:
 ```yaml
 kind: FeatureMarkers
 feature: person
+global_markers:
+- type: suffix
+  order: -uv
+  order: "Inner suffix"
 markers:
-  global_marker:
-    suffix: -uv
-    order: "Inner suffix"
   1sg:
-    suffix: "-e"
+    type: suffix
+    order: "-e"
     order: "Outer suffix"
   2sg:
-    suffix: "-iste"
+    type: suffix
+    order: "-iste"
     order: "Outer suffix"
   3sg:
-    suffix: "-o"
+    type: suffix
+    order: "-o"
     order: "Outer suffix"
 ```
-Of course, the added effort of specifying the suffix order here outweighs the effort of simply writing out "-uv-e", "-uv-iste", "-uv-o".
+While in this case the added effort of specifying the suffix order here outweighs the effort of simply writing out "-uv-e", "-uv-iste", "-uv-o", we present this case as a demonstration of how 'global_markers' may be applied.
