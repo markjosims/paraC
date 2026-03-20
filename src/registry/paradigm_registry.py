@@ -8,6 +8,13 @@ class Paradigm:
     Allows combination of standard marker objects (i.e. for one feature each)
     and contingent marker objects (i.e. for multiple features simultaneously).
     Contingent marker objects are given priority when combining.
+
+    Validates that all feature values in the feature_value_combinations are
+    recognized by the provided marker objects and that no 'order' values in
+    the marker objects are unrecognized.
+
+    Allows for querying of marker combinations based on feature values,
+    and also provides string I/O with marker transducers.
     """
 
     # def __init__(
