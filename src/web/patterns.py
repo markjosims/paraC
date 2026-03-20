@@ -50,6 +50,12 @@ class PatternsEditor(BaseEditor):
             "test_results": None,
         }
 
+    def _run_test(self, item: dict[str, Any], registry: Any) -> dict:
+        ref = item.get("ref", "").strip()
+        includes = split_csv(item.get("test_includes", ""))
+        excludes = split_csv(item.get("test_excludes", ""))
+        return registry.test_pattern(ref, includes, excludes)
+
     def _update_items_from_form(
         self, patterns: list[dict[str, Any]], form: Any
     ) -> list[dict[str, Any]]:

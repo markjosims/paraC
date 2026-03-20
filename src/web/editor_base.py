@@ -98,6 +98,30 @@ class BaseEditor:
             current.setdefault(key, value)
         return current
 
+    def run_tests(
+        self,
+        state: dict[str, Any],
+        item_id: str,
+        registry: Any,
+    ) -> tuple[dict[str, Any], str | None]:
+        updated = copy.deepcopy(state)
+        items = updated.get(self.collection_key, [])
+        target = next((i for i in items if i["id"] == item_id), None)
+        if target is None:
+            return updated, f"{self.kind} item not found in editor state."
+
+        try:
+            target["test_results"] = self._run_test(target, registry)
+        except KeyError:
+            name = target.get("name", "") or target.get("ref", "")
+            return updated, (
+                f"'{name}' not found in saved configs — save the file first."
+            )
+        except Exception as exc:
+            return updated, str(exc)
+
+        return updated, None
+
     # --- abstract methods subclasses must implement ---
 
     def _blank_item(self) -> dict[str, Any]:
@@ -112,4 +136,7 @@ class BaseEditor:
     def _update_items_from_form(
         self, items: list[dict[str, Any]], form: Any
     ) -> list[dict[str, Any]]:
+        raise NotImplementedError
+
+    def _run_test(self, item: dict[str, Any], registry: Any) -> dict:
         raise NotImplementedError

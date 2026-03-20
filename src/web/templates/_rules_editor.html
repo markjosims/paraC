@@ -4,11 +4,11 @@
       <div class="two-col">
         <label>
           Rule name
-          <input type="text" name="name-{{ rule.id }}" value="{{ rule.name }}" placeholder="coalesce_before_i">
+          <input type="text" name="name-{{ rule.id }}" value="{{ rule.name }}" data-initial="{{ rule.name }}" data-def-field placeholder="coalesce_before_i">
         </label>
         <label>
           Rule type
-          <select name="rule_type-{{ rule.id }}">
+          <select name="rule_type-{{ rule.id }}" data-initial="{{ rule.rule_type }}" data-def-field>
             <option value="simple_rule" {% if rule.rule_type == "simple_rule" %}selected{% endif %}>Simple rule</option>
             <option value="string_map" {% if rule.rule_type == "string_map" %}selected{% endif %}>String map</option>
             <option value="rule_sequence" {% if rule.rule_type == "rule_sequence" %}selected{% endif %}>Rule sequence</option>
@@ -18,28 +18,28 @@
 
       <label>
         Description
-        <textarea name="description-{{ rule.id }}" placeholder="Short explanation">{{ rule.description }}</textarea>
+        <textarea name="description-{{ rule.id }}" data-initial="{{ rule.description }}" data-def-field placeholder="Short explanation">{{ rule.description }}</textarea>
       </label>
 
       {% if rule.rule_type == "string_map" %}
         <label>
           String map
-          <textarea name="string_map_text-{{ rule.id }}" placeholder="o => ue&#10;e => ie">{{ rule.string_map_text }}</textarea>
+          <textarea name="string_map_text-{{ rule.id }}" data-initial="{{ rule.string_map_text }}" data-def-field placeholder="o => ue&#10;e => ie">{{ rule.string_map_text }}</textarea>
         </label>
       {% elif rule.rule_type == "rule_sequence" %}
         <label>
           Rule sequence
-          <textarea name="rule_sequence_text-{{ rule.id }}" placeholder="clear_all_tones&#10;first_syllable_high_tone">{{ rule.rule_sequence_text }}</textarea>
+          <textarea name="rule_sequence_text-{{ rule.id }}" data-initial="{{ rule.rule_sequence_text }}" data-def-field placeholder="clear_all_tones&#10;first_syllable_high_tone">{{ rule.rule_sequence_text }}</textarea>
         </label>
       {% else %}
         <div class="two-col">
           <label>
             Input pattern
-            <textarea name="input_pattern-{{ rule.id }}" placeholder="<V>-?">{{ rule.input_pattern }}</textarea>
+            <textarea name="input_pattern-{{ rule.id }}" data-initial="{{ rule.input_pattern }}" data-def-field placeholder="<V>-?">{{ rule.input_pattern }}</textarea>
           </label>
           <label>
             Output pattern
-            <textarea name="output_pattern-{{ rule.id }}" placeholder="ɛ or null">{{ rule.output_pattern }}</textarea>
+            <textarea name="output_pattern-{{ rule.id }}" data-initial="{{ rule.output_pattern }}" data-def-field placeholder="ɛ or null">{{ rule.output_pattern }}</textarea>
           </label>
         </div>
       {% endif %}
@@ -47,18 +47,18 @@
       <div class="two-col">
         <label>
           Left context
-          <textarea name="left_context-{{ rule.id }}" placeholder="(<R>|<N>)">{{ rule.left_context }}</textarea>
+          <textarea name="left_context-{{ rule.id }}" data-initial="{{ rule.left_context }}" data-def-field placeholder="(<R>|<N>)">{{ rule.left_context }}</textarea>
         </label>
         <label>
           Right context
-          <textarea name="right_context-{{ rule.id }}" placeholder="<V>">{{ rule.right_context }}</textarea>
+          <textarea name="right_context-{{ rule.id }}" data-initial="{{ rule.right_context }}" data-def-field placeholder="<V>">{{ rule.right_context }}</textarea>
         </label>
       </div>
 
       <div class="two-col">
         <label>
           Direction
-          <select name="direction-{{ rule.id }}">
+          <select name="direction-{{ rule.id }}" data-initial="{{ rule.direction }}" data-def-field>
             <option value="" {% if not rule.direction %}selected{% endif %}>Default</option>
             <option value="ltr" {% if rule.direction == "ltr" %}selected{% endif %}>ltr</option>
             <option value="rtl" {% if rule.direction == "rtl" %}selected{% endif %}>rtl</option>
@@ -67,18 +67,34 @@
         </label>
         <label>
           Sigma star
-          <input type="text" name="sigma_star-{{ rule.id }}" value="{{ rule.sigma_star }}" placeholder="<Sigma>*">
+          <input type="text" name="sigma_star-{{ rule.id }}" value="{{ rule.sigma_star }}" data-initial="{{ rule.sigma_star }}" data-def-field placeholder="<Sigma>*">
         </label>
       </div>
 
       <label>
         Test mappings
-        <textarea name="test_mappings_text-{{ rule.id }}" placeholder="oi => ɛ&#10;ua => a">{{ rule.test_mappings_text }}</textarea>
+        <textarea name="test_mappings_text-{{ rule.id }}" data-initial="{{ rule.test_mappings_text }}" data-def-field placeholder="oi => ɛ&#10;ua => a">{{ rule.test_mappings_text }}</textarea>
       </label>
 
       <div class="actions">
+        <button type="submit" name="action" value="run-tests" data-action="run-tests" formaction="{{ url_for('web.rules_run_tests', rule_id=rule.id) }}">Test</button>
+        <span class="dirty-warning muted" style="display:none">Save first to test</span>
         <button type="submit" name="action" value="remove-rule" formaction="{{ url_for('web.rules_remove_entry', rule_id=rule.id) }}">Remove</button>
       </div>
+
+      {% if rule.test_results %}
+        <div class="test-results">
+          {% for r in rule.test_results.results %}
+            <span class="test-result {% if r['pass'] %}pass{% else %}fail{% endif %}">
+              {% if r['pass'] %}&#10003;{% else %}&#10007;{% endif %}
+              {{ r.type }}: "{{ r.input }}" &rarr; "{{ r.output }}"
+            </span>
+          {% endfor %}
+          <strong class="{% if rule.test_results.all_pass %}pass{% else %}fail{% endif %}">
+            {% if rule.test_results.all_pass %}All pass &#10003;{% else %}Some failed &#10007;{% endif %}
+          </strong>
+        </div>
+      {% endif %}
     </div>
   </section>
 {% endmacro %}
@@ -90,6 +106,13 @@
     box-shadow: 0 0 0 1px #ebc89d inset;
     transition: background 1.2s ease, box-shadow 1.2s ease, border-left-color 1.2s ease;
   }
+  .test-results { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding: 0.5rem 0; }
+  .test-result { padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.9rem; }
+  .test-result.pass { background: #eef8ee; color: #2d6a2d; }
+  .test-result.fail { background: #fff1f1; color: #a33; }
+  strong.pass { color: #2d6a2d; }
+  strong.fail { color: #a33; }
+  .dirty-warning { font-style: italic; }
 </style>
 
 <section class="panel" id="config-editor-panel">
@@ -128,6 +151,45 @@
 </section>
 
 <script>
+  // --- Dirty-state tracking ---
+  const _dirtyRules = new Set();
+
+  function _updateRuleTestButton(ruleId) {
+    const node = document.querySelector("#rule-" + ruleId);
+    if (!node) return;
+    const btn = node.querySelector("[data-action='run-tests']");
+    const warn = node.querySelector(".dirty-warning");
+    const dirty = _dirtyRules.has(ruleId);
+    if (btn) btn.disabled = dirty;
+    if (warn) warn.style.display = dirty ? "" : "none";
+  }
+
+  function _initRuleDirtyTracking() {
+    _dirtyRules.clear();
+    document.querySelectorAll("[data-rule-id]").forEach(function(node) {
+      _updateRuleTestButton(node.dataset.ruleId);
+    });
+  }
+
+  document.addEventListener("input", function(event) {
+    var field = event.target;
+    if (!field.closest || !field.closest("#rules-editor-form")) return;
+    if (!field.hasAttribute("data-def-field")) return;
+    var node = field.closest("[data-rule-id]");
+    if (!node) return;
+    var ruleId = node.dataset.ruleId;
+    var initial = field.dataset.initial || "";
+    if (field.value !== initial) {
+      _dirtyRules.add(ruleId);
+    } else {
+      _dirtyRules.delete(ruleId);
+    }
+    _updateRuleTestButton(ruleId);
+  });
+
+  _initRuleDirtyTracking();
+
+  // --- AJAX form submission ---
   document.addEventListener("submit", async (event) => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement) || form.id !== "rules-editor-form") {
@@ -184,6 +246,7 @@
       }
 
       currentPanel.replaceWith(nextPanel);
+      _initRuleDirtyTracking();
 
       let focusRule = null;
       if (actionValue === "add-rule") {

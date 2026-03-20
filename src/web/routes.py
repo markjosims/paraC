@@ -153,39 +153,12 @@ def patterns_remove_entry(pattern_id: str):
 
 @bp.post("/patterns/run-tests/<pattern_id>")
 def patterns_run_tests(pattern_id: str):
-    page_context = _config_page_context()
-    if page_context.get("error"):
-        return redirect(url_for("web.index", error=page_context["error"]))
+    return _run_tests_handler("Patterns", pattern_id)
 
-    editor = EDITORS["Patterns"]
-    state = editor.state_from_json(request.form.get("state"))
-    state = editor.update_from_form(state, request.form)
 
-    error = None
-    target = next((p for p in state["patterns"] if p["id"] == pattern_id), None)
-    if target is None:
-        error = "Pattern not found in editor state."
-    else:
-        ref = target.get("ref", "").strip()
-        includes = _parse_test_strings(target.get("test_includes", ""))
-        excludes = _parse_test_strings(target.get("test_excludes", ""))
-        try:
-            config_dir = _local_config_dir()
-            registry = _get_fst_registry(config_dir)
-            results = registry.test_pattern(ref, includes, excludes)
-            target["test_results"] = results
-        except KeyError:
-            error = f"Pattern ref '{ref}' not found in saved configs — save the file first."
-        except Exception as exc:
-            error = str(exc)
-
-    return _render_page(
-        state,
-        page_context=page_context,
-        selected_path=state.get("path", ""),
-        selected_kind="Patterns",
-        error=error,
-    )
+@bp.post("/rules/run-tests/<rule_id>")
+def rules_run_tests(rule_id: str):
+    return _run_tests_handler("Rules", rule_id)
 
 
 @bp.post("/rules/add-entry")
@@ -212,6 +185,28 @@ def _add_item_handler(kind: str):
         page_context=page_context,
         selected_path=state.get("path", ""),
         selected_kind=kind,
+    )
+
+
+def _run_tests_handler(kind: str, item_id: str):
+    page_context = _config_page_context()
+    if page_context.get("error"):
+        return redirect(url_for("web.index", error=page_context["error"]))
+
+    editor = EDITORS[kind]
+    state = editor.state_from_json(request.form.get("state"))
+    state = editor.update_from_form(state, request.form)
+
+    config_dir = _local_config_dir()
+    registry = _get_fst_registry(config_dir)
+    state, error = editor.run_tests(state, item_id, registry)
+
+    return _render_page(
+        state,
+        page_context=page_context,
+        selected_path=state.get("path", ""),
+        selected_kind=kind,
+        error=error,
     )
 
 
@@ -368,13 +363,6 @@ def _yaml_tree_mtime(config_dir: str) -> float:
     root = Path(config_dir)
     mtimes = [path.stat().st_mtime for path in root.rglob("*.y*ml")]
     return max(mtimes, default=0.0)
-
-
-def _parse_test_strings(value: str) -> list[str]:
-    value = unicodedata.normalize("NFKD", value)
-    if not value:
-        return []
-    return [s.strip() for s in value.split(",") if s.strip()]
 
 
 def _normalize_form_data(
