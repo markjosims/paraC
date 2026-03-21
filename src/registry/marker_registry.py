@@ -34,7 +34,6 @@ from loguru import logger
 
 from src.fst_utils import TransducerList
 from src.registry.feature_registry import FeatureRegistry
-from src.registry.fst_registry import FstRegistry
 from src.registry.registry_utils import Registry
 
 from src.constants import EXAMPLE_CONFIG_DIR
@@ -138,7 +137,7 @@ class MarkerList(UserList):
                 raise ValueError(f"All items in a MarkerList must be Markers, but got {type(item)}")
             
         # check no more than one 'principal_part' marker, if any
-        self.has_principal_part = False
+        self.principal_part = None
         principal_parts = [m for m in self if m.type == 'principal_part']
         if len(principal_parts) > 1:
             raise ValueError(f"MarkerList may contain at most one 'principal_part' marker, but got {len(principal_parts)}")
@@ -146,7 +145,7 @@ class MarkerList(UserList):
             # If a principal_part marker is present, it must be the first marker in the list
             if self[0].type != 'principal_part':
                 raise ValueError("If a 'principal_part' marker is present, it must be the first marker in the list")
-            self.has_principal_part = True
+            self.principal_part = principal_parts[0].value
 
     @classmethod
     def from_config(
@@ -211,24 +210,26 @@ class MarkerList(UserList):
             markers.insert(0, principal_part_marker)
         return cls(markers)
     
-    def set_principal_part(self, marker: Marker, override=True):
+    def set_principal_part(self, marker: Union[Marker, str], override=True):
+        if isinstance(marker, str):
+            marker = Marker(type='principal_part', value=marker)
         if marker.type != 'principal_part':
             raise ValueError(f"Can only set principal part marker, but got marker of type {marker.type}")
-        if self.has_principal_part and not override:
+        if self.principal_part is not None and not override:
             logger.info("MarkerList already has a 'principal_part' marker, and override is set to False")
             return
-        if self.has_principal_part and override:
+        if self.principal_part is not None and override:
             # remove existing principal part marker
             self.data = [m for m in self.data if m.type != 'principal_part']
         self.data.insert(0, marker)
-        self.has_principal_part = True
+        self.principal_part = marker.value
 
     def merge_list(self, other: MarkerList, global_order: Optional[str] = None):
         """
         Merge another MarkerList into this one, ensuring principal_part constraints are maintained.
         If both lists have a principal_part marker, the one from `other` will override this one's.
         """
-        if other.has_principal_part:
+        if other.principal_part is not None:
             other_principal_part = [m for m in other if m.type == 'principal_part'][0]
             self.set_principal_part(other_principal_part, override=True)
         
@@ -251,11 +252,11 @@ class MarkerList(UserList):
         if not isinstance(item, Marker):
             raise ValueError(f"All items in a MarkerList must be Markers, but got {type(item)}")
         if item.type == 'principal_part':
-            if self.has_principal_part:
+            if self.principal_part is not None:
                 raise ValueError("MarkerList may contain at most one 'principal_part' marker, but already has one")
             if len(self) > 0 and self[0].type != 'principal_part':
                 raise ValueError("If a 'principal_part' marker is present, it must be the first marker in the list")
-            self.has_principal_part = True
+            self.principal_part = item.value
         return super().append(item)
 
     def extend(self, other):
@@ -263,22 +264,14 @@ class MarkerList(UserList):
             if not isinstance(item, Marker):
                 raise ValueError(f"All items in a MarkerList must be Markers, but got {type(item)}")
             if item.type == 'principal_part':
-                if self.has_principal_part:
-                    raise ValueError("MarkerList may contain at most one 'principal_part' marker, but already has one")
-                if len(self) > 0 and self[0].type != 'principal_part':
-                    raise ValueError("If a 'principal_part' marker is present, it must be the first marker in the list")
-                self.has_principal_part = True
+                self.set_principal_part(item, override=False)
         return super().extend(other)
     
     def insert(self, i, item):
         if not isinstance(item, Marker):
             raise ValueError(f"All items in a MarkerList must be Markers, but got {type(item)}")
         if item.type == 'principal_part':
-            if self.has_principal_part:
-                raise ValueError("MarkerList may contain at most one 'principal_part' marker, but already has one")
-            if len(self) > 0 and self[0].type != 'principal_part' and i != 0:
-                raise ValueError("If a 'principal_part' marker is present, it must be the first marker in the list")
-            self.has_principal_part = True
+            self.set_principal_part(item, override=False)
         return super().insert(i, item)
 
 # ---------------------------------------------------------------------------
@@ -311,13 +304,6 @@ class FeatureMarkers:
             raise ValueError("FeatureMarkers must have a feature name.")
 
         self.parent_data_loaded = False
-        self._set_data_attrs()
-
-    def _set_data_attrs(self):
-        # Set dynamic attributes so ParadigmMarkers can use
-        # getattr(marker_map, feature_value) for lookup
-        for key, value in self.data.items():
-            setattr(self, key, value)
 
     @classmethod
     def from_config(cls, config: dict) -> FeatureMarkers:
@@ -351,6 +337,12 @@ class FeatureMarkers:
         )
         return markers
     
+    def get_marker(self, feature_value: str) -> MarkerList:
+        """Retrieve the list of Markers associated with a given feature value."""
+        if feature_value not in self.data:
+            raise KeyError(f"No markers found for feature value '{feature_value}' in feature '{self.feature}'")
+        return self.data[feature_value]
+    
     def update_from_parent(self, parent_config: FeatureMarkers):
         # apply any inherited global order and markers from parent config
         global_markers = self._merge_global_markers(parent_config)
@@ -365,33 +357,38 @@ class FeatureMarkers:
             if value_name not in self.data:
                 self.data[value_name] = parent_marker_list
 
-        self._set_data_attrs()
         self.parent_data_loaded = True        
         
 
     def _merge_global_markers(self, parent_config: FeatureMarkers):
         # eagerly check if child and parent config both have
         # 'principal_part' global marker
-        parent_global_markers = parent_config.global_markers or []
+        parent_global_markers = parent_config.global_markers or MarkerList()
 
-        parent_has_principal_part = any(
-            m.type == 'principal_part' for m in parent_global_markers
-        )
+        
 
-        if not self.has_principal_part and parent_has_principal_part:
+        if self.global_markers.principal_part is None and parent_global_markers.principal_part is not None:
             # if only parent has a principal_part marker, child inherits it
             self.global_markers.set_principal_part(
-                next(m for m in parent_global_markers if m.type == 'principal_part'),
+                parent_global_markers.principal_part,
                 override=False,
             )
-            self.has_principal_part = True
+            self.principal_part = parent_global_markers.principal_part
 
         parent_global_markers = [
             m for m in parent_global_markers if m.type != 'principal_part'
         ]
 
-        self.global_markers.extend(parent_global_markers)      
+        self.global_markers.extend(parent_global_markers)  
 
+    def get_order_values(self) -> List[str]:
+        order_values = set()
+        for marker_list in self.data.values():
+            for marker in marker_list:
+                if marker.order is not None:
+                    order_values.add(marker.order)
+        return list(order_values)
+    
     def __str__(self):
         return f"FeatureMarkers(feature='{self.feature}', values={list(self.data.keys())})"
 
@@ -649,8 +646,7 @@ class ContingentMarkersRegistry(Registry):
 class MarkerRegistry:
     """
     Orchestrates FeatureMarkersRegistry, ContingentMarkersRegistry,
-    FeatureRegistry and FstRegistry. Uses the lattermost to compile FSTs for markers
-    contained in the former two classes, uses FeatureRegistry to validate all feature
+    and FeatureRegistry. Uses FeatureRegistry to validate all feature
     combintions and values listed.
     """
 
@@ -658,7 +654,6 @@ class MarkerRegistry:
         self,
         feature_markers_registry: FeatureMarkersRegistry,
         contingent_markers_registry: ContingentMarkersRegistry,
-        fst_registry: FstRegistry,
         feature_registry: FeatureRegistry,
     ):
         self.feature_markers_registry = feature_markers_registry
@@ -688,16 +683,12 @@ class MarkerRegistry:
         contingent_markers_registry = ContingentMarkersRegistry.from_config_dir(
             config_dir
         )
-        fst_registry = FstRegistry.from_config_dir(
-            config_dir
-        )
         feature_registry = FeatureRegistry.from_config_dir(
             config_dir
         )
         return cls(
             feature_markers_registry,
             contingent_markers_registry,
-            fst_registry,
             feature_registry
         )
     

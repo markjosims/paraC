@@ -80,6 +80,11 @@ class Lexicon:
     """
     part_of_speech: PartOfSpeech
     entries: pd.DataFrame
+    source: Optional[str] = None
+    lexical_flags: List[str] = field(init=False)
+    principal_parts: List[str] = field(init=False)
+    features: List[Feature] = field(init=False)
+    invariant_features: List[Feature] = field(init=False)
 
     def __post_init__(self):
         if 'root' not in self.entries.columns:
@@ -93,6 +98,11 @@ class Lexicon:
         if not expected_columns.issubset(actual_columns):
             missing_columns = expected_columns - actual_columns
             raise ValueError(f"Missing columns in entries dataframe: {missing_columns}")
+
+        self.lexical_flags = self.part_of_speech.lexical_flags
+        self.principal_parts = self.part_of_speech.principal_parts
+        self.features = self.part_of_speech.features
+        self.invariant_features = self.part_of_speech.invariant_features
         
     @classmethod
     def from_config(cls, config, feature_registry: FeatureRegistry) -> 'Lexicon':
@@ -112,8 +122,22 @@ class Lexicon:
         if not os.path.exists(lexicon_path):
             raise ValueError(f"Lexicon file '{lexicon_path}' not found for part of speech '{part_of_speech.name}'.")
         entries_df = pd.read_csv(lexicon_path)
-        return cls(part_of_speech=part_of_speech, entries=entries_df)
+        return cls(
+            part_of_speech=part_of_speech,
+            entries=entries_df,
+            source=lexicon_path,
+        )
     
+    def get_roots(self) -> List[str]:
+        return self.entries['root'].tolist()
+    
+    def get_column_data(self, column: str, fill_w_root: bool=False) -> List[str]:
+        if column not in self.entries.columns:
+            raise KeyError(f"Column '{column}' not found in entries dataframe, expected columns are: {self.entries.columns.tolist()}")
+        if fill_w_root:
+            return self.entries[column].fillna(self.entries['root']).tolist()
+        return self.entries[column].tolist()
+
 @dataclass
 class LexiconRegistry:
     """
@@ -148,7 +172,7 @@ class LexiconRegistry:
     def load_all_configs(self) -> Dict[str, Lexicon]:
         config_items: Dict[str, Lexicon] = {}
         for config in self.config_list:
-            config_data = self.load_data_from_config(config, self.feature_registry)
+            config_data = self.load_data_from_config(config)
             for key in config_data:
                 if key in config_items:
                     error = (
@@ -161,7 +185,7 @@ class LexiconRegistry:
         return config_items
         
     def load_data_from_config(
-        self, config: dict, feature_registry: FeatureRegistry
+        self, config: dict
     ) -> Dict[str, Lexicon]:
         source_path = config.get('source_path', '')
         name = (
@@ -169,5 +193,5 @@ class LexiconRegistry:
             if source_path
             else config.get('name', '')
         )
-        lexicon = Lexicon.from_config(config, feature_registry)
+        lexicon = Lexicon.from_config(config, self.feature_registry)
         return {name: lexicon}

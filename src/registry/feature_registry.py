@@ -167,6 +167,36 @@ class FeatureValueCombinations:
         self.valid_combinations = (
             all_combinations.drop_duplicates().reset_index(drop=True)
         )
+        self.feature_masks = self._cache_feature_masks()
+
+    def combination_is_valid(self, combination: Dict[str, str]) -> bool:
+        """Check if a given combination of feature values is licit."""
+        for expected_feature in self.feature_names:
+            if expected_feature not in combination:
+                combination[expected_feature] = "unmarked"
+
+        for provided_feature in combination.keys():
+            if provided_feature not in self.feature_names:
+                raise ValueError(
+                    f"Unexpected feature '{provided_feature}' provided. "
+                    f"Expected features: {self.feature_names}."
+                )
+
+        feature_mask = pd.Series([True] * len(self.valid_combinations))
+        for feature, value in combination.items():
+            feature_mask &= self.feature_masks.get((feature, value))
+        return bool(feature_mask.any())
+    
+    def _cache_feature_masks(self):
+        """Precompute boolean masks for each feature-value pair to speed up validity checks."""
+        feature_value_masks = {}
+        for feature in self.feature_names:
+            for value in self.features_to_values.get(feature, []):
+                mask = self.valid_combinations[feature] == value
+                feature_value_masks[(feature, value)] = mask
+            unmarked_mask = self.valid_combinations[feature] == "unmarked"
+            feature_value_masks[(feature, "unmarked")] = unmarked_mask
+        return feature_value_masks
 
     def _expand_combination_dict(
         self,

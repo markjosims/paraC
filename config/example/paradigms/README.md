@@ -2,69 +2,43 @@
 Configs defining inflectional paradigms.
 The name 'paradigm' here is agnostic to *exhaustive* or *sub-*paradigms.
 For example, a `Paradigm` config may correspond to all possible inflected verb forms for an entire language (not recommended), or a sub-paradigm for a specific TAM value for a particular conjugation class (recommended).
-An inflectional paradigm must have at minimum the attributes 'part_of_speech' and 'features'.
+An inflectional paradigm must have at minimum the attributes 'part_of_speech' and 'feature_markers'.
 ```yaml
 kind: Paradigm
 part_of_speech: verb
-features:
+feature_markers:
   person: $person_suffixes
   tense: present
   mood: $mood_stem_vowel
 ```
-The 'features' attribute may contain the name of a `FeatureMarkers` config corresponding to that feature or string indicating a single feature value.
+The 'feature_markers' attribute may contain the name of a `FeatureMarkers` config corresponding to that feature or string indicating a single feature value.
 Here we import 'features/person_suffixes.yaml' and 'features/mood_stem_vowel.yaml' to mark the person and mood features respectively.
 If the latter, only that feature will be used for the paradigm, and the feature will be zero-marked.
-Marker objects can also be specified within the `Paradigm` config, i.e.
 ```yaml
 kind: Paradigm
 part_of_speech: verb
-features:
+feature_markers:
   person: $person_suffixes
   tense: present
-  mood:
-    indicative: null
-    subjunctive:
-      rule: $subjunctive_stem_vowel
+  mood: $mood_markers
 ```
-Here, rather than loading in a `FeatureMarkers` config for mood, we define a markers config where the indicative mood is zero-marked and the subjunctive mood is marked with a stem vowel change defined by a rule loaded in from the `config/rules/` directory.
-
-The 'contingent_features' attribute may be specified alongside 'features', which imports a `ContingentFeatures` config or list of configs.
+The 'contingent_features' attribute may be specified alongside 'feature_markers', which imports a `ContingentFeatures` config or list of configs.
 ```yaml
 kind: Paradigm
 part_of_speech: verb
-features:
+feature_markers:
   person: $person_suffixes
-  tense:
-    present: null
-    past: $past_tense_stem
+  tense: $tense_markers
   mood: $mood_stem_vowel
-contingent_features:
+contingent_feature_markers:
   - $past_tense_person_markers
 ```
-`ContingentFeatures` definitions can also be declared in-line, or imported configs can be composed.
-```yaml
-kind: Paradigm
-part_of_speech: verb
-features:
-  person: $person_suffixes
-  tense:
-    present: null
-    past: $past_tense_stem
-  mood: $mood_stem_vowel
-contingent_features:
-  tense:
-    past:
-      mood:
-        indicative:
-          inherits: $past_tense_indicative_person_markers
-        subjunctive:
-          inherits: $past_tense_subjunctive_person_markers
-```
 The 'feature_combinations' attribute may be used to specify what combinations of features are possible for the given paradigm by importing a `FeatureCombinations` config.
+A single `FeatureCombinations` object is used for the entire paradigm, and it must specify all features for the given part of speech.
 ```yaml
 kind: Paradigm
 part_of_speech: verb
-features:
+feature_markers:
   mood: imperative
   person: $imperative_suffixes
 feature_combinations: $imperative_person_values
@@ -74,13 +48,11 @@ The 'order' attribute allows specifying the order of application of markers, e.g
 kind: Paradigm
 part_of_speech: verb
 order: [person_suffix, stress_assignment, diphthongization]
-features:
+feature_markers:
   person: $person_suffixes
-  tense:
-    present: null
-    past: $past_tense_stem
+  tense: $tense_stem
   mood: $mood_stem_vowel
-contingent_features:
+contingent_feature_markers:
   - $past_tense_person_markers
 ```
 Where the various `FeatureMarkers` and `ContingentFeatureMarkers` configs must reference the stages enumerated in the 'order' attribute.
@@ -94,10 +66,59 @@ Assuming this is indicated in the [lexicon](data/lexicon/README.md) with a lexic
 kind: Paradigm
 part_of_speech: verb
 filter:
-  lexical_flag: "<n_ng_alternation>"
-features:
+  lexical_flags: "n_ng_alternation"
+feature_markers:
   person: $person_suffixes_with_stem_change
-contingent_features:
+  tense: $tense_stems
+contingent_feature_markers:
   - $past_tense_person_markers
 ```
-Principal parts... [TODO]
+We can also select for multiple lexical flags at once, for example if we want to target verb roots that under *n~ng* alternation and *o~ue/e~ie* alternation simultaneously in Spanish.
+```yaml
+kind: Paradigm
+part_of_speech: verb
+filter:
+  lexical_flags: ["n_ng_alternation", "diphthongization"]
+feature_markers:
+  person: $person_suffixes_with_stem_change
+  tense: $tense_stems
+contingent_feature_markers:
+  - $past_tense_person_markers
+```
+We might also select every root that fits some phonological shape using the 'pattern' attr.
+For example, imagine a language where disyllabic verb roots take different suffixes than monosyllabic verb roots in the past tense.
+The value must be the 'repr' of a pattern described in a `Patterns` class.
+```yaml
+kind: Paradigm
+part_of_speech: verb
+filter:
+  pattern: "<TwoSyllableWord>"
+feature_markers:
+  person: $disyllabic_person_markers
+  tense: past
+```
+
+```yaml
+kind: Paradigm
+part_of_speech: verb
+filter:
+  pattern: "<MonoSyllableWord>"
+feature_markers:
+  person: $monosyllabic_person_markers
+  tense: past
+```
+
+Paradigms may also declare 'global_markers' much like `FeatureMarkers` and `ContingentMarkers`.
+This may be useful when enforcing a particular stem shape across an entire paradigm, for example.
+```yaml
+kind: Paradigm
+part_of_speech: verb
+global_markers:
+- type: principal_part
+  value: past_stem
+- type: rule
+  value: $LLH_melody
+feature_markers:
+  tense: past
+  person: $past_tense_person_suffixes
+```

@@ -3,7 +3,7 @@
   "title": "Paradigm",
   "description": "Configuration defining an inflectional paradigm or sub-paradigm.",
   "type": "object",
-  "required": ["kind", "part_of_speech", "markers"],
+  "required": ["kind", "part_of_speech", "feature_markers"],
   "properties": {
     "source_path": {
       "type": "string",
@@ -21,7 +21,11 @@
       "type": "object",
       "description": "Logic to select specific lexical roots from the lexicon.",
       "properties": {
-        "lexical_flag": { "type": "string" }
+        "lexical_flag": { "oneOf": [
+          { "type": "string" },
+          { "type": "array", "items": { "type": "string" } }
+        ]},
+        "pattern": { "type": "string", "pattern": "^<.*>$" }
       },
       "additionalProperties": true
     },
@@ -35,64 +39,30 @@
       "items": { "$ref": "./FeatureMarkers.json#/definitions/marker" },
       "description": "Markers or rules applied to every form in the paradigm."
     },
-    "markers": {
+    "feature_markers": {
       "type": "object",
-      "description": "Mapping of features to their markers or import files.",
+      "description": "Mapping of features to single feature values or marker files to import, or null if only ContingentMarkers are used.",
       "additionalProperties": {
         "oneOf": [
           { 
             "type": "string", 
-            "description": "Literal value or file reference (starts with $)." 
+            "description": "Feature value or file reference (starts with $)." 
           },
           { 
-            "type": "object", 
-            "description": "Inline markers mapping feature values to realizations.",
-            "additionalProperties": { "$ref": "./FeatureMarkers.json#/definitions/marker" }
+            "type": "null",
+            "description": "Indicates that no FeatureMarkers class is loaded, and that marking is instead handled by ContingentMarkers" 
           }
         ]
       }
     },
     "feature_combinations": {
-      "oneOf": [
-        { "type": "string", "pattern": "^\\$.*" },
-        { "type": "array", "items": { "type": "string", "pattern": "^\\$.*" } },
-        { "$ref": "FeatureCombinations.json#/definitions/combinations" }
-      ],
-      "description": "Imported or inline configuration(s) defining valid feature cross-products. If blank, all combinations of features are generated."
+      "type": "string",
+      "pattern": "$\\$.*",
+      "description": "Imported defining valid feature cross-products. If blank, all combinations of features are generated."
     },
     "contingent_features": {
-      "type": "object",
-      "description": "In-line contingent feature definitions.",
-      "patternProperties": {
-          "^[a-zA-Z][a-zA-Z0-9_]*&[a-zA-Z][a-zA-Z0-9_]$": {
-            "oneOf": [
-              { "type": "string", "pattern": "^\\$.*" },
-              { 
-                "additionalProperties": { "$ref": "./ContingentFeatureMarkers.json#/definitions/nestedNode" }
-              }
-            ]
-          }
-      }
-    }
-  },
-  "definitions": {
-    "marker": {
-      "type": "object",
-      "properties": {
-        "suffix": { "type": "string" },
-        "prefix": { "type": "string" },
-        "replace": {
-          "type": "array",
-          "items": { "type": "string" },
-          "minItems": 2,
-          "maxItems": 2
-        },
-        "rule": { "type": "string", "pattern": "^\\$.*" },
-        "suppletion": { "type": "string" },
-        "order": { "type": "string" },
-        "comment": { "type": "string" }
-      },
-      "additionalProperties": false
+      "type": "string",
+      "description": "Filepath to import ContingentMarkers from."
     }
   }
 }

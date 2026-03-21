@@ -1347,6 +1347,25 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         replace_rule.set_transducer(rule_fst)
         return replace_rule
 
+    def string_map_transducer(
+            self,
+            string_map: List[List[str]],
+        ) -> AnonymousRule:
+        """
+        Returns a context-free anonymous Rule that maps each input pattern in the string map
+        to its corresponding output pattern.
+        """
+        string_map_acceptors = []
+        for input_pattern, output_pattern in string_map:
+            input_acceptor = self.acceptor(input_pattern)
+            output_acceptor = self.acceptor(output_pattern)
+            string_map_acceptors.append((input_acceptor, output_acceptor))
+        string_map_rule = AnonymousRule(
+            string_map=string_map_acceptors,
+        )
+        rule_fst = self._parse_rule(string_map_rule)
+        string_map_rule.set_transducer(rule_fst)
+        return string_map_rule
     
     def apply_rule(
             self,
