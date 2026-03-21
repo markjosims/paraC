@@ -160,8 +160,6 @@ def serialize_marker_list(marker_list_state: dict[str, Any]) -> Any:
 
     if not items:
         return None
-    if len(items) == 1:
-        return items[0]
     return items
 
 
