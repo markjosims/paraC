@@ -11,11 +11,9 @@ from src.constants import PROJECT_ROOT
 KIND_DIRECTORY_NAMES = {
     "Inventory": "inventory",
     "Patterns": "patterns",
-    "Rule": "rules",
-    "Feature": "features",
+    "Rules": "rules",
     "FeatureDefinitions": "features",
     "FeatureCombinations": "features",
-    "Marker": "markers",
     "FeatureMarkers": "markers",
     "ContingentFeatureMarkers": "markers",
     "Paradigm": "paradigms",
@@ -87,9 +85,7 @@ def group_yaml_files_by_kind(yaml_files: list[dict[str, str]]) -> list[dict[str,
         kind = item.get("kind") or "Unknown"
         grouped.setdefault(kind, []).append(item)
 
-    ordered_kinds = [
-        kind for kind in PREFERRED_KIND_ORDER if grouped.get(kind)
-    ]
+    ordered_kinds = list(PREFERRED_KIND_ORDER)
     ordered_kinds.extend(
         sorted(kind for kind in grouped if kind not in PREFERRED_KIND_ORDER and kind != "Unknown")
     )
@@ -101,8 +97,8 @@ def group_yaml_files_by_kind(yaml_files: list[dict[str, str]]) -> list[dict[str,
             "kind": kind,
             "slug": kind.lower().replace(" ", "-"),
             "dom_id": f"config-group-{kind.lower().replace(' ', '-')}",
-            "count": len(grouped[kind]),
-            "config_items": grouped[kind],
+            "count": len(grouped.get(kind, [])),
+            "config_items": grouped.get(kind, []),
         }
         for kind in ordered_kinds
     ]
@@ -111,7 +107,7 @@ def group_yaml_files_by_kind(yaml_files: list[dict[str, str]]) -> list[dict[str,
 
 def known_config_kinds(yaml_files: list[dict[str, str]]) -> list[str]:
     discovered = {item.get("kind") for item in yaml_files if item.get("kind")}
-    kinds = [kind for kind in PREFERRED_KIND_ORDER if kind in discovered]
+    kinds = list(PREFERRED_KIND_ORDER)
     kinds.extend(sorted(kind for kind in discovered if kind not in PREFERRED_KIND_ORDER))
     return kinds or list(PREFERRED_KIND_ORDER)
 
