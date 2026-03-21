@@ -1,0 +1,293 @@
+{% from "_marker_list_editor.html" import render_marker_list %}
+
+<style>
+  .marker-note { font-style: italic; }
+  .marker-row-highlight {
+    border-left-color: #2d8a57;
+    background: #eef9f2;
+    box-shadow: 0 0 0 1px #b8e2c7 inset;
+    transition: background 1.2s ease, box-shadow 1.2s ease, border-left-color 1.2s ease;
+  }
+  .checkbox-row { display: flex; gap: 0.5rem; align-items: center; }
+  .marker-list { display: grid; gap: 0.75rem; }
+  .marker-stem-block { padding: 0.75rem; background: #f8f7f3; border: 1px solid #ddd6c9; border-radius: 6px; }
+  .marker-row { border-left: 4px solid #d1c7b7; padding-left: 0.75rem; }
+  .entry-card { display: grid; gap: 1rem; }
+  .validation-msg.warn { color: #b8860b; font-style: italic; }
+</style>
+
+<section class="panel" id="config-editor-panel">
+  <h2>Feature markers editor</h2>
+  <p class="muted">Edit one-feature marker paradigms. Local marker order overrides the file-level order, and a local stem selector overrides the global stem selector.</p>
+
+  <form method="post" action="{{ url_for('web.config_editor') }}" class="grid" id="feature-markers-editor-form">
+    <input type="hidden" name="editor_kind" value="FeatureMarkers">
+    <textarea name="state" hidden>{{ state_json }}</textarea>
+
+    <label>
+      File path
+      <input type="text" name="path" value="{{ state.path }}" placeholder="markers/person_markers.yaml">
+    </label>
+
+    <div class="two-col">
+      <label>
+        Feature
+        <input type="text" name="feature" value="{{ state.feature }}" placeholder="person">
+      </label>
+      <label>
+        Global order
+        <input type="text" name="global_order" value="{{ state.global_order }}" placeholder="outer_suffixation">
+      </label>
+    </div>
+
+    <section>
+      <h3>Global markers</h3>
+      <p class="muted marker-note">Applied to every feature value. A local marker order or stem selector overrides the global definition.</p>
+      {{ render_marker_list(
+        state.global_markers,
+        "global",
+        url_for('web.feature_markers_add_global_marker'),
+        'web.feature_markers_remove_marker',
+        "If a child marker list defines its own stem selector, that child definition wins."
+      ) }}
+    </section>
+
+    <div class="actions">
+      <button type="submit" name="action" value="add-entry" formaction="{{ url_for('web.feature_markers_add_entry') }}">Add value entry</button>
+      <button type="submit" name="action" value="save" formaction="{{ url_for('web.config_editor') }}">Save YAML</button>
+    </div>
+
+    <div id="feature-marker-entry-list">
+      {% if state.entries %}
+        {% for entry in state.entries %}
+          <section class="node entry-card" id="feature-entry-{{ entry.id }}" data-entry-id="{{ entry.id }}">
+            <label>
+              Feature value
+              <input type="text" name="feature-value-{{ entry.id }}" value="{{ entry.feature_value }}" placeholder="1sg">
+            </label>
+            <div class="validation-msg muted" data-entry-validation="{{ entry.id }}" style="display:none"></div>
+            {{ render_marker_list(
+              entry.marker_list,
+              "entry-" ~ entry.id,
+              url_for('web.feature_markers_add_entry_marker', entry_id=entry.id),
+              'web.feature_markers_remove_marker'
+            ) }}
+            <div class="actions">
+              <button type="submit" name="action" value="remove-entry" formaction="{{ url_for('web.feature_markers_remove_entry', entry_id=entry.id) }}">Remove value entry</button>
+            </div>
+          </section>
+        {% endfor %}
+      {% else %}
+        <p class="muted">No entries yet. Add a feature value such as <code>1sg</code> or <code>l</code>.</p>
+      {% endif %}
+    </div>
+
+    <section>
+      <h3>YAML preview</h3>
+      <pre class="preview">{{ yaml_preview }}</pre>
+    </section>
+  </form>
+</section>
+
+<script>
+  function updateMarkerTypeFields(root) {
+    root.querySelectorAll("[data-marker-id]").forEach(function(node) {
+      var select = node.querySelector("[data-marker-type]");
+      var valueField = node.querySelector(".marker-value-field");
+      var replaceFields = node.querySelector(".marker-replace-fields");
+      if (!select || !valueField || !replaceFields) return;
+      var isReplace = select.value === "replace";
+      valueField.hidden = isReplace;
+      replaceFields.hidden = !isReplace;
+    });
+  }
+
+  function updateStemSelectorFields(root) {
+    root.querySelectorAll("[data-stem-toggle]").forEach(function(toggle) {
+      var block = toggle.closest(".marker-stem-block");
+      if (!block) return;
+      var field = block.querySelector(".stem-value-field");
+      if (!field) return;
+      field.hidden = !toggle.checked;
+    });
+  }
+
+  function validateFeatureMarkers() {
+    var form = document.getElementById("feature-markers-editor-form");
+    if (!form) return;
+
+    var seenValues = {};
+    form.querySelectorAll("[data-entry-id]").forEach(function(node) {
+      var entryId = node.dataset.entryId;
+      var input = node.querySelector("input[name='feature-value-" + entryId + "']");
+      var msg = node.querySelector("[data-entry-validation]");
+      if (!input || !msg) return;
+      var value = input.value.trim();
+      var warnings = [];
+      if (!value) {
+        warnings.push("Feature value is empty");
+      } else if (seenValues[value]) {
+        warnings.push("Duplicate feature value: " + value);
+      } else {
+        seenValues[value] = true;
+      }
+      if (warnings.length) {
+        msg.textContent = warnings.join(" · ");
+        msg.className = "validation-msg warn";
+        msg.style.display = "";
+      } else {
+        msg.textContent = "";
+        msg.className = "validation-msg muted";
+        msg.style.display = "none";
+      }
+    });
+
+    form.querySelectorAll("[data-marker-id]").forEach(function(node) {
+      var markerId = node.dataset.markerId;
+      var type = form.querySelector("[name='type-" + markerId + "']");
+      var value = form.querySelector("[name='value-" + markerId + "']");
+      var input = form.querySelector("[name='replace-input-" + markerId + "']");
+      var output = form.querySelector("[name='replace-output-" + markerId + "']");
+      var msg = node.querySelector("[data-marker-validation]");
+      if (!type || !msg) return;
+      var warnings = [];
+      var markerType = type.value;
+      var markerValue = value ? value.value.trim() : "";
+      if (markerType === "prefix" && markerValue && !(/[=-]$/).test(markerValue)) {
+        warnings.push("Prefix values should end with - or =");
+      }
+      if (markerType === "suffix" && markerValue && !(/^[-=]/).test(markerValue)) {
+        warnings.push("Suffix values should start with - or =");
+      }
+      if (markerType === "replace") {
+        if (!input.value.trim() || !output.value.trim()) {
+          warnings.push("Replace markers require both input and output");
+        }
+      }
+      if (warnings.length) {
+        msg.textContent = warnings.join(" · ");
+        msg.className = "validation-msg warn";
+        msg.style.display = "";
+      } else {
+        msg.textContent = "";
+        msg.className = "validation-msg muted";
+        msg.style.display = "none";
+      }
+    });
+  }
+
+  function initFeatureMarkersEditor() {
+    updateMarkerTypeFields(document);
+    updateStemSelectorFields(document);
+    validateFeatureMarkers();
+  }
+
+  document.addEventListener("change", function(event) {
+    if (event.target.matches("[data-marker-type]")) {
+      updateMarkerTypeFields(document);
+      validateFeatureMarkers();
+      return;
+    }
+    if (event.target.matches("[data-stem-toggle]")) {
+      updateStemSelectorFields(document);
+      validateFeatureMarkers();
+      return;
+    }
+    if (event.target.closest("#feature-markers-editor-form")) {
+      validateFeatureMarkers();
+    }
+  });
+
+  document.addEventListener("input", function(event) {
+    if (event.target.closest("#feature-markers-editor-form")) {
+      validateFeatureMarkers();
+    }
+  });
+
+  initFeatureMarkersEditor();
+
+  document.addEventListener("submit", async (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || form.id !== "feature-markers-editor-form") {
+      return;
+    }
+
+    const submitter = event.submitter;
+    if (!(submitter instanceof HTMLElement)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const targetNode = submitter.closest("[data-entry-id], [data-marker-id]");
+    const targetId = targetNode ? (targetNode.getAttribute("data-entry-id") || targetNode.getAttribute("data-marker-id")) : null;
+    const actionValue = submitter instanceof HTMLButtonElement ? submitter.value : "";
+    const action = submitter.getAttribute("formaction") || form.action;
+    const formData = new FormData(form);
+
+    if (submitter instanceof HTMLButtonElement && submitter.name) {
+      formData.set(submitter.name, submitter.value);
+    }
+
+    submitter.setAttribute("disabled", "disabled");
+
+    try {
+      const response = await fetch(action, {
+        method: "POST",
+        body: formData,
+        headers: { "X-Requested-With": "fetch" },
+      });
+
+      if (!response.ok) {
+        window.location.href = response.url || window.location.href;
+        return;
+      }
+
+      const html = await response.text();
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const nextPanel = doc.querySelector("#config-editor-panel");
+      const nextNotices = doc.querySelector("#page-notices");
+      const currentPanel = document.querySelector("#config-editor-panel");
+      const currentNotices = document.querySelector("#page-notices");
+
+      if (!nextPanel || !currentPanel) {
+        window.location.reload();
+        return;
+      }
+
+      if (nextNotices && currentNotices) {
+        currentNotices.replaceWith(nextNotices);
+      }
+
+      const nextSidebar = doc.querySelector("#config-sidebar");
+      const currentSidebar = document.querySelector("#config-sidebar");
+      if (nextSidebar && currentSidebar) {
+        currentSidebar.replaceWith(nextSidebar);
+      }
+
+      currentPanel.replaceWith(nextPanel);
+      initFeatureMarkersEditor();
+
+      let focusNode = null;
+      if (actionValue === "add-entry") {
+        const list = document.querySelector("#feature-marker-entry-list");
+        if (list) {
+          const nodes = Array.from(list.children).filter((child) => child instanceof HTMLElement && child.dataset.entryId);
+          focusNode = nodes[nodes.length - 1] || null;
+        }
+      } else if (targetId) {
+        focusNode = document.querySelector("#feature-entry-" + targetId) || document.querySelector("#marker-" + targetId);
+      }
+
+      if (focusNode) {
+        focusNode.classList.add("marker-row-highlight");
+        focusNode.scrollIntoView({ block: "center", behavior: "smooth" });
+        window.setTimeout(() => focusNode.classList.remove("marker-row-highlight"), 1800);
+      }
+    } catch (error) {
+      window.location.reload();
+    } finally {
+      submitter.removeAttribute("disabled");
+    }
+  });
+</script>

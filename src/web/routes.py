@@ -17,8 +17,10 @@ from src.web.configs import (
     suggested_config_path,
 )
 from src.registry.fst_registry import FstRegistry
+from src.web.contingent_markers import ContingentFeatureMarkersEditor
 from src.registry.grammar_registry import GrammarRegistry
 from src.web.feature_combinations import FeatureCombinationsEditor
+from src.web.feature_markers import FeatureMarkersEditor
 from src.web.features import FeatureDefinitionsEditor
 from src.web.inventory import InventoryEditor
 from src.web.patterns import PatternsEditor
@@ -35,6 +37,8 @@ EDITORS = {
     "Rules": RulesEditor(),
     "FeatureDefinitions": FeatureDefinitionsEditor(),
     "FeatureCombinations": FeatureCombinationsEditor(),
+    "FeatureMarkers": FeatureMarkersEditor(),
+    "ContingentFeatureMarkers": ContingentFeatureMarkersEditor(),
 }
 
 
@@ -187,6 +191,89 @@ def feature_combinations_remove_entry(combo_id: str):
     return _remove_item_handler("FeatureCombinations", combo_id)
 
 
+@bp.post("/feature-markers/add-entry")
+def feature_markers_add_entry():
+    return _add_item_handler("FeatureMarkers")
+
+
+@bp.post("/feature-markers/remove-entry/<entry_id>")
+def feature_markers_remove_entry(entry_id: str):
+    return _remove_item_handler("FeatureMarkers", entry_id)
+
+
+@bp.post("/feature-markers/add-global-marker")
+def feature_markers_add_global_marker():
+    return _marker_editor_state_handler(
+        "FeatureMarkers", lambda editor, state: editor.add_global_marker(state)
+    )
+
+
+@bp.post("/feature-markers/add-marker/<entry_id>")
+def feature_markers_add_entry_marker(entry_id: str):
+    return _marker_editor_state_handler(
+        "FeatureMarkers",
+        lambda editor, state: editor.add_entry_marker(state, entry_id),
+    )
+
+
+@bp.post("/feature-markers/remove-marker/<marker_id>")
+def feature_markers_remove_marker(marker_id: str):
+    return _marker_editor_state_handler(
+        "FeatureMarkers",
+        lambda editor, state: editor.remove_marker(state, marker_id),
+    )
+
+
+@bp.post("/contingent-markers/add-entry")
+def contingent_markers_add_entry():
+    return _add_item_handler("ContingentFeatureMarkers")
+
+
+@bp.post("/contingent-markers/remove-entry/<outer_id>")
+def contingent_markers_remove_entry(outer_id: str):
+    return _remove_item_handler("ContingentFeatureMarkers", outer_id)
+
+
+@bp.post("/contingent-markers/add-global-marker")
+def contingent_markers_add_global_marker():
+    return _marker_editor_state_handler(
+        "ContingentFeatureMarkers",
+        lambda editor, state: editor.add_global_marker(state),
+    )
+
+
+@bp.post("/contingent-markers/add-inner/<outer_id>")
+def contingent_markers_add_inner_entry(outer_id: str):
+    return _marker_editor_state_handler(
+        "ContingentFeatureMarkers",
+        lambda editor, state: editor.add_inner_entry(state, outer_id),
+    )
+
+
+@bp.post("/contingent-markers/remove-inner/<inner_id>")
+def contingent_markers_remove_inner_entry(inner_id: str):
+    return _marker_editor_state_handler(
+        "ContingentFeatureMarkers",
+        lambda editor, state: editor.remove_inner_entry(state, inner_id),
+    )
+
+
+@bp.post("/contingent-markers/add-marker/<inner_id>")
+def contingent_markers_add_inner_marker(inner_id: str):
+    return _marker_editor_state_handler(
+        "ContingentFeatureMarkers",
+        lambda editor, state: editor.add_inner_marker(state, inner_id),
+    )
+
+
+@bp.post("/contingent-markers/remove-marker/<marker_id>")
+def contingent_markers_remove_marker(marker_id: str):
+    return _marker_editor_state_handler(
+        "ContingentFeatureMarkers",
+        lambda editor, state: editor.remove_marker(state, marker_id),
+    )
+
+
 @bp.post("/rules/add-entry")
 def rules_add_entry():
     return _add_item_handler("Rules")
@@ -245,6 +332,23 @@ def _remove_item_handler(kind: str, item_id: str):
     state = editor.state_from_json(request.form.get("state"))
     state = editor.update_from_form(state, request.form)
     state = editor.remove_item(state, item_id)
+    return _render_page(
+        state,
+        page_context=page_context,
+        selected_path=state.get("path", ""),
+        selected_kind=kind,
+    )
+
+
+def _marker_editor_state_handler(kind: str, mutator):
+    page_context = _config_page_context()
+    if page_context.get("error"):
+        return redirect(url_for("web.index", error=page_context["error"]))
+
+    editor = EDITORS[kind]
+    state = editor.state_from_json(request.form.get("state"))
+    state = editor.update_from_form(state, request.form)
+    state = mutator(editor, state)
     return _render_page(
         state,
         page_context=page_context,

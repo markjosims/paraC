@@ -16,6 +16,8 @@ KIND_DIRECTORY_NAMES = {
     "FeatureDefinitions": "features",
     "FeatureCombinations": "features",
     "Marker": "markers",
+    "FeatureMarkers": "markers",
+    "ContingentFeatureMarkers": "markers",
     "Paradigm": "paradigms",
     "PartOfSpeech": "parts_of_speech",
 }

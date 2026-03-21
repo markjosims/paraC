@@ -27,6 +27,10 @@
         {% include "_feature_definitions_editor.html" %}
       {% elif editor_kind == "FeatureCombinations" %}
         {% include "_feature_combinations_editor.html" %}
+      {% elif editor_kind == "FeatureMarkers" %}
+        {% include "_feature_markers_editor.html" %}
+      {% elif editor_kind == "ContingentFeatureMarkers" %}
+        {% include "_contingent_markers_editor.html" %}
       {% else %}
         <section class="panel" id="config-editor-panel">
           <h2>{% if editor_kind %}{{ editor_kind }} editor{% else %}Config editor{% endif %}</h2>
