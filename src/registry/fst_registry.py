@@ -110,7 +110,9 @@ class InventoryRegistry(Registry):
         # check for item collisions
         item_values = [item.value for item in inventory_items]
         if len(item_values) != len(set(item_values)):
-            error = f"Collision found among item values: {item_values}"
+            duplicate_items = set([x for x in item_values if item_values.count(x) > 1])
+            error = f"Collision found among item values: {item_values} " +\
+                    f"Duplicate items: {duplicate_items}"
             logger.error(error)
             raise ValueError(error)
 
@@ -847,6 +849,11 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             fsa = self.affix_boundary_fsa
         elif token_str == self.clitic_boundary:
             fsa = self.clitic_boundary_fsa
+        elif token_str == self.boundary_ref:
+            fsa = pynini.union(
+                self.affix_boundary_fsa,
+                self.clitic_boundary_fsa,
+            )
         elif token_str in self.bos_eos_flags:
             # [BOS] and [EOS] are not included in the symbol table
             # since Pynini has special logic for handling them
@@ -1014,7 +1021,17 @@ class FstRegistry(Registry, ReservedSymbolMixin):
     
     def _parse_rule_context(self, rule: Rule) -> Tuple[pynini.Fst, pynini.Fst]:
         left_context_fsa = self.parse_pattern(rule.left_context)
-        right_context_fsa = self.parse_pattern(rule.right_context)
+
+        # special case: if right context is just '#' (word edge)
+        # interpret as [EOS] (otherwise _parse_pattern will 
+        # default to [BOS] since it's at the beginning of the string)
+        if rule.right_context.value == self.word_edge:
+            rule.right_context.set_acceptor(
+                self._token_acceptor(self.eos_flag)
+            )
+            right_context_fsa = rule.right_context.fsa
+        else:
+            right_context_fsa = self.parse_pattern(rule.right_context)
         if isinstance(rule.left_context, Acceptor):
             rule.left_context.set_acceptor(left_context_fsa)
         if isinstance(rule.right_context, Acceptor):
@@ -1053,13 +1070,17 @@ class FstRegistry(Registry, ReservedSymbolMixin):
 
     def _preprocess_str(self, input_str: str) -> str:
         """
-        Preprocesses an input pattern string before tokenization.
-
-        This can include operations like stripping whitespace, converting to lowercase, etc.
-        For now we just strip whitespace, but more complex logic can be added here if needed.
+        Performs following normalizations:
+        - Strip whitespace
+        - Unicode NFKD normalization (e.g. decomposing accented characters into base character + diacritic)
+        - Replace beginning '#' with [BOS] and ending '#' with [EOS]
         """
         input_str = input_str.strip()
         input_str = unicodedata.normalize("NFKD", input_str)
+        if input_str.startswith(self.word_edge):
+            input_str = self.bos + input_str[1:]
+        if input_str.endswith(self.word_edge):
+            input_str = input_str[:-1] + self.eos
         return input_str
 
     def _tokenize_str(self, input_str: str) -> List[Token]:

@@ -665,7 +665,6 @@ class MarkerRegistry:
         self.contingent_markers: Dict[str, ContingentMarkers] = (
             contingent_markers_registry.data
         )
-        self.fst_registry = fst_registry
         self.feature_registry = feature_registry
         self.features = feature_registry.features
         self.feature_combinations = feature_registry.feature_combinations

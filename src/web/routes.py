@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import unicodedata
 from typing import Any
+from loguru import logger
 
 from flask import Blueprint, redirect, render_template, request, url_for
 import yaml
@@ -564,6 +565,7 @@ def _get_grammar_registry(config_dir: str) -> GrammarRegistry:
     if cached is not None and cached[0] == current_stamp:
         return cached[1]
 
+    logger.info(f"Loading GrammarRegistry for config dir '{config_dir}'")
     registry = GrammarRegistry.from_config_dir(cache_key)
     GRAMMAR_REGISTRY_CACHE[cache_key] = (current_stamp, registry)
     return registry

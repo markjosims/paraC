@@ -140,10 +140,12 @@ class ReservedSymbolMixin:
     """
     bos = "[BOS]"
     eos = "[EOS]"
+    word_edge = "#"
     phone_ref = "<Phone>"
     flag_ref = "<Flag>"
     sigma_ref = "<Sigma>"
     epsilon_ref = "<Empty>"
+    boundary_ref = "<Boundary>"
 
     affix_boundary = "-"
     clitic_boundary = "="
@@ -165,7 +167,7 @@ class ReservedSymbolMixin:
     unary_operators = (star, plus, optional)
     pipe_operator = union # (for now) pipe operator is only binary operator
     caret_operator = caret # for negation in braced expressions
-    reserved_refs = (phone_ref, flag_ref, epsilon_ref, sigma_ref)
+    reserved_refs = (phone_ref, flag_ref, epsilon_ref, sigma_ref, boundary_ref)
     bos_eos_flags = (bos, eos)
     boundary_symbols = (affix_boundary, clitic_boundary)
 

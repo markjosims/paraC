@@ -28,8 +28,16 @@
           </label>
           <label>
             Items
-            <textarea name="items_text-{{ node.id }}" placeholder="p, t, k">{{ node.items_text }}</textarea>
+            <textarea name="items_text-{{ node.id }}" id="items-{{ node.id }}" placeholder="p, t, k">{{ node.items_text }}</textarea>
           </label>
+          <label class="diac-toggle">
+            <input type="checkbox" onchange="this.closest('.node-header').querySelector('.diac-bar').classList.toggle('hidden', !this.checked)"> Show diacritics
+          </label>
+          <div class="diac-bar hidden">
+            {% for token in ["DIAC:á", "DIAC:à", "DIAC:ā", "DIAC:ǎ", "DIAC:â", "DIAC:ã"] %}
+              <button type="button" class="btn-diac" onclick="insertDiac('items-{{ node.id }}', '{{ token }}')">{{ token }}</button>
+            {% endfor %}
+          </div>
         {% endif %}
       </div>
       <div class="actions">
@@ -50,6 +58,12 @@
     box-shadow: 0 0 0 1px #b9d0f3 inset;
     transition: background 1.2s ease, box-shadow 1.2s ease, border-left-color 1.2s ease;
   }
+  .diac-toggle { flex-direction: row; align-items: center; gap: 0.4rem; font-size: 0.88rem; cursor: pointer; }
+  .diac-toggle input { width: auto; margin: 0; }
+  .diac-bar { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+  .diac-bar.hidden { display: none; }
+  .btn-diac { padding: 0.3rem 0.5rem; font-size: 0.9rem; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; }
+  .btn-diac:hover { background: #e0e8f5; border-color: #99b; }
 </style>
 
 <section class="panel" id="config-editor-panel">
@@ -66,7 +80,7 @@
     </label>
 
     <div class="actions">
-      <button type="submit" name="action" value="add-root">Add top-level node</button>
+      <button type="submit" name="action" value="add-root" formaction="{{ url_for('web.config_editor') }}">Add top-level node</button>
       <button type="submit" name="action" value="save" formaction="{{ url_for('web.config_editor') }}">Save YAML</button>
     </div>
 
@@ -88,6 +102,19 @@
 </section>
 
 <script>
+  function insertDiac(textareaId, token) {
+    const ta = document.getElementById(textareaId);
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const before = ta.value.substring(0, start);
+    const after = ta.value.substring(end);
+    ta.value = before + token + after;
+    const cursor = start + token.length;
+    ta.setSelectionRange(cursor, cursor);
+    ta.focus();
+  }
+
   document.addEventListener("submit", async (event) => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement) || form.id !== "inventory-editor-form") {

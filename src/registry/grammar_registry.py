@@ -371,11 +371,11 @@ class GrammarRegistry(Registry):
     """
     def __init__(
         self,
-        marker_registry: MarkerRegistry,
-        lexicon_registry: LexiconRegistry,
-        fst_registry: FstRegistry,
-        config_list: Optional[List[str]] = None,
-        paradigms: Optional[List[Paradigm]] = None,
+        marker_registry: Optional[MarkerRegistry]=None,
+        lexicon_registry: Optional[LexiconRegistry]=None,
+        fst_registry: Optional[FstRegistry]=None,
+        config_list: Optional[List[str]]=None,
+        paradigms: Optional[Dict[str, Paradigm]]=None,
     ):
         super().__init__(
             kind="Paradigm", data=paradigms, config_list=config_list
@@ -383,9 +383,8 @@ class GrammarRegistry(Registry):
 
         self.marker_registry = marker_registry
         self.lexicon_registry = lexicon_registry
-        
-        self.fst_registry: FstRegistry = marker_registry.fst_registry
-        self.feature_registry: FeatureRegistry = marker_registry.feature_registry
+        self.fst_registry = fst_registry
+        self.feature_registry: FeatureRegistry = marker_registry.feature_registry if marker_registry else None
 
         self.paradigms = paradigms or []
     
@@ -395,11 +394,18 @@ class GrammarRegistry(Registry):
         Factory method for constructing a GrammarRegistry object from a config directory.
         """
         grammar_reg = super().from_config_dir(config_dir)
-        marker_registry = grammar_reg.marker_registry
-        lexicon_registry = grammar_reg.lexicon_registry
-        fst_registry = grammar_reg.fst_registry
+        marker_registry = MarkerRegistry.from_config_dir(config_dir)
+        lexicon_registry = LexiconRegistry.from_config_dir(config_dir)
+        fst_registry = FstRegistry.from_config_dir(config_dir)
+
+        grammar_reg.marker_registry = marker_registry
+        grammar_reg.lexicon_registry = lexicon_registry
+        grammar_reg.fst_registry = fst_registry
+        grammar_reg.feature_registry = marker_registry.feature_registry
 
         paradigms = grammar_reg.load_all_configs()
+        grammar_reg.paradigms = paradigms
+        return grammar_reg
 
     def load_all_configs(self) -> Dict[str, Paradigm]:
         config_items: Dict[str, Paradigm] = {}

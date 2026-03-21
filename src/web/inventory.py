@@ -4,9 +4,27 @@ import copy
 import uuid
 from typing import Any
 
+import unicodedata
 import yaml
 
 from src.web.editor_base import BaseEditor, split_csv
+
+
+DIAC_MAP = {
+    "DIAC:á": "\u0301",   # combining acute accent
+    "DIAC:à": "\u0300",   # combining grave accent
+    "DIAC:ā": "\u0304",   # combining macron
+    "DIAC:ǎ": "\u030C",   # combining caron (caret)
+    "DIAC:â": "\u0302",   # combining circumflex
+    "DIAC:ã": "\u0303",   # combining tilde
+}
+
+
+def expand_diacritics(text: str) -> str:
+    for token, codepoint in DIAC_MAP.items():
+        token = unicodedata.normalize("NFKD", token)
+        text = text.replace(token, codepoint)
+    return text
 
 
 ITEM_KEYS = ("_phones", "_flags")
@@ -155,6 +173,7 @@ def _mapping_from_nodes(nodes: list[dict[str, Any]]) -> dict[str, Any]:
             entry.update(child_mapping)
         else:
             items = split_csv(node.get("items_text", ""))
+            items = [expand_diacritics(item) for item in items]
             items_kind = node.get("items_kind", "phones")
             if items:
                 key = "_flags" if items_kind == "flags" else "_phones"

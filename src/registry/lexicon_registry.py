@@ -44,7 +44,7 @@ class PartOfSpeech:
         feature_names = config.get('features', [])
         features = []
         for feature_name in feature_names:
-            feature = feature_registry.get(feature_name)
+            feature = feature_registry.get_feature(feature_name)
             if feature is None:
                 raise ValueError(f"Feature '{feature_name}' not found in feature registry.")
             features.append(feature)
@@ -52,7 +52,7 @@ class PartOfSpeech:
         invariant_feature_names = config.get('invariant_features', [])
         invariant_features = []
         for feature_name in invariant_feature_names:
-            feature = feature_registry.get(feature_name)
+            feature = feature_registry.get_feature(feature_name)
             if feature is None:
                 raise ValueError(f"Invariant feature '{feature_name}' not found in feature registry.")
             invariant_features.append(feature)
@@ -93,7 +93,10 @@ class Lexicon:
             raise ValueError("Entries dataframe must contain a 'gloss' column")
 
         # Validate that the columns of the entries dataframe match the expected features
-        expected_columns = self.part_of_speech.lexical_flags + self.part_of_speech.principal_parts
+        expected_columns = self.part_of_speech.lexical_flags\
+            + self.part_of_speech.principal_parts\
+            + [feature.name for feature in self.part_of_speech.invariant_features]
+        expected_columns = set(expected_columns)
         actual_columns = set(self.entries.columns)
         if not expected_columns.issubset(actual_columns):
             missing_columns = expected_columns - actual_columns
@@ -139,7 +142,7 @@ class Lexicon:
         return self.entries[column].tolist()
 
 @dataclass
-class LexiconRegistry:
+class LexiconRegistry(Registry):
     """
     Object for storing and managing `Lexicon` and `PartOfSpeech` objects
     for a given language.
