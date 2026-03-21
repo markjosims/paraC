@@ -42,7 +42,7 @@ lexical_flags:
 
 The last optional attribute is 'principal_parts', which also indicates column names in the corresponding CSV file.
 This allows specifying a number of alternate stems for a particular root which can be referenced by `Paradigm` objects.
-See the [paradigm documentation](data/config/paradigms/README.md) and [lexicon documentation](data/lexicon/README.md) for more information.
+See the [paradigm documentation](config/paradigms/README.md) and [lexicon documentation](config/lexicon/README.md) for more information.
 ```yaml
 kind: PartOfSpeech
 name: verb
