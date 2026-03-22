@@ -88,7 +88,7 @@ def load_schema(target_kind: str, schema_dir=SCHEMA_DIR):
         schema = fix_refs_safe(schema, schema_path)
         return schema
     except Exception as e:
-        logger.error(f"Failed to load schema {schema_filename}: {e}")
+        logger.exception(f"Failed to load schema {schema_filename}: {e}")
         return
 
 def validate_files_by_type(target_kind, config_dir="config", schema_dir="config/schemas"):
@@ -137,7 +137,7 @@ def validate_files_by_type(target_kind, config_dir="config", schema_dir="config/
             if ve.path:
                 logger.error(f"      Path: {' -> '.join([str(p) for p in ve.path])}")
         except Exception as e:
-            logger.error(f"ERROR processing {file_path.relative_to(config_path)}: {e}")
+            logger.exception(f"ERROR processing {file_path.relative_to(config_path)}: {e}")
 
     # Final Summary
     logger.info(f"--- Summary for {target_kind} ---")
