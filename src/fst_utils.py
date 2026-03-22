@@ -1,5 +1,4 @@
 import pynini
-from pynini.lib import paradigms
 from typing import Optional, Union, List
 from dataclasses import dataclass, field
 from src.registry.registry_utils import ReservedSymbolMixin
@@ -105,10 +104,25 @@ class Prefix(Transducer):
                 f"but got {self.value}"
             )
         
-    def set_transducer(self, fsa: pynini.Fst, stem: Optional[pynini.Fst]=None):
+    def set_transducer(
+            self,
+            prefix_fsa: pynini.Fst,
+            bow_fsa: pynini.Fst,
+            stem: Optional[pynini.Fst]=None
+        ):
         if stem is None:
             stem = self.stem
-        fst = paradigms.prefix(fsa, stem)
+
+        # need to write a context-dependent rewrite function rather
+        # than using paradigms.prefix because we use a special [BOW]
+        # symbol to mark the beginning of the word
+        fst = pynini.cdrewrite(
+            tau=pynini.cross(bow_fsa, bow_fsa+prefix_fsa),
+            l='',
+            r='',
+            sigma_star=stem,
+        )
+
         return super().set_transducer(fst)
         
 @dataclass
@@ -134,8 +148,22 @@ class Suffix(Transducer):
                 f"but got {self.value}"
             )
         
-    def set_transducer(self, fsa: pynini.Fst, stem: Optional[pynini.Fst]=None):
+    def set_transducer(
+            self,
+            suffix_fsa: pynini.Fst,
+            eow_fsa: pynini.Fst,
+            stem: Optional[pynini.Fst]=None
+        ):
         if stem is None:
             stem = self.stem
-        fst = paradigms.suffix(fsa, stem)
+
+        # need to write a context-dependent rewrite function rather
+        # than using paradigms.prefix because we use a special [EOW]
+        # symbol to mark the end of the word
+        fst = pynini.cdrewrite(
+            tau=pynini.cross(eow_fsa, suffix_fsa+eow_fsa),
+            l='',
+            r='',
+            sigma_star=stem,
+        )
         return super().set_transducer(fst)
