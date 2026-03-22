@@ -3,6 +3,7 @@ part_of_speech: verb
 order:
 - inner_suffix
 - outer_suffix
+- post_affixation
 global_markers:
 - type: rule
   value: $harmonize_suffix

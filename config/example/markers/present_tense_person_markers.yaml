@@ -4,6 +4,7 @@ global_order: outer_suffix
 global_markers:
 - type: rule
   value: $harmonize_suffix
+  order: post_affixation
 markers:
   1sg:
   - type: suffix

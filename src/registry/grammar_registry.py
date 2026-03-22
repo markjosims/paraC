@@ -354,6 +354,11 @@ class Paradigm:
             )
         elif marker.type == 'principal_part':
             marker_rule = self._get_principal_part_transducer(marker.value)
+        if marker.transducer_built:
+            logger.info(
+                f"Transducer for marker '{marker}' already built. Skipping."
+            )
+            return
         marker.set_transducer(marker_rule.fst)
 
     def _get_principal_part_transducer(self, principal_part: str):
@@ -402,11 +407,15 @@ class Paradigm:
         for stage_fst, marker in stages:
             stage_data = {}
             if marker is None:
-                stage_data['order'] = '$initial'
+                stage_data['order'] = '<INITIAL>'
                 stage_data['marker_type'] = None
+                stage_data['marker_value'] = None
+                stage_data['feature_value'] = None
             else:
-                stage_data['order'] = marker.type
+                stage_data['order'] = marker.order
                 stage_data['marker_type'] = marker.type
+                stage_data['marker_value'] = marker.value
+                stage_data['feature_value'] = marker.feature_value
 
             stage_strings = self.fst_registry.fsm_strings(stage_fst)
             for string in stage_strings:
@@ -559,5 +568,5 @@ class GrammarRegistry(Registry):
     
 if __name__ == "__main__":
     reg = GrammarRegistry.from_config_dir(EXAMPLE_CONFIG_DIR)
-    stages = reg.paradigms['verbs_present'].get_inflection_stages('po', {'tense':'present', 'mood':'subjunctive', 'person':'1sg'})
+    stages = reg.paradigms['verbs_present'].get_inflection_stages('pòk', {'tense':'present', 'mood':'subjunctive', 'person_number':'1sg'})
     breakpoint()

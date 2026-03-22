@@ -764,7 +764,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         self._build_symbol_table()
         self._build_boundary_acceptors()
         self._build_inventory_acceptors()
-        self._build_sigmas()
+        self._build_special_acceptors()
         self._build_token_map()
         self._build_pattern_acceptors()
         self._build_rule_transducers()
@@ -823,9 +823,11 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         """
         for item in self.phones.values():
             acceptor = pynini.accep(item.value, token_type=self.symbols)
+            acceptor.optimize()
             item.set_acceptor(acceptor)
         for item in self.flags.values():
             acceptor = pynini.accep(item.value, token_type=self.symbols)
+            acceptor.optimize()
             item.set_acceptor(acceptor)
         for item in self.classes.values():
             children = item.flatten()
@@ -835,13 +837,14 @@ class FstRegistry(Registry, ReservedSymbolMixin):
                 if child.type != 'class'
             ]
             acceptor = pynini.union(*child_values)
+            acceptor.optimize()
             item.set_acceptor(acceptor)
         self._inventory_acceptors_built = True
 
-    def _build_sigmas(self):
+    def _build_special_acceptors(self):
         if not self._inventory_acceptors_built:
             raise ValueError(
-                "Cannot build sigma acceptors if inventory acceptors are not initialized."
+                "Cannot build special acceptors if inventory acceptors are not initialized."
             )
         if not self.phones:
             raise ValueError(
@@ -851,6 +854,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         phone_fsa = pynini.union(*[
             phone.fsa for phone in self.phones.values()
         ])
+        phone_fsa.optimize()
 
         # unlike phones, an inventory may have zero flags
         # in which case the flag_fsa is just the empty language
@@ -860,18 +864,20 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             ])
         else:
             flag_fsa = pynini.accep("")
+        flag_fsa.optimize()
 
         sigma = pynini.union(
             phone_fsa, flag_fsa, self.boundary_fsa, self.word_edge_fsa
         )
+        sigma.optimize()
 
         self.phone_fsa = phone_fsa
         self.flag_fsa = flag_fsa
         self.sigma = sigma
 
-        self.phone_star = phone_fsa.star
-        self.flag_star = flag_fsa.star
-        self.sigma_star = sigma.star
+        self.phone_star = phone_fsa.star.optimize()
+        self.flag_star = flag_fsa.star.optimize()
+        self.sigma_star = sigma.star.optimize()
         self._sigmas_built = True
 
     def _token_acceptor(self, token_str: str) -> Acceptor:
@@ -1061,6 +1067,9 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             tau = pynini.union(*transducers)
         else:
             raise ValueError(f"Cannot interpret tau for rule type {rule.type}")
+        
+        tau.optimize()
+        
         return tau
     
     def _parse_rule_context(self, rule: Rule) -> Tuple[pynini.Fst, pynini.Fst]:
@@ -1104,13 +1113,16 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             return pynini.union(*acceptors)
         try:
             tokens = self._tokenize_str(pattern_input)
-            acceptor = self._parse_tokens(tokens)
+            fsa = self._parse_tokens(tokens)
         except Exception as e:
             raise Exception(
                 f"Error occurred while parsing pattern {pattern_input} ",
                 e
             )
-        return acceptor
+        
+        fsa.optimize()
+
+        return fsa
 
     def _preprocess_str(self, input_str: str) -> str:
         """
@@ -1394,7 +1406,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         """
         prefix = Prefix(prefix_str, stem=self.sigma_star)
         prefix_fsa = self.fsa(prefix_str)
-        prefix.set_transducer(prefix_fsa)
+        prefix.set_transducer(prefix_fsa, self.bow_fsa)
         return prefix
     
     def suffix(self, suffix_str: str) -> Suffix:
@@ -1403,7 +1415,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         """
         suffix = Suffix(suffix_str, stem=self.sigma_star)
         suffix_fsa = self.fsa(suffix_str)
-        suffix.set_transducer(suffix_fsa)
+        suffix.set_transducer(suffix_fsa, self.eow_fsa)
         return suffix
     
     def replace_transducer(
@@ -1469,19 +1481,22 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             raise ValueError(f"rule_input must be a string or FST, got {type(rule_input)}")
 
         if isinstance(rule.fst, list):
-            output_fsa = input_fsa
+            output_fst = input_fsa
             for subrule_fst in rule.fst:
-                output_fsa = rewrite.rewrite_lattice(
-                    string=output_fsa,
+                output_fst = rewrite.rewrite_lattice(
+                    string=output_fst,
                     rule=subrule_fst,
                     token_type=self.symbols,
                 )
-            return output_fsa
-        return rewrite.rewrite_lattice(
+                output_fst.optimize()
+            return output_fst
+        output_fst = rewrite.rewrite_lattice(
             string=input_fsa,
             rule=rule.fst,
             token_type=self.symbols,
         )
+        output_fst.optimize()
+        return output_fst
     
     def test_pattern_includes(self):
         """

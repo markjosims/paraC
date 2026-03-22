@@ -53,13 +53,15 @@
         {% if inflect_results %}
           <table>
             <thead>
-              <tr><th>Order</th><th>Marker type</th><th>Form</th></tr>
+              <tr><th>Order</th><th>Marker type</th><th>Marker value</th><th>Feature value</th><th>Form</th></tr>
             </thead>
             <tbody>
               {% for row in inflect_results %}
                 <tr>
                   <td>{{ row.order }}</td>
                   <td>{{ row.marker_type or "\u2014" }}</td>
+                  <td>{{ row.marker_value or "\u2014" }}</td>
+                  <td>{{ row.feature_value or "\u2014" }}</td>
                   <td>{{ row.form }}</td>
                 </tr>
               {% endfor %}

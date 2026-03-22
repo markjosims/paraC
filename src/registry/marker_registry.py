@@ -62,6 +62,7 @@ class Marker(TransducerList):
         order: Stage name controlling application order within a paradigm
     """
     value: Union[str, Tuple[str, str]] = ""
+    feature_value: Optional[str] = None
     type: Literal["prefix", "suffix", "replace", "suppletion", "rule", "principal_part"] = "suffix"
     order: Optional[str] = None
     comment: Optional[str] = None
@@ -100,6 +101,7 @@ class Marker(TransducerList):
         cls,
         config: Optional[Dict[str, Any]] = None,
         global_order: Optional[str] = None,
+        feature_value: Optional[str] = None,
     ) -> Optional[Marker]:
         """
         Build a Marker from a YAML marker dict. Returns None for null (zero-marking).
@@ -115,7 +117,12 @@ class Marker(TransducerList):
         if marker_type == "replace" and isinstance(value, list):
             value = tuple(value)
 
-        return Marker(value=value, type=marker_type, order=order)
+        return Marker(
+            value=value,
+            type=marker_type,
+            order=order,
+            feature_value=feature_value
+        )
 
     def __str__(self):
         return f"Marker(type={self.type}, value={self.value})"
@@ -155,6 +162,7 @@ class MarkerList(UserList):
         config,
         global_order: Optional[str] = None,
         global_markers: Union[MarkerList, List[dict], None] = None,
+        feature_value: Optional[str] = None,
     ) -> MarkerList:
         """
         Build a list of Markers from a YAML value that may be:
@@ -180,7 +188,7 @@ class MarkerList(UserList):
         for item in config:
             if item is None:
                 continue
-            marker = Marker.from_config(item, global_order=global_order)
+            marker = Marker.from_config(item, global_order=global_order, feature_value=feature_value)
             if marker is None:
                 continue
             if marker.type == 'principal_part':
@@ -193,7 +201,7 @@ class MarkerList(UserList):
         # merge in global markers, ensuring no more than one 'principal_part' marker total
         if global_markers is not None:
             if not isinstance(global_markers, MarkerList):
-                global_markers = MarkerList.from_config(global_markers, global_order=global_order)
+                global_markers = MarkerList.from_config(global_markers, global_order=global_order, feature_value='<global>')
             for marker in global_markers:
                 if marker.type == 'principal_part':
                     if principal_part_marker is None:
@@ -323,19 +331,20 @@ class FeatureMarkers:
         markers_config = config.get('markers', {})
         inherits = config.get('inherits', None)
 
-
-
         data = {}
+
+        global_markers = MarkerList.from_config(
+            global_markers, global_order=global_order, feature_value=f'<{feature_name}_global>'
+        )
 
         for value_name, marker_config in markers_config.items():
             data[value_name] = MarkerList.from_config(
                 marker_config,
                 global_markers=global_markers,
                 global_order=global_order,
+                feature_value=f"[{feature_name}={value_name}]",
             )
-        global_markers = MarkerList.from_config(
-            global_markers, global_order=global_order
-        )
+
 
         markers = cls(
             feature=feature,
