@@ -56,7 +56,7 @@ class Registry:
                         validate(instance=config_data, schema=self.schema)
                         config_list.append(config_data)
                     except ValidationError as e:
-                        logger.error(f"Invalid config file {filename}: {e}")
+                        logger.exception(f"Invalid config file {filename}: {e}")
                         raise ValidationError(f"Invalid config file {filename}: {e}")
         return config_list
 
@@ -138,8 +138,8 @@ class ReservedSymbolMixin:
     inventory item values. This is to prevent collisions between user-defined
     inventory items and special symbols used in pattern/rule contexts.
     """
-    bos = "[BOS]"
-    eos = "[EOS]"
+    bow = "[BOW]"
+    eow = "[EOW]"
     word_edge = "#"
     phone_ref = "<Phone>"
     flag_ref = "<Flag>"
@@ -168,9 +168,9 @@ class ReservedSymbolMixin:
     pipe_operator = union # (for now) pipe operator is only binary operator
     caret_operator = caret # for negation in braced expressions
     reserved_refs = (phone_ref, flag_ref, epsilon_ref, sigma_ref, boundary_ref)
-    bos_eos_flags = (bos, eos)
+    bow_eow_flags = (bow, eow)
     boundary_symbols = (affix_boundary, clitic_boundary)
 
     reserved_symbols = left_delimiters + right_delimiters + \
         unary_operators + (pipe_operator,) + reserved_refs + \
-        bos_eos_flags + boundary_symbols
+        bow_eow_flags + boundary_symbols

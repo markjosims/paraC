@@ -33,7 +33,7 @@ from collections import UserList
 from loguru import logger
 
 from src.fst_utils import TransducerList
-from src.registry.feature_registry import FeatureRegistry
+from src.registry.feature_registry import Feature, FeatureRegistry
 from src.registry.registry_utils import Registry
 
 from src.constants import EXAMPLE_CONFIG_DIR
@@ -122,7 +122,8 @@ class Marker(TransducerList):
 
     def __repr__(self):
         return self.__str__()
-    
+
+@dataclass
 class MarkerList(UserList):
     """
     List of `Marker` objects. Enforces that all items are Markers,
@@ -131,7 +132,8 @@ class MarkerList(UserList):
     which ensures it is always the first marker in the list.
     """
 
-    def __post_init__(self):
+    def __init__(self, data: Optional[List[Marker]] = None):
+        super().__init__(data)
         for item in self:
             if not isinstance(item, Marker):
                 raise ValueError(f"All items in a MarkerList must be Markers, but got {type(item)}")
@@ -291,7 +293,7 @@ class FeatureMarkers:
         global_markers: Optional markers applied to all feature values
         source: Filepath this config was loaded from
     """
-    feature: str
+    feature: Feature
     inherits: Optional[str] = None
 
     data: Dict[str, MarkerList] = field(default_factory=dict)
@@ -300,20 +302,28 @@ class FeatureMarkers:
     source: Optional[os.PathLike] = None
 
     def __post_init__(self):
-        if not self.feature:
-            raise ValueError("FeatureMarkers must have a feature name.")
+        if not self.feature or not isinstance(self.feature, Feature):
+            raise ValueError("FeatureMarkers must have a valid feature.")
 
         self.parent_data_loaded = False
 
     @classmethod
-    def from_config(cls, config: dict) -> FeatureMarkers:
+    def from_config(
+            cls,
+            config: dict,
+            feature_registry: FeatureRegistry,
+        ) -> FeatureMarkers:
         """Build a FeatureMarkers from a full YAML config dict."""
-        feature = config.get('feature', '')
+        feature_name = config.get('feature', '')
+        feature = feature_registry.get_feature(feature_name)
+
         source = config.get('source_path')
         global_order = config.get('global_order', None)
         global_markers = config.get('global_markers', [])
         markers_config = config.get('markers', {})
         inherits = config.get('inherits', None)
+
+
 
         data = {}
 
@@ -417,8 +427,8 @@ class ContingentMarkers:
         global_markers: Markers applied to all feature values
         source: Filepath this config was loaded from
     """
-    outer_feature: str = ""
-    inner_feature: str = ""
+    outer_feature: Feature
+    inner_feature: Feature
     inner_maps: Dict[str, FeatureMarkers] = field(default_factory=dict)
     global_order: Optional[str] = None
     global_markers: MarkerList = field(default_factory=MarkerList)
@@ -431,10 +441,12 @@ class ContingentMarkers:
             raise ValueError("ContingentMarkers must have an inner_feature.")
 
     @classmethod
-    def from_config(cls, config: dict) -> ContingentMarkers:
+    def from_config(cls, config: dict, feature_registry: FeatureRegistry) -> ContingentMarkers:
         """Build a ContingentMarkers from a full YAML config dict."""
-        outer_feature = config.get('outer_feature', '')
-        inner_feature = config.get('inner_feature', '')
+        outer_feature_name = config.get('outer_feature', '')
+        inner_feature_name = config.get('inner_feature', '')
+        outer_feature = feature_registry.get_feature(outer_feature_name)
+        inner_feature = feature_registry.get_feature(inner_feature_name)
         source = config.get('source_path')
         global_order = config.get('global_order', None)
         global_markers_config = config.get('global_markers', [])
@@ -520,10 +532,12 @@ class FeatureMarkersRegistry(Registry):
         self,
         data: Optional[Dict[str, FeatureMarkers]] = None,
         config_lists: Optional[List[dict]] = None,
+        feature_registry: Optional[FeatureRegistry] = None,
     ):
         super().__init__(
             kind="FeatureMarkers", data=data, config_list=config_lists
         )
+        self.feature_registry = feature_registry
         self.dependency_graph = None
         self.sorted_configs = None
 
@@ -535,8 +549,22 @@ class FeatureMarkersRegistry(Registry):
             self.update_from_parents()
         
     @classmethod
-    def from_config_dir(cls, config_dir: str) -> FeatureMarkersRegistry:
+    def from_config_dir(
+        cls,
+        config_dir: str,
+        feature_registry: Optional[FeatureRegistry] = None,
+    ) -> FeatureMarkersRegistry:
         registry = super().from_config_dir(config_dir=config_dir)
+        registry.feature_registry = feature_registry
+
+        # only load data if we have the feature registry available
+        if feature_registry is None:
+            logger.warning(
+                "No feature registry provided to FeatureMarkersRegistry, so configs will not be loaded. "
+                "Provide a feature registry to load configs and build dependency graph."
+            )
+            return registry
+        
         registry.data = registry.load_all_configs()
         registry.build_dependency_graph()
         return registry
@@ -565,7 +593,9 @@ class FeatureMarkersRegistry(Registry):
             if source_path
             else config.get('feature', '')
         )
-        feature_markers = FeatureMarkers.from_config(config)
+        feature_markers = FeatureMarkers.from_config(
+            config, self.feature_registry
+        )
         return {name: feature_markers}
     
     def build_dependency_graph(self):
@@ -602,16 +632,32 @@ class ContingentMarkersRegistry(Registry):
         self,
         data: Optional[Dict[str, ContingentMarkers]] = None,
         config_lists: Optional[List[dict]] = None,
+        feature_regsistry: Optional[FeatureRegistry] = None,
     ):
         super().__init__(
             kind="ContingentFeatureMarkers",
             data=data,
             config_list=config_lists,
         )
+        self.feature_registry = feature_regsistry
 
     @classmethod
-    def from_config_dir(cls, config_dir: str) -> ContingentMarkersRegistry:
+    def from_config_dir(
+            cls,
+            config_dir: str,
+            feature_registry: Optional[FeatureRegistry] = None
+    ) -> ContingentMarkersRegistry:
         registry = super().from_config_dir(config_dir=config_dir)
+        registry.feature_registry = feature_registry
+        
+        # only load data if we have the feature registry available
+        if feature_registry is None:
+            logger.warning(
+                "No feature registry provided to ContingentMarkersRegistry, so configs will not be loaded. "
+                "Provide a feature registry to load configs."
+            )
+            return registry
+
         registry.data = registry.load_all_configs()
         return registry
 
@@ -639,7 +685,9 @@ class ContingentMarkersRegistry(Registry):
             if source_path
             else ''
         )
-        contingent_markers = ContingentMarkers.from_config(config)
+        contingent_markers = ContingentMarkers.from_config(
+            config, self.feature_registry
+        )
         return {name: contingent_markers}
 
 
@@ -652,39 +700,71 @@ class MarkerRegistry:
 
     def __init__(
         self,
-        feature_markers_registry: FeatureMarkersRegistry,
-        contingent_markers_registry: ContingentMarkersRegistry,
-        feature_registry: FeatureRegistry,
+        feature_markers_registry: Optional[FeatureMarkersRegistry]=None,
+        contingent_markers_registry: Optional[ContingentMarkersRegistry]=None,
+        feature_registry: Optional[FeatureRegistry]=None,
     ):
-        self.feature_markers_registry = feature_markers_registry
-        self.contingent_markers_registry = contingent_markers_registry
-
-        self.feature_markers: Dict[str, FeatureMarkers] = (
-            feature_markers_registry.data
-        )
-        self.contingent_markers: Dict[str, ContingentMarkers] = (
-            contingent_markers_registry.data
-        )
+        self.is_initialized = False
         self.feature_registry = feature_registry
+        if not feature_registry:
+            logger.warning(
+                "MarkerRegistry requres at minumum a feature registry to initialize. "
+                "Returning an uninitialized MarkerRegistry. "
+                "Provide a feature registry to load configs and initialize MarkerRegistry."
+            )
+            return
         self.features = feature_registry.features
         self.feature_combinations = feature_registry.feature_combinations
 
-        self.is_initialized = False
-        self.initialize()
+        if feature_markers_registry is not None:
+            self.feature_markers_registry = feature_markers_registry
+
+            self.feature_markers: Dict[str, FeatureMarkers] = (
+                feature_markers_registry.data
+            )
+        
+        if contingent_markers_registry is not None:
+            self.contingent_markers_registry = contingent_markers_registry
+            self.contingent_markers: Dict[str, ContingentMarkers] = (
+                contingent_markers_registry.data
+            )
+
+        if self.feature_markers or self.contingent_markers:
+            self.initialize()
         if not self.is_initialized:
             raise ValueError("Error occurred while initializing MarkerRegistry, check logs.")
 
     @classmethod
-    def from_config_dir(cls, config_dir: str) -> MarkerRegistry:
-        feature_markers_registry = FeatureMarkersRegistry.from_config_dir(
-            config_dir
-        )
-        contingent_markers_registry = ContingentMarkersRegistry.from_config_dir(
-            config_dir
-        )
-        feature_registry = FeatureRegistry.from_config_dir(
-            config_dir
-        )
+    def from_config_dir(
+            cls,
+            config_dir: str,
+            feature_registry: Optional[FeatureRegistry] = None
+        ) -> MarkerRegistry:
+
+        if feature_registry is None:
+            logger.warning(
+                "No feature registry provided to MarkerRegistry, so configs will not be loaded. "
+                "Provide a feature registry to load configs and initialize MarkerRegistry."
+            )
+            return cls()
+
+        feature_markers_registry = None
+        contingent_markers_registry = None
+
+        try:
+            feature_markers_registry = FeatureMarkersRegistry.from_config_dir(
+                config_dir, feature_registry=feature_registry
+            )
+        except Exception as e:
+            logger.exception(f"Error loading FeatureMarkersRegistry: {e}")
+
+        try:
+            contingent_markers_registry = ContingentMarkersRegistry.from_config_dir(
+                config_dir, feature_registry=feature_registry
+            )
+        except Exception as e:
+            logger.exception(f"Error loading ContingentMarkersRegistry: {e}")
+
         return cls(
             feature_markers_registry,
             contingent_markers_registry,
@@ -697,14 +777,17 @@ class MarkerRegistry:
         are supported by `self.feature_registry`
         """
         for markers_name, markers in self.feature_markers.items():
-            feature_name = markers.feature
-            if feature_name not in self.features:
-                raise KeyError(f"{markers_name} has unsupported feature {feature_name}")
-            feature = self.features[feature_name]
+            feature = markers.feature
+            if feature.name not in self.features:
+                raise KeyError(
+                    f"{markers_name} has unsupported feature {feature.name} "
+                    f"expected one of {list(self.features.keys())}"
+                )
+            feature = self.features[feature.name]
             for feature_val in markers.data:
                 if feature_val not in feature.values:
                     raise KeyError(
-                        f"Unsupported value {feature_val} for feature {feature_name} "
+                        f"Unsupported value {feature_val} for feature {feature.name} "
                         f"in marker set {markers_name}. Expected values are {feature.values}"
                     )
     
@@ -714,9 +797,12 @@ class MarkerRegistry:
         are supported by `self.feature_registry`
         """
         for markers_name, markers in self.contingent_markers.items():
-            for feature_name in (markers.outer_feature, markers.inner_feature):
-                if feature_name not in self.features:
-                    raise KeyError(f"{markers_name} has unsupported feature {feature_name}")
+            for feature in (markers.outer_feature, markers.inner_feature):
+                if feature.name not in self.features:
+                    raise KeyError(
+                        f"{markers_name} has unsupported feature {feature.name} "
+                        f"expected one of {list(self.features.keys())}"
+                    )
 
             outer_feature = self.features[markers.outer_feature]
             for outer_val, inner_fm in markers.inner_maps.items():
@@ -734,8 +820,10 @@ class MarkerRegistry:
                         )
     
     def initialize(self):
-        self._validate_feature_values()
-        self._validate_contingent_features()
+        if self.feature_markers_registry:
+            self._validate_feature_values()
+        if self.contingent_markers_registry:
+            self._validate_contingent_features()
         self.is_initialized = True
 
     def get_config(self, name: str) -> Union[FeatureMarkers, ContingentMarkers]:

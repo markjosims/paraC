@@ -17,6 +17,7 @@ in the registry system, there is no intermediate `ParadigmRegistry` class.]
 """
 
 from loguru import logger
+import pynini
 
 from src.registry.registry_utils import Registry
 from src.registry.marker_registry import (
@@ -25,7 +26,8 @@ from src.registry.marker_registry import (
 from src.registry.fst_registry import FstRegistry
 from src.registry.feature_registry import FeatureRegistry, FeatureValueCombinations
 from src.registry.lexicon_registry import LexiconRegistry, PartOfSpeech, Lexicon
-from typing import Any, Dict, Dict, List, Optional, Tuple
+from src.constants import EXAMPLE_CONFIG_DIR
+from typing import Any, Dict, Dict, List, Optional, Tuple, Union
 from collections import defaultdict
 import itertools
 import os
@@ -86,12 +88,13 @@ class Paradigm:
             )
         self.initialize()
 
+    @classmethod
     def from_config(
         cls,
+        config: Dict[str, Any],
         marker_registry: MarkerRegistry,
         lexicon_registry: LexiconRegistry,
         fst_registry: FstRegistry,
-        config: Dict[str, Any]
     ) -> 'Paradigm':
         """
         Factory method for constructing a Paradigm object from a MarkerRegistry
@@ -102,16 +105,17 @@ class Paradigm:
 
         # load part of speech and lexicon
         part_of_speech_name = config['part_of_speech']
-        lexicon = lexicon_registry[part_of_speech_name]
+        lexicon = lexicon_registry.data[part_of_speech_name]
         marker_order = config['order']
 
+        feature_value_combinations = None
         feature_value_combination_name = config.get('feature_value_combinations')
         if feature_value_combination_name:
             feature_value_combinations = marker_registry.feature_combinations[feature_value_combination_name]
 
         fixed_features = {}
         markers = []
-        for feature, marker_str in config['feature_markers'].items():
+        for feature_name, marker_str in config['feature_markers'].items():
             if marker_str is None:
                 # indicates that this feature is marked only with ContingentMarkers
                 # and should not be included in the standard markers
@@ -120,13 +124,13 @@ class Paradigm:
             if not marker_str.startswith('$'):
                 # indicates that feature is fixed to a single value
                 # where 'marker_str' indicates the value
-                fixed_features[feature] = marker_str
+                fixed_features[feature_name] = marker_str
             else:
                 marker_set_name = marker_str.removeprefix('$')
                 marker_set = marker_registry.feature_markers[marker_set_name]
-                if marker_set.feature != feature:
+                if marker_set.feature.name != feature_name:
                     raise ValueError(
-                        f"Feature '{feature}' in paradigm config does not match feature '{marker_set.feature}' in marker config '{marker_set_name}'."
+                        f"Feature '{feature_name}' in paradigm config does not match feature '{marker_set.feature}' in marker config '{marker_set_name}'."
                     )
                 markers.append(marker_set)
 
@@ -161,7 +165,10 @@ class Paradigm:
         contingent marker matches the provided feature values, any standard feature markers that
         also match those feature values will be ignored.
         """
-        if not self.feature_value_combinations.combination_is_valid(feature_values):
+        if  (
+                (self.feature_value_combinations is not None) and
+                (not self.feature_value_combinations.combination_is_valid(feature_values))
+            ):
             raise ValueError(
                 f"Feature value combination {feature_values} is not valid according to the paradigm's feature_value_combinations."
             )
@@ -200,7 +207,7 @@ class Paradigm:
             logger.info("Initializing FST registry as part of paradigm initialization.")
             self.fst_registry.initialize()
             self.fst_registry_initialized = True
-        self._build_marker_transducers()
+        self._build_all_marker_transducers()
         self.is_initialized = True
     
     def _validate_features_and_order_values(self):
@@ -224,10 +231,10 @@ class Paradigm:
                     f"Feature '{marker_set.feature}' in marker set not recognized. "
                     f"Expected one of {self.features}."
                 )
-            supported_features.add(marker_set.feature)
+            supported_features.add(marker_set.feature.name)
             for marker_list in marker_set.data.values():
                 for marker in marker_list:
-                    order = marker.get('order')
+                    order = marker.order
                     if order and order not in self.marker_order:
                         raise ValueError(
                             f"Marker order '{order}' not recognized. "
@@ -244,8 +251,8 @@ class Paradigm:
                     f"Feature '{contingent_marker_set.outer_feature}' in contingent marker set not recognized. "
                     f"Expected one of {self.features}."
                 )
-            supported_features.add(contingent_marker_set.inner_feature)
-            supported_features.add(contingent_marker_set.outer_feature)
+            supported_features.add(contingent_marker_set.inner_feature.name)
+            supported_features.add(contingent_marker_set.outer_feature.name)
 
             for marker_set in contingent_marker_set.inner_feature_map.values():
                 for marker_list in marker_set.data.values():
@@ -304,7 +311,7 @@ class Paradigm:
         self.feature_marker_map: Dict[Tuple[str, str], MarkerList] = {}
         for marker_set in self.markers:
             for feature_value, marker_list in marker_set.data.items():
-                self.feature_marker_map[(marker_set.feature, feature_value)] = marker_list
+                self.feature_marker_map[(marker_set.feature.name, feature_value)] = marker_list
         
         # build nested mapping for contingent markers
         self.contingent_marker_map: Dict[
@@ -312,25 +319,26 @@ class Paradigm:
         ] = defaultdict(dict)
         for contingent_marker_set in self.contingent_markers:
             for outer_value, inner_map in contingent_marker_set.outer_feature_map.items():
-                outer_pair = (contingent_marker_set.outer_feature, outer_value)
+                outer_pair = (contingent_marker_set.outer_feature.name, outer_value)
                 for inner_value, marker_set in inner_map.items():
-                    innner_pair = (contingent_marker_set.inner_feature, inner_value)
+                    innner_pair = (contingent_marker_set.inner_feature.name, inner_value)
                     self.contingent_marker_map[outer_pair][innner_pair] = marker_set.data
                     self.contingent_marker_map[innner_pair][outer_pair] = marker_set.data
 
     def _build_all_marker_transducers(self):
-        for marker_set in self.feature_markers.values():
+        for marker_set in self.markers:
             for marker_list in marker_set.data.values():
                 for marker in marker_list:
                     self._build_marker_transducer(marker)
-        for marker_set in self.contingent_markers.values():
+        for marker_set in self.contingent_markers:
             for marker_list in marker_set.data.values():
                 for marker in marker_list:
                     self._build_marker_transducer(marker)
 
     def _build_marker_transducer(self, marker: Marker):
         if marker.type == 'rule':
-            marker_rule = self.fst_registry.rules[marker.value]
+            rule_name = marker.value.removeprefix('$')
+            marker_rule = self.fst_registry.rules[rule_name]
         elif marker.type == 'prefix':
             marker_rule = self.fst_registry.prefix(marker.value)
         elif marker.type == 'suffix':
@@ -364,6 +372,82 @@ class Paradigm:
         input_strings = self.lexicon.get_roots()
         output_strings = self.lexicon.get_column_data(principal_part, fill_w_root=True)
         return self.fst_registry.string_map_transducer(input_strings, output_strings)
+    
+    def inflect(self, stem: str, feature_values: Dict[str, str]) -> pynini.Fst:
+        """
+        Inflect a given stem according to the markers specified for the provided feature values.
+        """
+        if not self.is_initialized:
+            raise ValueError("Paradigm must be fully initialized to inflect.")
+        
+        markers = self.get_markers_for_feature_values(feature_values)
+        inflected_form_fst = self._apply_markers(stem, markers)
+        return inflected_form_fst
+    
+    def get_inflection_stages(
+            self,
+            stem: str,
+            feature_values: Dict[str, str]
+        ) -> List[Dict[str, str]]:
+        """
+        Get the intermediate stages of inflection for a given stem and feature values.
+        """
+        if not self.is_initialized:
+            raise ValueError("Paradigm must be fully initialized to get inflection stages.")
+
+        markers = self.get_markers_for_feature_values(feature_values)
+        stages = self._apply_markers(stem, markers, store_intermediate=True)
+        
+        table_data = []
+        for stage_fst, marker in stages:
+            stage_data = {}
+            if marker is None:
+                stage_data['order'] = '$initial'
+                stage_data['marker_type'] = None
+            else:
+                stage_data['order'] = marker.type
+                stage_data['marker_type'] = marker.type
+
+            stage_strings = self.fst_registry.fsm_strings(stage_fst)
+            for string in stage_strings:
+                table_data.append({
+                    **stage_data,
+                    'form': string,
+                })
+            
+        return table_data
+
+    def _apply_markers(
+            self, stem: str,
+            markers: List[MarkerList],
+            store_intermediate: bool=False,
+        ) -> Union[pynini.Fst, List[Tuple[pynini.Fst, Marker]]]:
+        """
+        Apply a list of markers to a given stem by composing the stem with
+        the transducer for each marker in the list, in order.
+        """
+        if not self.is_initialized:
+            raise ValueError("Paradigm must be fully initialized to apply markers.")
+        
+        result = None
+        current_fst = self.fst_registry.word_fsa(stem)
+
+        if store_intermediate:
+            result = [(current_fst, None)]
+        
+        for marker in markers:
+            fst_list = marker.fst
+            if isinstance(fst_list, pynini.Fst):
+                fst_list = [fst_list]
+            for fst in fst_list:
+                current_fst = current_fst@fst
+                if store_intermediate:
+                    result.append((current_fst, marker))
+        
+        if store_intermediate:
+            return result
+        
+        return current_fst
 
 class GrammarRegistry(Registry):
     """
@@ -374,9 +458,11 @@ class GrammarRegistry(Registry):
         marker_registry: Optional[MarkerRegistry]=None,
         lexicon_registry: Optional[LexiconRegistry]=None,
         fst_registry: Optional[FstRegistry]=None,
+        feature_registry: Optional[FeatureRegistry]=None,
         config_list: Optional[List[str]]=None,
         paradigms: Optional[Dict[str, Paradigm]]=None,
     ):
+        self.is_initialized = False
         super().__init__(
             kind="Paradigm", data=paradigms, config_list=config_list
         )
@@ -384,7 +470,10 @@ class GrammarRegistry(Registry):
         self.marker_registry = marker_registry
         self.lexicon_registry = lexicon_registry
         self.fst_registry = fst_registry
-        self.feature_registry: FeatureRegistry = marker_registry.feature_registry if marker_registry else None
+        self.feature_registry = feature_registry
+
+        if all(reg is not None for reg in [marker_registry, lexicon_registry, fst_registry, feature_registry]):
+            self.is_initialized = True
 
         self.paradigms = paradigms or []
     
@@ -394,23 +483,57 @@ class GrammarRegistry(Registry):
         Factory method for constructing a GrammarRegistry object from a config directory.
         """
         grammar_reg = super().from_config_dir(config_dir)
-        marker_registry = MarkerRegistry.from_config_dir(config_dir)
-        lexicon_registry = LexiconRegistry.from_config_dir(config_dir)
-        fst_registry = FstRegistry.from_config_dir(config_dir)
+
+        # load dependent registries from lowest level of abstraction to highest
+        # logging errors while loading as much as possible
+        feature_registry = None
+        try:
+            feature_registry = FeatureRegistry.from_config_dir(config_dir)
+        except Exception as e:
+            logger.exception(f"Error occurred while loading FeatureRegistry: {e}")
+
+        fst_registry = None
+        try:
+            fst_registry = FstRegistry.from_config_dir(config_dir)
+        except Exception as e:
+            logger.exception(f"Error occurred while loading FstRegistry: {e}")
+
+
+        marker_registry = None
+        lexicon_registry = None
+        if feature_registry is not None:
+            try:
+                marker_registry = MarkerRegistry.from_config_dir(config_dir, feature_registry=feature_registry)
+            except Exception as e:
+                logger.exception(f"Error occurred while loading Marker registry: {e}")
+
+            try:
+                lexicon_registry = LexiconRegistry.from_config_dir(config_dir, feature_registry=feature_registry)
+            except Exception as e:
+                logger.exception(f"Error occurred while loading Lexicon registry: {e}")
 
         grammar_reg.marker_registry = marker_registry
+        grammar_reg.feature_registry = feature_registry
         grammar_reg.lexicon_registry = lexicon_registry
         grammar_reg.fst_registry = fst_registry
-        grammar_reg.feature_registry = marker_registry.feature_registry
 
-        paradigms = grammar_reg.load_all_configs()
+        # only load paradigms if all child registries loaded successfully
+        # since paradigm loading depends on all of them
+        paradigms = None
+        if all(reg is not None for reg in [marker_registry, lexicon_registry, fst_registry]):
+            logger.info("All child registries loaded successfully. Loading paradigms.")
+            try:
+                paradigms = grammar_reg.load_all_configs()
+                logger.info(f"Loaded {len(paradigms)} paradigms successfully.")
+            except Exception as e:
+                logger.exception(f"Error occurred while loading paradigms: {e}")
         grammar_reg.paradigms = paradigms
         return grammar_reg
 
     def load_all_configs(self) -> Dict[str, Paradigm]:
         config_items: Dict[str, Paradigm] = {}
         for config in self.config_list:
-            config_data = self.load_data_from_config(config, self.feature_registry)
+            config_data = self.load_data_from_config(config)
             for key in config_data:
                 if key in config_items:
                     error = (
@@ -429,8 +552,12 @@ class GrammarRegistry(Registry):
             if source_path
             else config.get('part_of_speech', '')
         )
-        Paradigm = Paradigm.from_config(
+        paradigm = Paradigm.from_config(
             config, self.marker_registry, self.lexicon_registry, self.fst_registry
         )
-        return {name: Paradigm}
+        return {name: paradigm}
     
+if __name__ == "__main__":
+    reg = GrammarRegistry.from_config_dir(EXAMPLE_CONFIG_DIR)
+    stages = reg.paradigms['verbs_present'].get_inflection_stages('po', {'tense':'present', 'mood':'subjunctive', 'person':'1sg'})
+    breakpoint()

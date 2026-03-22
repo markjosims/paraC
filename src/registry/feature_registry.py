@@ -64,6 +64,14 @@ class Feature:
 
     def __repr__(self):
         return self.__str__()
+    
+    def __hash__(self):
+        return hash((self.name, tuple(self.values)))
+    
+    def __eq__(self, other):
+        if not isinstance(other, Feature):
+            return NotImplemented
+        return self.name == other.name and set(self.values) == set(other.values)
 
 
 class FeatureValuesRegisry(Registry):
@@ -263,9 +271,7 @@ class FeatureCombinationsRegistry(Registry):
         data: Optional[Dict[str, FeatureValueCombinations]] = None,
         config_lists: Optional[List[dict]] = None,
     ):
-        self.feature_registry = (
-            feature_registry if feature_registry is not None else FeatureValuesRegisry()
-        )
+        self.feature_registry = feature_registry
         super().__init__(kind="FeatureCombinations", data=data, config_list=config_lists)
 
     @classmethod
@@ -275,7 +281,11 @@ class FeatureCombinationsRegistry(Registry):
         feature_registry: Optional[FeatureValuesRegisry] = None,
     ) -> FeatureCombinationsRegistry:
         if feature_registry is None:
-            feature_registry = FeatureValuesRegisry.from_config_dir(config_dir)
+            logger.warning(
+                "No feature registry provided to FeatureCombinationsRegistry. "
+                "Feature combinations will not be loaded until a feature registry is set."
+            )
+            return cls()
         registry = cls(feature_registry=feature_registry)
         registry.config_dir = registry.feature_registry.config_dir
         registry.config_list = registry.load_config_files()

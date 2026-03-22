@@ -39,7 +39,8 @@ class PartOfSpeech:
             if feature in self.features:
                 raise ValueError(f"Invariant feature '{feature}' also listed as a inflected feature.")
 
-    def from_config(config: dict, feature_registry: FeatureRegistry) -> 'PartOfSpeech':
+    @classmethod
+    def from_config(cls, config: dict, feature_registry: FeatureRegistry) -> 'PartOfSpeech':
         name = config.get('name', None)
         feature_names = config.get('features', [])
         features = []
@@ -60,7 +61,7 @@ class PartOfSpeech:
         lexical_flags = config.get('lexical_flags', [])
         principal_parts = config.get('principal_parts', [])
         source = config.get('source_path', None)
-        return PartOfSpeech(
+        return cls(
             name=name,
             features=features,
             invariant_features=invariant_features,
@@ -159,16 +160,31 @@ class LexiconRegistry(Registry):
         self.feature_registry = feature_registry
 
     @classmethod
-    def from_config_dir(cls, config_dir: str) -> "LexiconRegistry":
+    def from_config_dir(
+        cls,
+        config_dir: str,
+        feature_registry: Optional[FeatureRegistry] = None
+    ) -> "LexiconRegistry":
         """
         Factory method for creating a `LexiconRegistry` from a configuration directory.
         """
-        lexicon_reg = super().from_config_dir(config_dir)
-        feature_reg = FeatureRegistry.from_config_dir(config_dir)
-        lexicon_reg.feature_registry = feature_reg
+        if not feature_registry:
+            logger.warning(
+                "No feature registry provided to LexiconRegistry. "
+                "Lexicon entries will not be loaded until a feature registry is set."
+            )
+            return cls(feature_registry=None)
 
-        data = lexicon_reg.load_all_configs()
-        lexicon_reg.data = data
+        try:
+            lexicon_reg = super().from_config_dir(config_dir)
+            lexicon_reg.feature_registry = feature_registry
+
+            data = lexicon_reg.load_all_configs()
+            lexicon_reg.data = data
+        except Exception as e:
+            logger.exception(f"Error loading LexiconRegistry: {e}")
+            return cls(feature_registry=None)
+        
         return lexicon_reg
 
 

@@ -682,6 +682,16 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         self.pattern_registry = pattern_registry
         self.rule_registry = rule_registry
 
+        self._symbol_table_built = False
+        self._inventory_acceptors_built = False
+        self._sigmas_built = False
+        self._pattern_acceptors_built = False
+        self._rule_transducers_built = False
+        self.is_initialized = False
+
+        if not inventory_registry:
+            return
+
         self.inventory: Dict[str, InventoryItem] = inventory_registry.data
         self.phones: Dict[str, InventoryItem] = inventory_registry.phones # TODO change this from list to dict!
         self.flags: Dict[str, InventoryItem] = inventory_registry.flags
@@ -690,13 +700,6 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         self.patterns_sorted: Tuple[Pattern, ...] = pattern_registry.patterns_sorted
         self.rules: Dict[str, Rule] = rule_registry.data 
         self.rules_sorted: Tuple[Rule, ...] = rule_registry.rules_sorted       
-
-        self._symbol_table_built = False
-        self._inventory_acceptors_built = False
-        self._sigmas_built = False
-        self._pattern_acceptors_built = False
-        self._rule_transducers_built = False
-        self.is_initialized = False
 
         if not self.inventory:
             # don't try to initialize if inventory is empty
@@ -708,10 +711,39 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             raise ValueError("Error occurred while initializing FstRegistry, check logs.")
     
     @classmethod
-    def from_config_dir(cls, config_dir: str) -> FstRegistry:
-        inventory_registry = InventoryRegistry.from_config_dir(config_dir)
-        pattern_registry = PatternRegistry.from_config_dir(config_dir)
-        rule_registry = RuleRegistry.from_config_dir(config_dir)
+    def from_config_dir(
+        cls,
+        config_dir: str,
+    ) -> FstRegistry:
+        logger.info("Loading child registries for FstRegistry...")
+
+        inventory_registry = None
+        pattern_registry = None
+        rule_registry = None
+
+        try:
+            inventory_registry = InventoryRegistry.from_config_dir(config_dir)
+        except Exception as e:
+            logger.exception(f"Error occurred while loading inventory registry: {e}")
+
+        try:
+            pattern_registry = PatternRegistry.from_config_dir(config_dir)
+        except Exception as e:
+            logger.exception(f"Error occurred while loading pattern registry: {e}")
+
+        try:
+            rule_registry = RuleRegistry.from_config_dir(config_dir)
+        except Exception as e:
+            logger.exception(f"Error occurred while loading rule registry: {e}")
+
+        if (inventory_registry is None) or (not inventory_registry.data):
+            logger.warning(
+                "InventoryRegistry was found empty after construction. "
+                "FstRegistry will not be initialized until inventory_registry "
+                "is provided and `initialize()` is called."
+            )
+            return cls(inventory_registry, pattern_registry, rule_registry)
+
         return cls(inventory_registry, pattern_registry, rule_registry)
 
     def initialize(self):
@@ -751,6 +783,8 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             symbols.add_symbol(item.value)
         for item in self.boundary_symbols:
             symbols.add_symbol(item)
+        for item in self.bow_eow_flags:
+            symbols.add_symbol(item)
         
         self.symbols = symbols
         self._symbol_table_built = True
@@ -768,6 +802,20 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             self.clitic_boundary,
             token_type=self.symbols,
         )
+        self.boundary_fsa = pynini.union(
+            self.affix_boundary_fsa,
+            self.clitic_boundary_fsa,
+        )
+
+        self.bow_fsa = pynini.accep(
+            self.bow,
+            token_type=self.symbols
+        )
+        self.eow_fsa = pynini.accep(
+            self.eow,
+            token_type=self.symbols
+        )
+        self.word_edge_fsa = pynini.union(self.bow_fsa, self.eow_fsa)
 
     def _build_inventory_acceptors(self):
         """
@@ -812,12 +860,9 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             ])
         else:
             flag_fsa = pynini.accep("")
-        boundary_fsa = pynini.union(
-            self.affix_boundary_fsa,
-            self.clitic_boundary_fsa,
-        )
+
         sigma = pynini.union(
-            phone_fsa, flag_fsa, boundary_fsa,
+            phone_fsa, flag_fsa, self.boundary_fsa, self.word_edge_fsa
         )
 
         self.phone_fsa = phone_fsa
@@ -850,14 +895,13 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         elif token_str == self.clitic_boundary:
             fsa = self.clitic_boundary_fsa
         elif token_str == self.boundary_ref:
-            fsa = pynini.union(
-                self.affix_boundary_fsa,
-                self.clitic_boundary_fsa,
-            )
-        elif token_str in self.bos_eos_flags:
-            # [BOS] and [EOS] are not included in the symbol table
-            # since Pynini has special logic for handling them
-            fsa = pynini.accep(token_str)
+            fsa = self.boundary_fsa
+        elif token_str == self.bow:
+            fsa = self.bow_fsa
+        elif token_str == self.eow:
+            fsa = self.eow_fsa
+        elif token_str == self.word_edge:
+            fsa = self.word_edge_fsa
         elif self.symbols.find(token_str) == -1:
             raise KeyError("Token not found in symbol table")
         else:
@@ -883,9 +927,9 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         for ref in self.reserved_refs:
             acceptor = self._token_acceptor(ref)
             tokens["ref"].append(Token(value=ref, type="special_ref", acceptor=acceptor))
-        for flag in self.bos_eos_flags:
+        for flag in self.bow_eow_flags:
             acceptor = self._token_acceptor(flag)
-            tokens["flag"].append(Token(value=flag, type="bos_eos", acceptor=acceptor))
+            tokens["flag"].append(Token(value=flag, type="bow_eow", acceptor=acceptor))
         for boundary in self.boundary_symbols:
             acceptor = self._token_acceptor(boundary)
             tokens["boundary"].append(Token(value=boundary, type="boundary", acceptor=acceptor))
@@ -1027,7 +1071,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         # default to [BOS] since it's at the beginning of the string)
         if rule.right_context.value == self.word_edge:
             rule.right_context.set_acceptor(
-                self._token_acceptor(self.eos_flag)
+                self._token_acceptor(self.eow_flag)
             )
             right_context_fsa = rule.right_context.fsa
         else:
@@ -1078,9 +1122,9 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         input_str = input_str.strip()
         input_str = unicodedata.normalize("NFKD", input_str)
         if input_str.startswith(self.word_edge):
-            input_str = self.bos + input_str[1:]
+            input_str = self.bow + input_str[1:]
         if input_str.endswith(self.word_edge):
-            input_str = input_str[:-1] + self.eos
+            input_str = input_str[:-1] + self.eow
         return input_str
 
     def _tokenize_str(self, input_str: str) -> List[Token]:
@@ -1313,9 +1357,22 @@ class FstRegistry(Registry, ReservedSymbolMixin):
     def fsa(self, fsa_input: str) -> pynini.Fst:
         """
         Constructs FSA for input string.
-        Wraps `self.parse_pattern`.
+        Wraps `self.parse_pattern` but only takes a string,
+        not an `Acceptor`.
         """
+        if not isinstance(fsa_input, str):
+            raise ValueError(f"Input to `fsa` must be a string, got {type(fsa_input)}")
+
         return self.parse_pattern(fsa_input)
+    
+    def word_fsa(self, word_str: str) -> pynini.Fst:
+        """
+        Constructs an FSA for a word, i.e. a string with [BOS] and [EOS] markers at the beginning and end.
+        """
+        if not isinstance(word_str, str):
+            raise ValueError(f"Input to `word_fsa` must be a string, got {type(word_str)}")
+        word_str = self.bow + word_str + self.eow
+        return self.parse_pattern(word_str)
     
     def acceptor(
             self,
@@ -1405,7 +1462,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             raise ValueError(f"Rule '{rule_ref}' has uninitialized transducer, check logs for details.")
         
         if isinstance(rule_input, str):
-            input_fsa = self.fsa(rule_input)
+            input_fsa = self.word_fsa(rule_input)
         elif isinstance(rule_input, pynini.Fst):
             input_fsa = rule_input
         else:
@@ -1433,7 +1490,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         """
         for pattern in self.patterns.values():
             for test_str in pattern.test_includes:
-                fsa = self.fsa(test_str)
+                fsa = self.word_fsa(test_str)
                 intersection = pynini.intersect(pattern.fsa, fsa)
                 if intersection.start() == pynini.NO_STATE_ID:
                     raise ValueError(
@@ -1448,7 +1505,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         """
         for pattern in self.patterns.values():
             for test_str in pattern.test_excludes:
-                fsa = self.fsa(test_str)
+                fsa = self.word_fsa(test_str)
                 intersection = pynini.intersect(pattern.fsa, fsa)
                 if intersection.start() != pynini.NO_STATE_ID:
                     raise ValueError(
@@ -1483,7 +1540,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
 
         for test_str in test_includes:
             try:
-                input_fsa = self.fsa(test_str)
+                input_fsa = self.word_fsa(test_str)
                 intersection = pynini.intersect(pattern.fsa, input_fsa)
                 passed = intersection.start() != pynini.NO_STATE_ID
             except Exception:
@@ -1494,7 +1551,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
 
         for test_str in test_excludes:
             try:
-                input_fsa = self.fsa(test_str)
+                input_fsa = self.word_fsa(test_str)
                 intersection = pynini.intersect(pattern.fsa, input_fsa)
                 passed = intersection.start() == pynini.NO_STATE_ID
             except Exception:
@@ -1532,7 +1589,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             try:
                 output_fsa = self.apply_rule(input_str, rule_ref)
                 output_fsa = pynini.project(output_fsa, project_type='output')
-                expected_output_fsa = self.fsa(expected_output_str)
+                expected_output_fsa = self.word_fsa(expected_output_str)
                 intersection = pynini.intersect(output_fsa, expected_output_fsa)
                 passed = intersection.start() != pynini.NO_STATE_ID
             except Exception:
@@ -1557,7 +1614,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             for input_str, expected_output_str in rule.test_mappings:
                 output_fsa = self.apply_rule(input_str, rule._ref)
                 output_fsa = pynini.project(output_fsa, project_type='output')
-                expected_output_fsa = self.fsa(expected_output_str)
+                expected_output_fsa = self.word_fsa(expected_output_str)
                 intersection = pynini.intersect(output_fsa, expected_output_fsa)
                 if intersection.start() == pynini.NO_STATE_ID:
                     raise ValueError(
@@ -1594,7 +1651,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             self,
             fst: pynini.Fst,
             project: Literal['input', 'output'] = 'output',
-            nshortest: int = None
+            nshortest: int = None,
     ) -> List[Tuple[str, float]]:
         """
         Return all (or nshortest) strings for an input FSM.
@@ -1624,7 +1681,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             )
         return string_list[0]
         
-    def _decode_labels(self, label_iter) -> str:
+    def _decode_labels(self, label_iter, strip_word_edge_symbols=True) -> str:
         """
         Arguments:
             label_iter:     An iterator over FST labels
@@ -1640,6 +1697,9 @@ class FstRegistry(Registry, ReservedSymbolMixin):
                 continue
             symbol = self.symbols.find(label)
             word += symbol
+        if strip_word_edge_symbols:
+            word = word.strip(''.join(self.bow_eow_flags))
+
         return word
 
 @dataclass
@@ -1647,7 +1707,7 @@ class Token:
     value: str
     type: Literal[
         "phone", "flag", "class_ref", "pattern_ref",
-        "bos_eos", "special_ref", "unary_operator",
+        "bow_eow", "special_ref", "unary_operator",
         "pipe_operator", "caret_operator", "boundary",
         "left_delimiter", "right_delimiter",
     ]
