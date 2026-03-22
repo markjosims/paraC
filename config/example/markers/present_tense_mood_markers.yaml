@@ -1,0 +1,8 @@
+kind: FeatureMarkers
+feature: mood
+global_order: inner_suffix
+markers:
+  indicative: null
+  subjunctive:
+  - type: suffix
+    value: -ᴐ̀k

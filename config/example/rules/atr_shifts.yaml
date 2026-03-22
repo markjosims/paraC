@@ -1,0 +1,29 @@
+kind: Rules
+rules:
+  harmonize_suffix:
+    description: -ATR suffixes shift to +ATR following a +ATR vowel
+    string_map:
+    - - a
+      - ə
+    - - ɛ
+      - e
+    - - ɪ
+      - i
+    - - ᴐ
+      - o
+    - - ʊ
+      - u
+    left_context: <V_ATR><T>?<C>+<Boundary>?
+    test_mappings:
+    - - pàŋk-à
+      - pàŋk-à
+    - - pàŋk-ì
+      - pàŋk-ì
+    - - rə́t-à
+      - rə́t-ə̀
+    - - rə́t-ɪ́
+      - rə́t-í
+    - - ìp-ʊ́
+      - ìp-ú
+    - - jór-ɛ́
+      - jór-é

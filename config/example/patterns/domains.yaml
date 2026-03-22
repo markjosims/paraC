@@ -1,0 +1,44 @@
+kind: Patterns
+patterns:
+- Syllable:
+    pattern: <C>?<V><T><C>?<C>?
+    _ref: <Syll>
+    test_includes:
+    - páŋk
+    - chə̀rt
+    - á
+    - ɪ̀g
+    test_excludes:
+    - páŋkk
+    - schə̀rt
+    - a
+    - chərt
+    - ɪg
+- Monosyllable word:
+    pattern: '#<Syll>#'
+    _ref: <MonoSyllWord>
+    test_includes:
+    - páŋk
+    - chə̀rt
+    - á
+    - ɪ̀g
+    test_excludes:
+    - páŋkpáŋk
+    - chə̀rtpáŋk
+    - ìá
+    - ɪ̀gə́
+- Disyllable word:
+    pattern: '#<Syll><Syll>#'
+    _ref: <DiSyllWord>
+    test_includes:
+    - páŋkpáŋk
+    - chə̀rtpáŋk
+    - ìá
+    - ɪ̀gə́
+    test_excludes:
+    - páŋk
+    - chə̀rt
+    - á
+    - ɪ̀g
+    - páŋkpáŋkì
+    - ɪ̀gə́rà

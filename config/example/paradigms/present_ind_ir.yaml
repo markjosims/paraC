@@ -1,8 +1,0 @@
-kind: Paradigm
-part_of_speech: verb
-order: [suffixation]
-features:
-  tense_mood: present_ind
-  conjugation_class: ir
-  person_number: "$present_ind_ir_suffixes"
-feature_combinations: ["$verb_feature_combinations"]

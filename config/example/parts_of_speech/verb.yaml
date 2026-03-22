@@ -1,4 +1,10 @@
 kind: PartOfSpeech
 name: verb
-features: [tense_mood, person_number, conjugation_class]
-lexical_flags: [spelling_class]
+features:
+- tense
+- mood
+- person_number
+lexical_flags:
+- conjugation_class
+principal_parts:
+- past_stem

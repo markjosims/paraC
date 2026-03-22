@@ -9,71 +9,57 @@ data:
         _phones:
         - p
         - t
-        - c
         - k
-        - qu
       voiced:
         _ref: <B>
         _phones:
         - b
         - d
         - g
-        - gu
     fricatives:
       _ref: <Fric>
       _phones:
       - f
       - s
-      - z
-      - j
-      - h
       - x
-      - v
     affricates:
       _ref: <Affr>
       _phones:
       - ch
+      - ts
+      - dz
+      - j
     nasals:
       _ref: <N>
       _phones:
       - m
       - n
-      - ñ
+      - ŋ
     liquids:
       _ref: <Liq>
       _phones:
       - l
-      - ll
       - r
-      - rr
     glides:
       _ref: <Glide>
       _phones:
       - y
       - w
-    labiovelar:
-      _ref: <Labvel>
-      _phones:
-      - gü
   vowels:
     _ref: <V>
-    plain:
-      _ref: <V_Plain>
+    +ATR vowels:
+      _ref: <V_ATR>
       _phones:
-      - a
+      - ə
       - e
       - i
       - o
       - u
-    accented:
-      _ref: <V_Acc>
+    -ATR vowels:
+      _ref: <V_RTR>
       _phones:
-      - á
-      - é
-      - í
-      - ó
-      - ú
-    diaeresis:
-      _ref: <V_Diaer>
-      _phones:
-      - ü
+      - a
+      - ɛ
+      - ɪ
+      - ᴐ
+      - ʊ

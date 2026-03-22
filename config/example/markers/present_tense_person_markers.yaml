@@ -1,0 +1,13 @@
+kind: FeatureMarkers
+feature: person_number
+global_order: outer_suffix
+global_markers:
+- type: rule
+  value: $harmonize_suffix
+markers:
+  1sg:
+  - type: suffix
+    value: -a
+  2sg:
+  - type: suffix
+    value: -ʊ

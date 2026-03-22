@@ -1,18 +1,14 @@
 kind: FeatureDefinitions
 features:
-  tense_mood:
-  - present_ind
-  - preterite
-  - imperfect_ind
+  tense:
+  - present
+  - past
   - future
-  - conditional
-  - present_subj
-  - imperfect_subj_ra
-  - imperfect_subj_se
+  mood:
   - imperative
+  - subjunctive
   - infinitive
-  - gerund
-  - past_participle
+  - indicative
   person_number:
   - 1sg
   - 2sg
@@ -20,7 +16,3 @@ features:
   - 1pl
   - 2pl
   - 3pl
-  conjugation_class:
-  - ar
-  - er
-  - ir
