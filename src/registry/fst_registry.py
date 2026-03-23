@@ -698,6 +698,10 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         self.classes: Dict[str, InventoryItem] = inventory_registry.classes
         self.patterns: Dict[str, Pattern] = pattern_registry.data
         self.patterns_sorted: Tuple[Pattern, ...] = pattern_registry.patterns_sorted
+
+        if not rule_registry:
+            return
+
         self.rules: Dict[str, Rule] = rule_registry.data 
         self.rules_sorted: Tuple[Rule, ...] = rule_registry.rules_sorted       
 
@@ -783,6 +787,8 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             symbols.add_symbol(item.value)
         for item in self.boundary_symbols:
             symbols.add_symbol(item)
+        for item in self.edit_flags:
+            symbols.add_symbol(item)
         for item in self.bow_eow_flags:
             symbols.add_symbol(item)
         
@@ -847,11 +853,11 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         self._sigmas_built = False
         for flag in flags:
             self._add_flag(flag)
+        self._inventory_acceptors_built = True
 
         # update special acceptors + token map so new flags are recognized
         self._build_special_acceptors()
         self._build_token_map()
-        self._inventory_acceptors_built = True
         logger.info("Flags added successfully.")
 
     def _add_flag(self, flag: InventoryItem) -> int:
@@ -961,6 +967,9 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         for flag in self.bow_eow_flags:
             acceptor = self._token_acceptor(flag)
             tokens["flag"].append(Token(value=flag, type="bow_eow", acceptor=acceptor))
+        for flag in self.edit_flags:
+            acceptor = self._token_acceptor(flag)
+            tokens["flag"].append(Token(value=flag, type="edit_flag", acceptor=acceptor))
         for boundary in self.boundary_symbols:
             acceptor = self._token_acceptor(boundary)
             tokens["boundary"].append(Token(value=boundary, type="boundary", acceptor=acceptor))
@@ -1438,6 +1447,15 @@ class FstRegistry(Registry, ReservedSymbolMixin):
 
         return self.parse_pattern(fsa_input)
     
+    def wfsa(self, fsa_input: str, weight: float) -> pynini.Fst:
+        """
+        Wraps `self.fsa` and assigns a weight value.
+        """
+        fsa = self.fsa(fsa_input)
+        wfsa = fsa + pynini.accep('', weight=weight)
+        wfsa.optimize()
+        return wfsa
+    
     def word_fsa(self, word_str: str) -> pynini.Fst:
         """
         Constructs an FSA for a word, i.e. a string with [BOS] and [EOS] markers at the beginning and end.
@@ -1814,7 +1832,7 @@ class Token:
     value: str
     type: Literal[
         "phone", "flag", "class_ref", "pattern_ref",
-        "bow_eow", "special_ref", "unary_operator",
+        "bow_eow", "edit_flag", "special_ref", "unary_operator",
         "pipe_operator", "caret_operator", "boundary",
         "left_delimiter", "right_delimiter",
     ]

@@ -18,6 +18,7 @@ in the registry system, there is no intermediate `ParadigmRegistry` class.]
 
 from loguru import logger
 import pynini
+from pynini.lib import pynutil
 
 from src.fst_utils import FsaLike
 from src.registry.registry_utils import Registry
@@ -39,6 +40,9 @@ import pandas as pd
 from pathlib import Path
 import functools
 from tqdm import tqdm
+
+EDIT_BOUND = 5
+EDIT_COST = 1
 
 
 class Paradigm:
@@ -77,8 +81,11 @@ class Paradigm:
         self.is_initialized = False
         self.fst_registry_initialized = False
         self.main_graphs_built = False
+        self.edit_graphs_built = False
 
         self.name = name
+        if name is None:
+            self.name = "[UNNAMED]"
         self.feature_value_combinations = feature_value_combinations
         self.fixed_features = fixed_features or {}
         self.marker_order = marker_order or []
@@ -622,7 +629,11 @@ class Paradigm:
         
         return current_fst
 
-    def _build_main_graph(self):
+    def build_all_graphs(self):
+        self._build_main_graphs()
+        self._build_edit_graphs()
+
+    def _build_main_graphs(self):
         """
         Build a main graph for the paradigm by computing the union of all
         possible paths through the paradigm based on the feature markers and
@@ -634,11 +645,11 @@ class Paradigm:
         computing a union over each transducer as the main Inflector graph, and
         the Parser graph by inverting the Inflector graph.
         """
-        logger.info(f"Building main (inflector and parser) graphs for paradigm {self.name or '[UNNAMED]'}...")
+        logger.info(f"Building main (inflector and parser) graphs for paradigm {self.name}...")
 
         roots = self.get_filtered_roots()
         inflect_fst_list = []
-        for root in tqdm(roots, desc=f"Inflecting roots for paradigm {self.name or '[UNNAMED]'}"):
+        for root in tqdm(roots, desc=f"Inflecting roots for paradigm {self.name}"):
             root_fsa = self.fst_registry.word_fsa(root)
 
             # iter thru all feature combos and build transducers
@@ -695,6 +706,90 @@ class Paradigm:
             
         return parse_strings
 
+    def _build_edit_graphs(self):
+        """
+        Build left and right edit factors and a pre-compiled
+        searchable lexicon.
+
+        Based on code in the [Pynini EditTransducer](https://github.com/kylebgorman/pynini/blob/27ce19048193358cd362a4de6b157cb43ab6e2eb/pynini/lib/edit_transducer.py)
+        """
+        logger.info(f"Building edit graph for paradigm {self.name}...")
+        if not self.main_graphs_built:
+            raise ValueError("Cannot build edit graph without main graph")
+
+        # shorthands for ease of life
+        insert = self.fst_registry.insert
+        delete = self.fst_registry.delete
+        substitute = self.fst_registry.substitute
+        sigma = self.fst_registry.sigma
+        sigma_star = self.fst_registry.sigma_star
+
+        fsa = self.fst_registry.fsa
+        wfsa = self.fst_registry.wfsa
+
+        # build single edit transducers
+        insert_fst = pynutil.insert(wfsa(insert, weight=EDIT_COST/2))
+        delete_fst = pynini.cross(sigma, wfsa(delete, weight=EDIT_COST/2))
+        substitute_fst = pynini.cross(sigma, wfsa(substitute, weight=EDIT_COST/2))
+        edit_fst = pynini.union(insert_fst, delete_fst, substitute_fst).optimize()
+
+        # build left search factor
+        left_factor = sigma_star.copy()
+        for _ in range(EDIT_BOUND):
+            left_factor.concat(edit_fst.ques).concat(sigma_star)
+        left_factor.optimize()
+
+        # build right factor from left
+        right_factor = pynini.invert(left_factor)
+        insert_label = self.fst_registry.symbols.find(insert)
+        delete_label = self.fst_registry.symbols.find(delete)
+        label_pairs = [(insert_label, delete_label), (delete_label, insert_label)]
+        right_factor = right_factor.relabel_pairs(ipairs=label_pairs)
+
+        # compose right factor with lexicon        
+        form_lattice = pynini.project(self.inflect_graph, 'output')
+        searchable_lexicon = right_factor @ form_lattice
+
+        # set attrs
+        self.left_factor = left_factor
+        self.right_factor = right_factor
+        self.searchable_lexicon = searchable_lexicon
+
+        self.edit_graphs_built = True
+
+        logger.info(f"Edit g1.raphs built for paradigm {self.name}.")
+
+    def search_form(self, query: FsaLike, nshortest: int = 5) -> List[Tuple[str, float]]:
+        """
+        Searches the lexicon for fuzzy matches of an input string and returns
+        the nshortest hits along with their edit costs.
+        """
+        query_fsa = self.fst_registry._cast_fsalike_to_fsa(query)
+        search_lattice = (query_fsa @ self.left_factor) @ self.searchable_lexicon
+        form_hits = self.fst_registry.fsm_strings_and_weights(
+            search_lattice,
+            nshortest=nshortest
+        )
+        return form_hits
+    
+    def search_parses(self, query: FsaLike, nshortest: int = 5, serialize: bool=False) -> List[Dict[str, str]]:
+        """
+        Wraps `Paradigm.search_form` and also parses each hit and returns as a list
+        of dicts.
+        """
+        form_hits = self.search_form(query, nshortest=nshortest)
+        parsed_hits = []
+        for form, weight in form_hits:
+            parses = self.get_parses(form, serialize=serialize)
+            for parse in parses:
+                parse_object = {"form": form, "weight": weight}
+                if isinstance(parse, dict):
+                    parse_object.update(parse)
+                else: # parse is str
+                    parse_object['parse'] = parse
+                parsed_hits.append(parse_object)
+
+        return parsed_hits
         
 
 class GrammarRegistry(Registry):
@@ -845,12 +940,28 @@ if __name__ == "__main__":
     import random 
 
     reg = GrammarRegistry.from_config_dir(EXAMPLE_CONFIG_DIR)
+
     para = reg.paradigms['verbs']
     root = random.choice(para.get_filtered_roots())
     stages = para.get_inflection_stages(root, {'tense':'present', 'mood':'subjunctive', 'person_number':'1sg'})
     inflected_paradigm = para.get_subparadigm_table(root)
-    para._build_main_graph()
+
+    para._build_main_graphs()
     random_form = random.choice(inflected_paradigm)['form'].split(';')[0]
     parse = para.get_parses(random_form)
+
+    para._build_edit_graphs()
+    random_index = random.randint(0, len(random_form)-1)
+    random_form_list = list(random_form)
+    random_form_list.pop(random_index)
+    random_form_deletion = ''.join(random_form_list)
+    search_hits = para.search_form(random_form_deletion)
+    search_parses = [para.get_parses(hit_str) for hit_str, _ in search_hits]
     
+    logger.info(f"random_form: {random_form}")
+    logger.info(f"parse: {parse}")
+    logger.info(f"random_form_deletion: {random_form_deletion}")
+    logger.info(f"search_hits: {search_hits}")
+    logger.info(f"search_parses: {search_parses}")
+
     breakpoint()

@@ -140,6 +140,10 @@ class ReservedSymbolMixin:
     """
     bow = "[BOW]"
     eow = "[EOW]"
+    insert = "[INSERT]"
+    substitute = "[SUBSTITUTE]"
+    delete = "[DELETE]"
+
     word_edge = "#"
     phone_ref = "<Phone>"
     flag_ref = "<Flag>"
@@ -169,6 +173,7 @@ class ReservedSymbolMixin:
     caret_operator = caret # for negation in braced expressions
     reserved_refs = (phone_ref, flag_ref, epsilon_ref, sigma_ref, boundary_ref)
     bow_eow_flags = (bow, eow)
+    edit_flags = (insert, substitute, delete)
     boundary_symbols = (affix_boundary, clitic_boundary)
 
     reserved_symbols = left_delimiters + right_delimiters + \
