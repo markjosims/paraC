@@ -54,9 +54,9 @@ class Transducer:
 
     def set_transducer(self, fst: pynini.Fst):
         if self.transducer_built:
-            raise ValueError("Transducer cannot be overridden.")
+            raise ValueError(f"Transducer (value={self.value}) cannot be overridden.")
         if is_acceptor(fst):
-            raise ValueError("Must be a non-vacuous FST")
+            logger.warning(f"Transducer (value={self.value}) is a vacuous FST")
         self.fst = fst
         self.transducer_built = True
 
@@ -70,15 +70,15 @@ class TransducerList(Transducer):
 
     def set_transducer(self, fst: Union[pynini.Fst, List[pynini.Fst]]):
         if self.fst is not None:
-            raise ValueError("Transducer cannot be overridden.")
+            raise ValueError(f"Transducer (value={self.value}) cannot be overridden.")
         
         if isinstance(fst, list):
             for f in fst:
                 if is_acceptor(f):
-                    raise ValueError("Transducer must be a non-vacuous FST or list of non-vacuous FSTs")
+                    logger.warning(f"Transducer (value={self.value}) contains a vacuous FST")
         elif isinstance(fst, pynini.Fst):
             if is_acceptor(fst):
-                raise ValueError("Transducer must be a non-vacuous FST or list of non-vacuous FSTs")
+                logger.warning(f"Transducer (value={self.value}) is a vacuous FST")
         
         self.fst = fst
         self.transducer_built = True
