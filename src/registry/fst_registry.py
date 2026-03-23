@@ -541,6 +541,10 @@ class Rule(TransducerList):
     def __post_init__(self):
         super().__post_init__()
 
+        # duplicate `self._ref` to value so parent functions can access
+        # name when logging errors
+        self.value = self._ref
+
         self.dependencies_built = False
 
         if not self._ref:
@@ -565,8 +569,11 @@ class Rule(TransducerList):
                 raise ValueError("Simple rules cannot have a rule sequence")
             
         if self.type == "rule_sequence":
-            if not self.rule_sequence:
+            if self.rule_sequence is None:
                 raise ValueError("Rule sequence must have a rule sequence")
+            elif not self.rule_sequence:
+                logger.warning(f"Found empty rule sequence: {self._ref}")
+
             if self.input_pattern.value or self.output_pattern.value:
                 raise ValueError("Rule sequence cannot have input or output patterns")
             if self.string_map:
@@ -1053,7 +1060,15 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         sequence)
         """
         if rule.type == "rule_sequence":
-            return [sub_rule.fst for sub_rule in rule.rule_sequence]
+            # return list of FSTs
+            # sub-rules may themselves be rule sequences, so need to flatten
+            rule_fsts_flat = []
+            for subrule in rule.rule_sequence:
+                if isinstance(subrule.fst, pynini.Fst):
+                    rule_fsts_flat.append(subrule.fst)
+                else:
+                    rule_fsts_flat.extend(subrule.fst)
+            return rule_fsts_flat
         # tau = main transducer, the rational relation effected by the rule
         tau = self._parse_rule_tau(rule)
         left_context, right_context = self._parse_rule_context(rule)

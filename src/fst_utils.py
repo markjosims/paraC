@@ -5,6 +5,8 @@ from src.registry.registry_utils import ReservedSymbolMixin
 from loguru import logger
 
 def is_acceptor(fsa: pynini.Fst) -> bool:
+    if not isinstance(fsa, pynini.Fst):
+        raise ValueError(f"Expected pynini.Fst but got {fsa} for fsa arg.")
     return fsa.properties(pynini.ACCEPTOR, True)
 
 @dataclass
