@@ -1099,6 +1099,7 @@ def _render_inflect_page(
             "define at least one valid Paradigm before using the Inflect tab. "
             f"({exc})"
         )
+        logger.exception(inflect_registry_error)
 
     return render_template(
         "index.html",
