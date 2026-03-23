@@ -17,6 +17,8 @@
   .mode-ref-select[hidden] { display: none !important; }
   .mode-fixed-input[hidden] { display: none !important; }
   .validation-msg.warn { color: #b8860b; font-style: italic; }
+  #pattern-select[hidden] { display: none !important; }
+  #pattern-text[hidden] { display: none !important; }
 </style>
 
 <section class="panel" id="config-editor-panel">
@@ -183,16 +185,67 @@
 
     <section class="paradigm-grid">
       <h3>Filter</h3>
-      <div class="paradigm-two-col">
-        <label>
-          Lexical features
-          <input type="text" name="filter_lexical_features_text" value="{{ state.filter_lexical_features_text }}" placeholder="n_ng_alternation, diphthongization">
-        </label>
-        <label>
-          Pattern
-          <input type="text" name="filter_pattern" value="{{ state.filter_pattern }}" placeholder="<TwoSyllableWord>">
-        </label>
-      </div>
+
+      <section class="paradigm-grid">
+        <h4>Lexical features</h4>
+        <p class="muted">Filter roots to those carrying specific lexical features. Each row is a (feature name, feature value) pair.</p>
+        <div class="actions">
+          <button type="submit" name="action" value="add-lexical-feature"
+                  formaction="{{ url_for('web.paradigms_add_lexical_feature') }}">Add lexical feature</button>
+        </div>
+        <div id="paradigm-lexical-feature-list">
+          {% if state.filter_lexical_features %}
+            {% for item in state.filter_lexical_features %}
+              <section class="node paradigm-two-col" id="lexical-feature-{{ item.id }}" data-lexical-feature-id="{{ item.id }}">
+                <label>
+                  Feature name
+                  <select name="lf-name-{{ item.id }}" data-lf-name="{{ item.id }}">
+                    <option value="">-- select feature --</option>
+                    {% for fname in state.available_features_to_values %}
+                      <option value="{{ fname }}" {% if fname == item.feature_name %}selected{% endif %}>{{ fname }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label>
+                  Feature value
+                  <select name="lf-value-{{ item.id }}" data-lf-value="{{ item.id }}">
+                    <option value="">-- select value --</option>
+                    {% for fval in state.available_features_to_values.get(item.feature_name, []) %}
+                      <option value="{{ fval }}" {% if fval == item.feature_value %}selected{% endif %}>{{ fval }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <div class="actions">
+                  <button type="submit" name="action" value="remove-lexical-feature"
+                          formaction="{{ url_for('web.paradigms_remove_lexical_feature', feature_id=item.id) }}">Remove</button>
+                </div>
+              </section>
+            {% endfor %}
+          {% else %}
+            <p class="muted">No lexical feature filters yet.</p>
+          {% endif %}
+        </div>
+      </section>
+
+      <label>
+        Pattern
+        <span class="checkbox-row">
+          <input type="checkbox" id="pattern-use-dropdown"
+                 {% if not state.available_patterns %}disabled{% endif %}>
+          <span>Select from list</span>
+        </span>
+        {% if not state.available_patterns %}
+          <span class="validation-msg warn">No patterns found in config.</span>
+        {% endif %}
+        <select name="filter_pattern" id="pattern-select" disabled hidden style="display:none">
+          <option value="">-- select pattern --</option>
+          {% for p in state.available_patterns %}
+            <option value="{{ p }}" {% if p == state.filter_pattern %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+        <input type="text" name="filter_pattern" id="pattern-text"
+               value="{{ state.filter_pattern }}" placeholder="&lt;TwoSyllableWord&gt;">
+      </label>
     </section>
 
     <div class="actions">
@@ -207,6 +260,43 @@
 </section>
 
 <script>
+  const availableFeaturesValues = {{ state.available_features_to_values | default({}) | tojson }};
+  const availablePatterns = {{ state.available_patterns | default([]) | tojson }};
+
+  function updateLexicalFeatureValueDropdowns(root) {
+    root.querySelectorAll("[data-lexical-feature-id]").forEach(function(node) {
+      var rowId = node.dataset.lexicalFeatureId;
+      var nameSelect = node.querySelector("[data-lf-name]");
+      var valueSelect = node.querySelector("[data-lf-value]");
+      if (!nameSelect || !valueSelect) return;
+      var selectedName = nameSelect.value;
+      var selectedValue = valueSelect.value;
+      var values = availableFeaturesValues[selectedName] || [];
+      valueSelect.innerHTML = '<option value="">-- select value --</option>';
+      values.forEach(function(v) {
+        var opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = v;
+        if (v === selectedValue) opt.selected = true;
+        valueSelect.appendChild(opt);
+      });
+    });
+  }
+
+  function updatePatternMode() {
+    var cb = document.getElementById("pattern-use-dropdown");
+    var sel = document.getElementById("pattern-select");
+    var txt = document.getElementById("pattern-text");
+    if (!cb || !sel || !txt) return;
+    var useDropdown = cb.checked;
+    sel.hidden = !useDropdown;
+    sel.style.display = useDropdown ? "" : "none";
+    sel.disabled = !useDropdown;
+    txt.hidden = useDropdown;
+    txt.style.display = useDropdown ? "none" : "";
+    txt.disabled = useDropdown;
+  }
+
   function updateParadigmMarkerTypeFields(root) {
     root.querySelectorAll("[data-marker-id]").forEach(function(node) {
       var select = node.querySelector("[data-marker-type]");
@@ -354,6 +444,8 @@
     updateParadigmMarkerTypeFields(document);
     updateParadigmStemSelectorFields(document);
     updateParadigmFeatureModes(document);
+    updateLexicalFeatureValueDropdowns(document);
+    updatePatternMode();
     validateParadigmEditor();
   }
 
@@ -371,6 +463,14 @@
     if (event.target.matches("[data-feature-mode]")) {
       updateParadigmFeatureModes(document);
       validateParadigmEditor();
+      return;
+    }
+    if (event.target.matches("[data-lf-name]")) {
+      updateLexicalFeatureValueDropdowns(document);
+      return;
+    }
+    if (event.target.matches("#pattern-use-dropdown")) {
+      updatePatternMode();
       return;
     }
     if (event.target.closest("#paradigm-editor-form")) {
@@ -399,12 +499,13 @@
 
     event.preventDefault();
 
-    const targetNode = submitter.closest("[data-order-id], [data-feature-mapping-id], [data-contingent-id], [data-marker-id]");
+    const targetNode = submitter.closest("[data-order-id], [data-feature-mapping-id], [data-contingent-id], [data-marker-id], [data-lexical-feature-id]");
     const targetId = targetNode
       ? (targetNode.getAttribute("data-order-id")
         || targetNode.getAttribute("data-feature-mapping-id")
         || targetNode.getAttribute("data-contingent-id")
-        || targetNode.getAttribute("data-marker-id"))
+        || targetNode.getAttribute("data-marker-id")
+        || targetNode.getAttribute("data-lexical-feature-id"))
       : null;
     const actionValue = submitter instanceof HTMLButtonElement ? submitter.value : "";
     const action = submitter.getAttribute("formaction") || form.action;
@@ -472,11 +573,18 @@
           const nodes = Array.from(list.children).filter((child) => child instanceof HTMLElement && child.dataset.contingentId);
           focusNode = nodes[nodes.length - 1] || null;
         }
+      } else if (actionValue === "add-lexical-feature") {
+        const list = document.querySelector("#paradigm-lexical-feature-list");
+        if (list) {
+          const nodes = Array.from(list.children).filter((child) => child instanceof HTMLElement && child.dataset.lexicalFeatureId);
+          focusNode = nodes[nodes.length - 1] || null;
+        }
       } else if (targetId) {
         focusNode = document.querySelector("#order-stage-" + targetId)
           || document.querySelector("#feature-mapping-" + targetId)
           || document.querySelector("#contingent-marker-" + targetId)
-          || document.querySelector("#marker-" + targetId);
+          || document.querySelector("#marker-" + targetId)
+          || document.querySelector("#lexical-feature-" + targetId);
       }
 
       if (focusNode) {

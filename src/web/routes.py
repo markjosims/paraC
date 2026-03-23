@@ -356,6 +356,21 @@ def paradigms_remove_contingent_marker(marker_id: str):
     )
 
 
+@bp.post("/paradigms/add-lexical-feature")
+def paradigms_add_lexical_feature():
+    return _marker_editor_state_handler(
+        "Paradigm", lambda editor, state: editor.add_lexical_feature(state)
+    )
+
+
+@bp.post("/paradigms/remove-lexical-feature/<feature_id>")
+def paradigms_remove_lexical_feature(feature_id: str):
+    return _marker_editor_state_handler(
+        "Paradigm",
+        lambda editor, state: editor.remove_lexical_feature(state, feature_id),
+    )
+
+
 @bp.get("/inflect")
 def inflect():
     tool = request.args.get("tool", "stages").strip()
@@ -490,7 +505,7 @@ def view_paradigm_run():
         )
 
     try:
-        results = paradigm.inflect_subparadigm(
+        results = paradigm.get_subparadigm_table(
             stem,
             fixed_features=fixed_features or None,
             only_free_feature_columns=True,
@@ -714,6 +729,7 @@ def _render_page(
     if kind == "PartOfSpeech":
         editor = EDITORS["PartOfSpeech"]
         extra["available_features"] = sorted(features_to_values.keys())
+        extra["features_to_values"] = features_to_values
         extra["dynamic_columns"] = editor.dynamic_columns(state)
         extra["csv_preview"] = editor.to_csv(state)
 
@@ -729,11 +745,15 @@ def _render_page(
             state["available_feature_markers"] = sorted(registry.marker_registry.feature_markers.keys())
             state["available_contingent_markers"] = sorted(registry.marker_registry.contingent_markers.keys())
             state["available_feature_combinations"] = sorted(registry.feature_registry.feature_combinations.keys())
+            state["available_features_to_values"] = features_to_values
+            state["available_patterns"] = sorted(registry.fst_registry.patterns.keys()) if registry.fst_registry else []
         else:
             state["available_part_of_speech"] = []
             state["available_feature_markers"] = []
             state["available_contingent_markers"] = []
             state["available_feature_combinations"] = []
+            state["available_features_to_values"] = {}
+            state["available_patterns"] = []
 
     return render_template(
         "index.html",

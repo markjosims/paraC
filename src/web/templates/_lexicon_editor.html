@@ -1,9 +1,14 @@
 <style>
   .lexicon-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
-  .lexicon-table th, .lexicon-table td { border: 1px solid #ddd; padding: 0.3rem 0.4rem; }
-  .lexicon-table th { background: #f5f5f5; font-weight: 600; text-align: left; white-space: nowrap; }
-  .lexicon-table input { width: 100%; box-sizing: border-box; border: none; padding: 0.25rem; font: inherit; }
+  .lexicon-table th, .lexicon-table td { padding: 0.3rem 0.4rem; border-right: 1px solid #eee; }
+  .lexicon-table th:last-child, .lexicon-table td:last-child { border-right: none; }
+  .lexicon-table th { background: #f0f0f0; font-weight: 600; text-align: left; white-space: nowrap; border-bottom: 2px solid #d0d0d0; }
+  .lexicon-table tbody tr:nth-child(odd) { background: #d3d3d3; }
+  .lexicon-table tbody tr:nth-child(even) { background: #ffffff; }
+  .lexicon-table input { width: 100%; box-sizing: border-box; border: none; padding: 0.25rem; font: inherit; background: transparent; }
   .lexicon-table input:focus { outline: 2px solid #7fa7e6; }
+  .lexicon-table select { width: 100%; box-sizing: border-box; border: none; padding: 0.25rem; font: inherit; background: transparent; }
+  .lexicon-table select:focus { outline: 2px solid #7fa7e6; }
   .lexicon-table .row-actions { text-align: center; width: 2.5rem; }
   .btn-remove-row { background: none; border: none; cursor: pointer; color: #999; font-size: 1.1rem; padding: 0.2rem 0.4rem; }
   .btn-remove-row:hover { color: #c33; }
@@ -94,11 +99,7 @@
       </div>
     </div>
 
-    <div class="two-col">
-      <label>
-        Lexical features <span class="muted">(comma-separated)</span>
-        <input type="text" name="lexical_features_text" id="lexical-flags-input" value="{{ state.lexical_features | join(', ') }}" placeholder="fv_class, stem_type" oninput="checkColumnChanges()">
-      </label>
+    <div>
       <label>
         Principal parts <span class="muted">(comma-separated)</span>
         <input type="text" name="principal_parts_text" id="principal-parts-input" value="{{ state.principal_parts | join(', ') }}" placeholder="past_stem" oninput="checkColumnChanges()">
@@ -130,7 +131,18 @@
               <td><input type="text" name="root-{{ row.id }}" value="{{ row.root }}"></td>
               <td><input type="text" name="gloss-{{ row.id }}" value="{{ row.gloss }}"></td>
               {% for col in dynamic_columns %}
-                <td><input type="text" name="{{ col }}-{{ row.id }}" value="{{ row.get(col, '') }}"></td>
+                <td>
+                  {% if col in state.lexical_features %}
+                    <select name="{{ col }}-{{ row.id }}" class="lexicon-lf-select">
+                      <option value="">--</option>
+                      {% for val in features_to_values.get(col, []) %}
+                        <option value="{{ val }}" {% if row.get(col, '') == val %}selected{% endif %}>{{ val }}</option>
+                      {% endfor %}
+                    </select>
+                  {% else %}
+                    <input type="text" name="{{ col }}-{{ row.id }}" value="{{ row.get(col, '') }}">
+                  {% endif %}
+                </td>
               {% endfor %}
               <td class="row-actions">
                 <button type="submit" class="btn-remove-row" title="Remove row" formaction="{{ url_for('web.lexicon_remove_row', row_id=row.id) }}">&#10005;</button>
@@ -160,6 +172,9 @@
 </section>
 
 <script>
+  const featuresToValues = {{ features_to_values | default({}) | tojson }};
+  const lexicalFeatureColumns = new Set({{ state.lexical_features | default([]) | tojson }});
+
   // --- Baseline: the columns currently rendered in the table -----------
   const _baselineColumns = new Set({{ dynamic_columns | tojson }});
 
