@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}M4 Config{% endblock %}
+{% block title %}Morphology Machine{% endblock %}
 
 {% block body %}
   {% include "_app_tabs.html" %}
@@ -14,8 +14,12 @@
       {% endif %}
     </div>
 
-    {% if active_tab == "config" %}
-    <div class="layout">
+    {% if active_tab == "home" %}
+    <h1>Welcome to Morphology Machine!</h1>
+    <p>Morphology machine is...</p>
+
+    {% elif active_tab == "config" %}
+    <div class="layout layout--three-col">
       {% include "_config_accordion.html" %}
 
       {% if editor_kind == "Inventory" %}
@@ -39,27 +43,11 @@
       {% else %}
         <section class="panel" id="config-editor-panel">
           <h2>{% if editor_kind %}{{ editor_kind }} editor{% else %}Config editor{% endif %}</h2>
-          <p class="muted">Config type is editable as raw YAML.</p>
-
-          <form method="post" action="{{ url_for('web.config_editor') }}" class="grid">
-            <input type="hidden" name="editor_kind" value="{{ editor_kind }}">
-
-            <label>
-              File path
-              <input type="text" name="path" value="{{ state.path }}" placeholder="markers/present_ind_ar_suffixes.yaml">
-            </label>
-
-            <label>
-              YAML
-              <textarea name="content" class="editor" placeholder="kind: Marker&#10;">{{ state.content }}</textarea>
-            </label>
-
-            <div class="actions">
-              <button type="submit" name="action" value="save" formaction="{{ url_for('web.config_editor') }}">Save YAML</button>
-            </div>
-          </form>
-        </section>
+          <p class="muted">Select a file or create a new file using the left panel to get started editing.</p>
+        </section> 
       {% endif %}
+
+      {% include "_reference_sidebar.html" %}
     </div>
 
     {% elif active_tab == "inflect" %}
@@ -70,6 +58,17 @@
         {% include "_inflect_stages.html" %}
       {% elif inflect_tool == "view" %}
         {% include "_view_paradigm.html" %}
+      {% endif %}
+    </div>
+
+    {% elif active_tab == "parse" %}
+    <div class="layout">
+      {% include "_parse_sidebar.html" %}
+
+      {% if parse_tool == "word" %}
+        {% include "_parse_word.html" %}
+      {% elif parse_tool == "text" %}
+        {% include "_parse_text.html" %}
       {% endif %}
     </div>
     {% endif %}

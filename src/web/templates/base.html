@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}M4 Config{% endblock %}</title>
+  <title>{% block title %}Morphology Machine{% endblock %}</title>
   <style>
     body { font-family: sans-serif; margin: 0; color: #222; }
     a { color: inherit; text-decoration: none; }
@@ -12,6 +12,8 @@
     .tab { padding: 0.35rem 0.6rem; border: 1px solid #ccc; border-bottom: 0; background: #f7f7f7; }
     .tab.active { background: #fff; font-weight: 600; }
     .layout { display: grid; grid-template-columns: 18rem 1fr; gap: 1rem; align-items: start; }
+    .layout--three-col { grid-template-columns: 18rem 1fr 14rem; }
+    .reference-sidebar--collapsed { min-width: 0; width: auto; }
     .panel { border: 1px solid #ccc; padding: 0.9rem; background: #fff; }
     .panel h2, .panel h3 { margin-top: 0; }
     .file-list { display: grid; gap: 0.35rem; margin-bottom: 1rem; }
@@ -36,7 +38,7 @@
     .preview { white-space: pre-wrap; background: #f7f7f7; border: 1px solid #ddd; padding: 0.75rem; overflow-x: auto; }
     .muted { color: #666; font-size: 0.92rem; }
     @media (max-width: 900px) {
-      .layout, .two-col { grid-template-columns: 1fr; }
+      .layout, .layout--three-col, .two-col { grid-template-columns: 1fr; }
     }
   </style>
 </head>

@@ -9,7 +9,7 @@
         <div class="file-list">
           {% for item in group.config_items %}
             <div class="file-entry">
-              <a class="file-link {% if item.path == selected_path %}active{% endif %}" href="{{ url_for('web.index', path=item.path) }}">{{ item.label }}</a>
+              <a class="file-link {% if item.path == selected_path %}active{% endif %}" href="{{ url_for('web.config', path=item.path) }}">{{ item.label }}</a>
               <div class="file-actions">
                 <button type="button" class="btn-icon" title="Rename" onclick="openRenameDialog('{{ item.path }}', '{{ item.label }}')">&#9998;</button>
                 <button type="button" class="btn-icon btn-danger" title="Delete" onclick="confirmDelete('{{ item.path }}')">&#10005;</button>

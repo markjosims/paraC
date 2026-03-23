@@ -5,7 +5,8 @@ import unicodedata
 from typing import Any
 from loguru import logger
 
-from flask import Blueprint, redirect, render_template, request, url_for
+from flask import Blueprint, jsonify, redirect, render_template, request, url_for
+import threading
 import yaml
 
 from src.web.configs import (
@@ -34,6 +35,9 @@ from flask import current_app as app
 
 bp = Blueprint("web", __name__)
 GRAMMAR_REGISTRY_CACHE: dict[str, tuple[float, GrammarRegistry]] = {}
+GRAPH_BUILD_STATUS: dict[tuple[str, str], dict] = {}
+# key: (config_dir, paradigm_name)
+# value: {"status": "idle" | "building" | "done" | "error", "error": str | None}
 
 EDITORS = {
     "Inventory": InventoryEditor(),
@@ -49,7 +53,24 @@ EDITORS = {
 
 
 @bp.get("/")
-def index():
+def home():
+    return render_template(
+        "index.html",
+        active_tab="home",
+        state={},
+        selected_path="",
+        selected_kind=None,
+        editor_kind="",
+        state_json="",
+        yaml_preview="",
+        sidebar_phone_trees=[],
+        sidebar_flag_trees=[],
+        sidebar_patterns=[],
+    )
+
+
+@bp.get("/config")
+def config():
     selected_path = request.args.get("path", "").strip()
     message = request.args.get("message")
     error = request.args.get("error")
@@ -76,13 +97,16 @@ def index():
     )
 
 
+
+
+
 @bp.post("/config")
 def config_editor():
     form = _normalize_form_data(request.form)
     action = form.get("action", "")
     page_context = _config_page_context()
     if page_context.get("error"):
-        return redirect(url_for("web.index", error=page_context["error"]))
+        return redirect(url_for("web.config", error=page_context["error"]))
 
     editor_kind = form.get("editor_kind", "").strip()
     message = None
@@ -127,9 +151,9 @@ def config_rename():
     try:
         config_dir = _local_config_dir()
         rename_config_file(config_dir, old_path, new_path)
-        return redirect(url_for("web.index", path=new_path, message=f"Renamed to {new_path}"))
+        return redirect(url_for("web.config", path=new_path, message=f"Renamed to {new_path}"))
     except (RuntimeError, ValueError, FileNotFoundError) as exc:
-        return redirect(url_for("web.index", path=old_path, error=str(exc)))
+        return redirect(url_for("web.config", path=old_path, error=str(exc)))
 
 
 @bp.post("/config/delete")
@@ -138,9 +162,9 @@ def config_delete():
     try:
         config_dir = _local_config_dir()
         delete_config_file(config_dir, path)
-        return redirect(url_for("web.index", message=f"Deleted {path}"))
+        return redirect(url_for("web.config", message=f"Deleted {path}"))
     except (RuntimeError, ValueError, FileNotFoundError) as exc:
-        return redirect(url_for("web.index", path=path, error=str(exc)))
+        return redirect(url_for("web.config", path=path, error=str(exc)))
 
 
 @bp.post("/inventory/add-child/<node_id>")
@@ -148,7 +172,7 @@ def inventory_add_child(node_id: str):
     form = _normalize_form_data(request.form)
     page_context = _config_page_context()
     if page_context.get("error"):
-        return redirect(url_for("web.index", error=page_context["error"]))
+        return redirect(url_for("web.config", error=page_context["error"]))
 
     editor = EDITORS["Inventory"]
     state = editor.state_from_json(form.get("state"))
@@ -166,7 +190,7 @@ def inventory_add_child(node_id: str):
 def inventory_remove_node(node_id: str):
     page_context = _config_page_context()
     if page_context.get("error"):
-        return redirect(url_for("web.index", error=page_context["error"]))
+        return redirect(url_for("web.config", error=page_context["error"]))
 
     editor = EDITORS["Inventory"]
     state = editor.state_from_json(request.form.get("state"))
@@ -371,6 +395,163 @@ def paradigms_remove_lexical_feature(feature_id: str):
     )
 
 
+@bp.get("/parse")
+def parse():
+    tool = request.args.get("tool", "word").strip()
+    selected = request.args.get("paradigm_name", "").strip()
+    return _render_parse_page(parse_tool=tool, parse_selected_paradigm=selected)
+
+
+@bp.post("/parse/build-graphs")
+def parse_build_graphs():
+    paradigm_name = request.form.get("paradigm_name", "").strip()
+    try:
+        config_dir = _local_config_dir()
+        registry = _get_grammar_registry(config_dir)
+    except Exception as exc:
+        return redirect(url_for("web.parse", tool="word", paradigm_name=paradigm_name))
+
+    cache_key = (str(Path(config_dir)), paradigm_name)
+    if GRAPH_BUILD_STATUS.get(cache_key, {}).get("status") == "building":
+        return redirect(url_for("web.parse", tool="word", paradigm_name=paradigm_name))
+
+    paradigm = registry.paradigms.get(paradigm_name) if registry.paradigms else None
+    if paradigm is None:
+        return redirect(url_for("web.parse", tool="word", paradigm_name=paradigm_name))
+
+    GRAPH_BUILD_STATUS[cache_key] = {"status": "building", "error": None}
+
+    def _build():
+        try:
+            paradigm.build_all_graphs()
+            GRAPH_BUILD_STATUS[cache_key] = {"status": "done", "error": None}
+        except Exception as exc:
+            GRAPH_BUILD_STATUS[cache_key] = {"status": "error", "error": str(exc)}
+
+    threading.Thread(target=_build, daemon=True).start()
+    return redirect(url_for("web.parse", tool="word", paradigm_name=paradigm_name))
+
+
+@bp.get("/parse/build-status")
+def parse_build_status():
+    try:
+        config_dir = _local_config_dir()
+        registry = _get_grammar_registry(config_dir)
+    except Exception as exc:
+        return jsonify({"paradigms": {}, "error": str(exc)})
+
+    result = {}
+    paradigms = registry.paradigms or {}
+    for name, paradigm in paradigms.items():
+        cache_key = (str(Path(config_dir)), name)
+        build_info = GRAPH_BUILD_STATUS.get(cache_key, {"status": "idle", "error": None})
+        result[name] = {
+            "main_graphs_built": bool(paradigm.main_graphs_built),
+            "edit_graphs_built": bool(paradigm.edit_graphs_built),
+            "status": build_info["status"],
+            "error": build_info["error"],
+        }
+    return jsonify({"paradigms": result})
+
+
+@bp.post("/parse/word")
+def parse_word():
+    paradigm_name = request.form.get("paradigm_name", "").strip()
+    query = request.form.get("query", "").strip()
+    inexact = request.form.get("inexact", "") == "1"
+
+    if not paradigm_name:
+        return _render_parse_page(
+            parse_tool="word",
+            error="Please select a paradigm.",
+            parse_selected_paradigm=paradigm_name,
+            parse_query=query,
+            parse_inexact=inexact,
+        )
+
+    if not query:
+        return _render_parse_page(
+            parse_tool="word",
+            error="Please enter a form to parse.",
+            parse_selected_paradigm=paradigm_name,
+            parse_query=query,
+            parse_inexact=inexact,
+        )
+
+    try:
+        config_dir = _local_config_dir()
+        registry = _get_grammar_registry(config_dir)
+    except Exception as exc:
+        return _render_parse_page(
+            parse_tool="word",
+            error=f"Could not load grammar registry: {exc}",
+            parse_selected_paradigm=paradigm_name,
+            parse_query=query,
+            parse_inexact=inexact,
+        )
+
+    paradigm = registry.paradigms.get(paradigm_name)
+    if paradigm is None:
+        return _render_parse_page(
+            parse_tool="word",
+            error=f"Paradigm '{paradigm_name}' not found in registry.",
+            parse_selected_paradigm=paradigm_name,
+            parse_query=query,
+            parse_inexact=inexact,
+        )
+
+    try:
+        if inexact:
+            raw_results = paradigm.search_parses(query)
+            parse_results = []
+            for item in raw_results:
+                parse_str = item.get("parse", "")
+                idx = parse_str.find("[")
+                if idx >= 0:
+                    root = parse_str[:idx]
+                    feature_str = parse_str[idx:]
+                else:
+                    root = parse_str
+                    feature_str = ""
+                parse_results.append({
+                    "form": item.get("form", query),
+                    "root": root,
+                    "parse": feature_str,
+                    "num_edits": item.get("weight", 0),
+                })
+        else:
+            raw_results = paradigm.get_parses(query)
+            parse_results = []
+            for parse_str in raw_results:
+                idx = parse_str.find("[")
+                if idx >= 0:
+                    root = parse_str[:idx]
+                    feature_str = parse_str[idx:]
+                else:
+                    root = parse_str
+                    feature_str = ""
+                parse_results.append({
+                    "root": root,
+                    "parse": feature_str,
+                })
+    except (ValueError, Exception) as exc:
+        return _render_parse_page(
+            parse_tool="word",
+            error=str(exc),
+            parse_selected_paradigm=paradigm_name,
+            parse_query=query,
+            parse_inexact=inexact,
+        )
+
+    return _render_parse_page(
+        parse_tool="word",
+        parse_results=parse_results,
+        parse_selected_paradigm=paradigm_name,
+        parse_query=query,
+        parse_inexact=inexact,
+    )
+
+
 @bp.get("/inflect")
 def inflect():
     tool = request.args.get("tool", "stages").strip()
@@ -555,7 +736,7 @@ def rules_remove_entry(rule_id: str):
 def _add_item_handler(kind: str):
     page_context = _config_page_context()
     if page_context.get("error"):
-        return redirect(url_for("web.index", error=page_context["error"]))
+        return redirect(url_for("web.config", error=page_context["error"]))
 
     editor = EDITORS[kind]
     state = editor.state_from_json(request.form.get("state"))
@@ -572,7 +753,7 @@ def _add_item_handler(kind: str):
 def _run_tests_handler(kind: str, item_id: str):
     page_context = _config_page_context()
     if page_context.get("error"):
-        return redirect(url_for("web.index", error=page_context["error"]))
+        return redirect(url_for("web.config", error=page_context["error"]))
 
     editor = EDITORS[kind]
     state = editor.state_from_json(request.form.get("state"))
@@ -594,7 +775,7 @@ def _run_tests_handler(kind: str, item_id: str):
 def _remove_item_handler(kind: str, item_id: str):
     page_context = _config_page_context()
     if page_context.get("error"):
-        return redirect(url_for("web.index", error=page_context["error"]))
+        return redirect(url_for("web.config", error=page_context["error"]))
 
     editor = EDITORS[kind]
     state = editor.state_from_json(request.form.get("state"))
@@ -611,7 +792,7 @@ def _remove_item_handler(kind: str, item_id: str):
 def _marker_editor_state_handler(kind: str, mutator):
     page_context = _config_page_context()
     if page_context.get("error"):
-        return redirect(url_for("web.index", error=page_context["error"]))
+        return redirect(url_for("web.config", error=page_context["error"]))
 
     editor = EDITORS[kind]
     state = editor.state_from_json(request.form.get("state"))
@@ -690,6 +871,22 @@ def _save_state(state: dict[str, Any]) -> str:
     return save_config_text(_local_config_dir(), state["path"], state["content"])
 
 
+def _serialize_inventory_tree(item) -> dict:
+    return {
+        "value": item.value,
+        "type": item.type,
+        "children": [_serialize_inventory_tree(child) for child in item.children],
+    }
+
+
+def _has_phone(item) -> bool:
+    return item.type == "phone" or any(_has_phone(c) for c in item.children)
+
+
+def _has_flag(item) -> bool:
+    return item.type == "flag" or any(_has_flag(c) for c in item.children)
+
+
 def _render_page(
     state: dict[str, Any],
     page_context: dict[str, Any] | None = None,
@@ -755,6 +952,29 @@ def _render_page(
             state["available_features_to_values"] = {}
             state["available_patterns"] = []
 
+    # Right reference sidebar data
+    try:
+        if registry is None:
+            registry = _get_grammar_registry(_local_config_dir())
+        fst_reg = registry.fst_registry
+        inv_reg = fst_reg.inventory_registry
+        all_items = inv_reg.data.values()
+        root_items = [item for item in all_items if item.parent is None]
+        extra["sidebar_phone_trees"] = [
+            _serialize_inventory_tree(i) for i in root_items if _has_phone(i)
+        ]
+        extra["sidebar_flag_trees"] = [
+            _serialize_inventory_tree(i) for i in root_items if _has_flag(i)
+        ]
+        extra["sidebar_patterns"] = [
+            {"ref": p._ref, "value": p.value if isinstance(p.value, str) else " | ".join(p.value)}
+            for p in fst_reg.patterns.values()
+        ]
+    except Exception:
+        extra["sidebar_phone_trees"] = []
+        extra["sidebar_flag_trees"] = []
+        extra["sidebar_patterns"] = []
+
     return render_template(
         "index.html",
         active_tab="config",
@@ -771,6 +991,58 @@ def _render_page(
         message=message,
         error=error,
         **extra,
+    )
+
+
+def _render_parse_page(
+    parse_tool: str = "word",
+    message: str | None = None,
+    error: str | None = None,
+    parse_results: list[dict] | None = None,
+    parse_selected_paradigm: str = "",
+    parse_query: str = "",
+    parse_inexact: bool = False,
+):
+    parse_registry_error = None
+    paradigm_names: list[str] = []
+
+    try:
+        config_dir = _local_config_dir()
+        yaml_files = list_config_yaml_files(config_dir)
+        paradigm_names = [
+            item["label"]
+            for item in yaml_files
+            if item.get("kind") == "Paradigm"
+        ]
+    except Exception as exc:
+        parse_registry_error = (
+            "Could not load grammar registry. Ensure your config files "
+            "define at least one valid Paradigm before using the Parse tab. "
+            f"({exc})"
+        )
+
+    return render_template(
+        "index.html",
+        active_tab="parse",
+        parse_tool=parse_tool,
+        paradigm_names=paradigm_names,
+        parse_registry_error=parse_registry_error,
+        parse_results=parse_results,
+        parse_selected_paradigm=parse_selected_paradigm,
+        parse_query=parse_query,
+        parse_inexact=parse_inexact,
+        message=message,
+        error=error,
+        # Defaults for config-tab vars that base template may reference
+        state={},
+        selected_path="",
+        selected_kind=None,
+        editor_kind="",
+        state_json="",
+        yaml_preview="",
+        sidebar_phone_trees=[],
+        sidebar_flag_trees=[],
+        sidebar_patterns=[],
     )
 
 
@@ -858,6 +1130,9 @@ def _render_inflect_page(
         editor_kind="",
         state_json="",
         yaml_preview="",
+        sidebar_phone_trees=[],
+        sidebar_flag_trees=[],
+        sidebar_patterns=[],
     )
 
 
