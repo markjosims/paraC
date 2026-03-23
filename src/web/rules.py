@@ -155,8 +155,7 @@ def _document_rules(rules: list[dict[str, Any]]) -> dict[str, Any]:
                 entry["string_map"] = string_map
         elif rule_type == "rule_sequence":
             rule_sequence = _split_lines(rule.get("rule_sequence_text", ""))
-            if rule_sequence:
-                entry["rule_sequence"] = rule_sequence
+            entry["rule_sequence"] = rule_sequence
         else:
             entry["input_pattern"] = _coerce_nullable_pattern(
                 rule.get("input_pattern", "")
