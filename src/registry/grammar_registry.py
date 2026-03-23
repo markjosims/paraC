@@ -756,7 +756,6 @@ class Paradigm:
         sigma = self.fst_registry.sigma
         sigma_star = self.fst_registry.sigma_star
 
-        fsa = self.fst_registry.fsa
         wfsa = self.fst_registry.wfsa
 
         # build single edit transducers
