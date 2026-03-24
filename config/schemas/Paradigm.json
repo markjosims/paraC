@@ -62,7 +62,7 @@
     },
     "feature_combinations": {
       "type": "string",
-      "pattern": "$\\$.*",
+      "pattern": "^\\$.*$",
       "description": "Imported defining valid feature cross-products. If blank, all combinations of features are generated."
     },
     "contingent_markers": {
