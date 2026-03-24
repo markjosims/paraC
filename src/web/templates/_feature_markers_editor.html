@@ -223,11 +223,11 @@
       var warnings = [];
       var markerType = type.value;
       var markerValue = value ? value.value.trim() : "";
-      if (markerType === "prefix" && markerValue && !(/[=-]$/).test(markerValue)) {
-        warnings.push("Prefix values should end with - or =");
+      if (markerType === "prefix" && markerValue && !(/[-=_]$/).test(markerValue)) {
+        warnings.push("Prefix values should end with -, =, or _");
       }
-      if (markerType === "suffix" && markerValue && !(/^[-=]/).test(markerValue)) {
-        warnings.push("Suffix values should start with - or =");
+      if (markerType === "suffix" && markerValue && !(/^[-=_]/).test(markerValue)) {
+        warnings.push("Suffix values should start with -, =, or _");
       }
       if (markerType === "replace") {
         if (!input.value.trim() || !output.value.trim()) {

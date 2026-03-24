@@ -311,10 +311,10 @@
       var warnings = [];
       var markerType = type.value;
       var markerValue = value ? value.value.trim() : "";
-      if (markerType === "prefix" && markerValue && !(/[=-]$/).test(markerValue)) {
+      if (markerType === "prefix" && markerValue && !(/[=-_]$/).test(markerValue)) {
         warnings.push("Prefix values should end with - or =");
       }
-      if (markerType === "suffix" && markerValue && !(/^[-=]/).test(markerValue)) {
+      if (markerType === "suffix" && markerValue && !(/^[-=_]/).test(markerValue)) {
         warnings.push("Suffix values should start with - or =");
       }
       if (markerType === "replace") {

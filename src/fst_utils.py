@@ -99,7 +99,7 @@ class Prefix(Transducer):
 
         if (
             (not self.value) or
-            (self.value.strip("()")[-1] not in ReservedSymbolMixin.boundary_symbols)
+            not any(self.value.strip("()").endswith(boundary) for boundary in ReservedSymbolMixin.boundary_symbols)
         ):
             raise ValueError(
                 "Prefixes require the `value` attribute to be specified " +\
@@ -143,7 +143,7 @@ class Suffix(Transducer):
 
         if (
             (not self.value) or
-            (self.value.strip("()")[0] not in ReservedSymbolMixin.boundary_symbols)
+            not any(self.value.strip("()").startswith(boundary) for boundary in ReservedSymbolMixin.boundary_symbols)
         ):
             raise ValueError(
                 "Suffixes require the `value` attribute to be specified " +\

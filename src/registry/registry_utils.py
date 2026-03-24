@@ -153,6 +153,7 @@ class ReservedSymbolMixin:
 
     affix_boundary = "-"
     clitic_boundary = "="
+    periphrasis_break = "_"
 
     star = '*'
     plus = '+'
@@ -174,7 +175,7 @@ class ReservedSymbolMixin:
     reserved_refs = (phone_ref, flag_ref, epsilon_ref, sigma_ref, boundary_ref)
     bow_eow_flags = (bow, eow)
     edit_flags = (insert, substitute, delete)
-    boundary_symbols = (affix_boundary, clitic_boundary)
+    boundary_symbols = (affix_boundary, clitic_boundary, periphrasis_break)
 
     reserved_symbols = left_delimiters + right_delimiters + \
         unary_operators + (pipe_operator,) + reserved_refs + \

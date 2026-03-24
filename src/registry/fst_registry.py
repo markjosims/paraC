@@ -815,9 +815,14 @@ class FstRegistry(Registry, ReservedSymbolMixin):
             self.clitic_boundary,
             token_type=self.symbols,
         )
+        self.periphrasis_break_fsa = pynini.accep(
+            self.periphrasis_break,
+            token_type=self.symbols,
+        )
         self.boundary_fsa = pynini.union(
             self.affix_boundary_fsa,
             self.clitic_boundary_fsa,
+            self.periphrasis_break_fsa,
         )
 
         self.bow_fsa = pynini.accep(
@@ -958,6 +963,7 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         # store tokens as a dict mapping token type to list of token values
         # acting as an incomplete Aho-Corasick trie for tokenization of pattern strings
         tokens = defaultdict(list)
+        
         for l_delimiter in self.left_delimiters:
             tokens["left_delimiter"].append(Token(value=l_delimiter, type="left_delimiter"))
         for r_delimiter in self.right_delimiters:
