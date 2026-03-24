@@ -414,6 +414,10 @@ class Paradigm:
                     marker_list.merge_list(self.global_markers)
 
     def _build_all_marker_transducers(self):
+        """
+        For every feature and contingent feature marker list,
+        instantiate the FST for all markers contained.
+        """
         for marker_set in self.markers:
             for marker_list in marker_set.data.values():
                 for marker in marker_list:
@@ -547,6 +551,7 @@ class Paradigm:
             stem: FsaLike,
             fixed_features: Optional[Dict[str, str]] = None,
             max_rows: int=None,
+            skip_errors: bool=True,
     ) -> List[Tuple[pynini.Fst, Dict[str, str]]]:
         """
         Inflect a given stem according to the markers specified for the
@@ -556,10 +561,24 @@ class Paradigm:
         if max_rows is not None:
             valid_combinations = valid_combinations[:max_rows]
 
-        results = [
-            (self.inflect(stem, combo), combo)
-            for combo in valid_combinations
-        ]
+        results = []
+        for combo in valid_combinations:
+            try:
+                fst = self.inflect(stem, combo)
+                results.append((fst, combo))
+            except Exception as e:
+                error = f"Error {e} occurred while computing FST for stem {stem} and features {combo}"
+                if skip_errors:
+                    logger.warning(error +", skipping...")
+                else:
+                    raise ValueError(error)
+                
+        if len(results) < len(valid_combinations):
+            logger.warning(
+                f"Successfully computed {len(results)} forms out of {len(valid_combinations)} expected"
+            )
+        else:
+            logger.info(f"Successfully computed {len(results)} forms")
         
         return results
 
@@ -707,6 +726,7 @@ class Paradigm:
                 stem=root_fsa,
                 fixed_features=None,
                 max_rows=None,
+                skip_errors=True,
             )
 
             for fst, combination in inflected_transducers:
