@@ -1477,13 +1477,23 @@ class FstRegistry(Registry, ReservedSymbolMixin):
         wfsa.optimize()
         return wfsa
     
-    def word_fsa(self, word_str: str) -> pynini.Fst:
+    def word_fsa(self, word_str: str, prefix: Optional[str]=None) -> pynini.Fst:
         """
-        Constructs an FSA for a word, i.e. a string with [BOS] and [EOS] markers at the beginning and end.
+        Constructs an FSA for a word, i.e. a string with [BOW] and [EOW]
+        markers at the beginning and end. If a `prefix` is specified, it
+        is prepended to the word **before** the [BOW] marker. This is
+        typically used for lexical features that other rules may reference.
         """
         if not isinstance(word_str, str):
             raise ValueError(f"Input to `word_fsa` must be a string, got {type(word_str)}")
+
         word_str = self.bow + word_str + self.eow
+
+        if prefix and not isinstance(prefix, str):
+            raise ValueError(f"`prefix` must be a string, got {type(word_str)}")
+        elif prefix:
+            word_str = prefix + word_str
+
         return self.parse_pattern(word_str)
     
     def wordlist_fsa(self, words: List[str]) -> pynini.Fst:
