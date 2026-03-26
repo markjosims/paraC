@@ -11,7 +11,7 @@ rules:
     test_mappings:
     - - ka-i
       - k-ɛ
-    - - pᴐ́-ì
+    - - pɔ́-ì
       - p-ɛ̀
     - - kɜ̀-í
       - k-ɛ́
@@ -26,7 +26,7 @@ rules:
       - ɛ̀
     - - î=ǔ
       - =ǔ
-    - - ᴐ̀í
+    - - ɔ̀í
       - í
   resolve_hiatus:
     rule_sequence:
@@ -37,11 +37,11 @@ rules:
       - ɛ̀
     - - î=ǔ
       - =ǔ
-    - - ᴐ̀í
+    - - ɔ̀í
       - ɛ́
     - - ka-i
       - k-ɛ
-    - - pᴐ́-ì
+    - - pɔ́-ì
       - p-ɛ̀
     - - kɜ̀-í
       - k-ɛ́

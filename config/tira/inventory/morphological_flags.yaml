@@ -7,17 +7,17 @@ data:
   fv_classes:
     _ref: <FV>
     _flags:
-    - '[aᴐ]'
+    - '[aɔ]'
     - '[ao]'
     - '[ai]'
-    - '[ᴐᴐ]'
-    - '[ᴐu]'
-    - '[ᴐi]'
+    - '[ɔɔ]'
+    - '[ɔu]'
+    - '[ɔi]'
   accusative_markers:
     _ref: <ACC>
     _flags:
     - '[-a]'
     - '[-ɛ]'
-    - '[-ᴐ]'
+    - '[-ɔ]'
     - '[-ŋù]'
     - '[-ɲa]'

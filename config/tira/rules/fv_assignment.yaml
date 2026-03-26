@@ -2,44 +2,44 @@ kind: Rules
 rules:
   ipfv_it_fv:
     string_map:
-    - - '{[aᴐ][ao][ai]}'
+    - - '{[aɔ][ao][ai]}'
       - -à
-    - - '{[ᴐᴐ][ᴐi][ᴐu]}'
-      - -ᴐ̀
+    - - '{[ɔɔ][ɔi][ɔu]}'
+      - -ɔ̀
     test_mappings:
-    - - vəlɛð[aᴐ]
+    - - vəlɛð[aɔ]
       - vəlɛð-à
-    - - kɜc[ᴐi]
-      - kɜc-ᴐ̀
-    - - ilɛð[ᴐᴐ]
-      - ilɛð-ᴐ̀
+    - - kɜc[ɔi]
+      - kɜc-ɔ̀
+    - - ilɛð[ɔɔ]
+      - ilɛð-ɔ̀
   ipfv_pfv_vent_fv:
     string_map:
-    - - '{[aᴐ][ᴐᴐ]}'
-      - -ᴐ́
+    - - '{[aɔ][ɔɔ]}'
+      - -ɔ́
     - - '[ao]'
       - -ó
-    - - '[ᴐu]'
+    - - '[ɔu]'
       - -ú
-    - - '{[ai][ᴐi]}'
+    - - '{[ai][ɔi]}'
       - -í
     test_mappings:
-    - - vəlɛð[aᴐ]
-      - vəlɛð-ᴐ́
-    - - kɜc[ᴐi]
+    - - vəlɛð[aɔ]
+      - vəlɛð-ɔ́
+    - - kɜc[ɔi]
       - kɜc-í
-    - - ilɛð[ᴐᴐ]
-      - ilɛð-ᴐ́
+    - - ilɛð[ɔɔ]
+      - ilɛð-ɔ́
   pfv_it_fv:
     string_map:
-    - - '{[aᴐ][ᴐᴐ]}'
+    - - '{[aɔ][ɔɔ]}'
       - -ɛ̀
-    - - '{[ao][ᴐu][ai][ᴐi]}'
+    - - '{[ao][ɔu][ai][ɔi]}'
       - -ì
     test_mappings:
-    - - vəlɛð[aᴐ]
+    - - vəlɛð[aɔ]
       - vəlɛð-ɛ̀
-    - - kɜc[ᴐi]
+    - - kɜc[ɔi]
       - kɜc-ì
-    - - ilɛð[ᴐᴐ]
+    - - ilɛð[ɔɔ]
       - ilɛð-ɛ̀
