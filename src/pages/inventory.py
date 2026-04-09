@@ -19,47 +19,91 @@ import os
 from pathlib import Path
 
 import streamlit as st
-from src.editors.inventory import InventoryEditor
+from src.grammar.registry.inventory_registry import (
+    InventoryItem,
+    InventoryClass,
+    InventoryMemberType,
+)
+from src.grammar import Grammar
+from src.config_utils.config_walker import ConfigWalker
+from src.pages.editor_utils import EditorState
 import yaml
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-DIAC_TOKENS: list[str] = ["DIAC:á", "DIAC:à", "DIAC:ā", "DIAC:ǎ", "DIAC:â", "DIAC:ã"]
+DIAC_TOKENS: list[str] = [
+    "<DIAC:á>",
+    "<DIAC:à>",
+    "<DIAC:ā>",
+    "<DIAC:ǎ>",
+    "<DIAC:â>",
+    "<DIAC:ã>",
+]
 
-_editor = InventoryEditor()
+# TODO: remove all `_editor` logic and refactor to be internal to this script
+# or come from the new editor_utils.py file
+# TODO: use new InventoryItem/Class API
+# InventoryItem is only leaf nodes
+# Only InventoryClass is to be rendered: phone/flag leaf nodes
+# are built from CSVs in form for InventoryClass
+# and stored internally
+
+# Editor logic:
+# .load_state(dirpath, relpath) ->: {path, kind, nodes}
+# .new_state() ->: {path, kind, nodes}
+# .update_from_form() ->: {path: updated_path, nodes: self._update_items_from_form}
+# ._update_items_from_form() ->: recursively serialize nodes
+# .add_item(item: dict) ->: append item to self.nodes
+# .to_yaml() ->: serialize nodes using ._mapping_from_nodes
+# ._mapping_from_nodes(nodes_list) ->:
+#   - splits commas
+#   - changes DIAC tokens into actual diacritics
+
+_config_kind = "Inventory"
+_config_key = "inventory_configs"
 
 # ---------------------------------------------------------------------------
 # State helpers
 # ---------------------------------------------------------------------------
 
 
-def _load_file(config_dir: str, relative_path: str) -> None:
+def _load_file(filepath: str) -> None:
     """Load an inventory file into session state, clearing stale widget keys."""
     _clear_node_widget_keys(st.session_state.get("editor_state", {}).get("nodes", []))
+    config_walker: ConfigWalker = st.session_state["config_walker"]
     try:
-        state = _editor.load_state(config_dir, relative_path)
-    except FileNotFoundError:
-        st.error(f"File not found: `{relative_path}`")
+        config_object = config_walker.config_data[_config_key][filepath]
+        inventory_items = [
+            InventoryItem.from_config(item_config)
+            for item_config in config_object["data"]
+        ]
+        state = EditorState(
+            path=filepath,
+            kind=_config_kind,
+            data=inventory_items,
+        )
+    except KeyError:
+        st.error(f"File not found: `{filepath}`")
         return
     except ValueError as exc:
         st.error(str(exc))
         return
     st.session_state.editor_state = state
-    st.session_state.loaded_file = relative_path
+    st.session_state.loaded_file = filepath
 
 
 def _new_file() -> None:
     """Reset editor to a blank state."""
     _clear_node_widget_keys(st.session_state.get("editor_state", {}).get("nodes", []))
-    st.session_state.editor_state = _editor.new_state()
+    st.session_state.editor_state = EditorState(path="", kind=_config_kind)
     st.session_state.loaded_file = None
     # also reset the path widget
     st.session_state.pop("path", None)
 
 
-def _clear_node_widget_keys(nodes: list[dict]) -> None:
+def _clear_node_widget_keys(nodes: list[InventoryMemberType]) -> None:
     """Remove all widget keys for a node subtree from session state."""
     for node in nodes:
         nid = node["id"]
@@ -92,10 +136,9 @@ def _yaml_preview(state: dict) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _render_node(node: dict, depth: int = 0) -> None:
+def _render_node(node_id: str, node: InventoryItem, depth: int = 0) -> None:
     """Render a single inventory node and recurse into children."""
-    nid = node["id"]
-    has_children = bool(node.get("children"))
+    has_children = bool(node.children)
 
     # Visual indentation: pair an invisible spacer column with the content column.
     if depth > 0:
@@ -104,7 +147,6 @@ def _render_node(node: dict, depth: int = 0) -> None:
     else:
         content_col = st
 
-    node_name = node.get("name", "Unnamed node")
     node_ref = node.get("ref", "(ref not set)")
     with content_col.popover(f"{node_name} `{node_ref}`"):
         # ── Name & Reference ──────────────────────────────────────────────
@@ -126,7 +168,12 @@ def _render_node(node: dict, depth: int = 0) -> None:
 
         # ── Items (phones / flags) — disabled when node has children ──────
         if has_children:
-            st.text_input("Node contents", value="Child nodes", disabled=True, key=f"_disabled-{nid}")
+            st.text_input(
+                "Node contents",
+                value="Child nodes",
+                disabled=True,
+                key=f"_disabled-{nid}",
+            )
             st.caption("This node has children — phones and flags are disabled.")
         else:
             col_kind, col_items = st.columns(2)
@@ -156,10 +203,10 @@ def _render_node(node: dict, depth: int = 0) -> None:
                 for i, token in enumerate(DIAC_TOKENS):
                     diac_cols[i].code(token, language="text")
                     # if diac_cols[i].button(token, key=f"diac-{nid}-{i}"):
-                        # current = st.session_state.get(f"items_text-{nid}", "")
-                        # separator = ", " if current.strip() and not current.rstrip().endswith(",") else ""
-                        # st.session_state[f"items_text-{nid}"] = current + separator + token
-                        # st.rerun()
+                    # current = st.session_state.get(f"items_text-{nid}", "")
+                    # separator = ", " if current.strip() and not current.rstrip().endswith(",") else ""
+                    # st.session_state[f"items_text-{nid}"] = current + separator + token
+                    # st.rerun()
 
         # ── Node actions ──────────────────────────────────────────────────
         btn_add, btn_remove = st.columns(2)
@@ -193,8 +240,9 @@ def inventory_page() -> None:
         layout="wide",
     )
 
-    config_dir = st.session_state['config_dir']
-    inventory_files = ...
+    config_dir: str = st.session_state["config_dir"]
+    config_walker: ConfigWalker = st.session_state["config_walker"]
+    inventory_files = config_walker.config_filemap[_config_key]
 
     # ── Sidebar: file picker ───────────────────────────────────────────────
     with st.sidebar:
@@ -203,17 +251,23 @@ def inventory_page() -> None:
         st.divider()
 
         st.subheader("Open file")
-        file_options = ["(new file)"] + inventory_files
+        file_options = [None] + inventory_files
+        file_indices = list(range(len(file_options)))
+
+        inventory_basenames = [os.path.basename(file) for file in inventory_files]
+        file_display_options = ["(new file)"] + inventory_basenames
 
         if not inventory_files:
             st.info(f"No Inventory YAML files found under `{config_dir}`.")
 
-        selected_file = st.selectbox(
+        selected_file_idx = st.selectbox(
             "Inventory files",
-            options=file_options,
+            options=file_indices,
+            format_func=lambda i: file_display_options[i],
             key="file_selector",
             label_visibility="collapsed",
         )
+        selected_file = file_options[selected_file_idx]
 
         col_open, col_refresh = st.columns(2)
         with col_open:
@@ -224,7 +278,11 @@ def inventory_page() -> None:
                     _load_file(config_dir, selected_file)
                 st.rerun()
         with col_refresh:
-            if st.button("↺ Refresh", use_container_width=True, help="Re-scan CONFIG_DIR for inventory files"):
+            if st.button(
+                "↺ Refresh",
+                use_container_width=True,
+                help="Re-scan CONFIG_DIR for inventory files",
+            ):
                 st.rerun()
 
         st.divider()
@@ -237,7 +295,9 @@ def inventory_page() -> None:
 
     # ── Guard: no state yet ────────────────────────────────────────────────
     if "editor_state" not in st.session_state:
-        st.info("👈 Select a file in the sidebar and click **Open**, or open a **(new file)** to begin.")
+        st.info(
+            "👈 Select a file in the sidebar and click **Open**, or open a **(new file)** to begin."
+        )
         st.stop()
 
     state: dict = st.session_state.editor_state
@@ -270,7 +330,9 @@ def inventory_page() -> None:
         if st.button("💾 Save YAML", use_container_width=True, type="primary"):
             updated = _sync_to_state()
             # pull the current path widget value
-            updated["path"] = st.session_state.get("path", updated.get("path", "")).strip()
+            updated["path"] = st.session_state.get(
+                "path", updated.get("path", "")
+            ).strip()
             try:
                 saved_path = _editor.save(config_dir, updated)
                 st.session_state.editor_state = updated

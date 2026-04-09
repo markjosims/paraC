@@ -4,9 +4,9 @@ from loguru import logger
 from jsonschema import validate, ValidationError
 from pathlib import Path
 from src.constants import SCHEMA_DIR
-from typing import Tuple
+from typing import Literal, get_args
 
-CONFIG_KINDS = [
+ConfigKindType = Literal[
     "ContingentFeatureMarkers",
     "FeatureCombinations",
     "FeatureDefinitions",
@@ -17,7 +17,7 @@ CONFIG_KINDS = [
     "Patterns",
     "Rules",
 ]
-
+CONFIG_KINDS: tuple[str, ...] = get_args(ConfigKindType)
 
 def fix_refs_safe(schema: dict, schema_dir: Path) -> dict:
     """
@@ -68,7 +68,7 @@ def fix_refs_safe(schema: dict, schema_dir: Path) -> dict:
     return schema
 
 
-def get_referenced_content(ref_file_path: Path, object_path: str) -> Tuple[dict, str]:
+def get_referenced_content(ref_file_path: Path, object_path: str) -> tuple[dict, str]:
     # JSON path should be in the format "definitions/{OBJECT_NAME}"
     path_parts = object_path.strip("/").split("/")
     assert (

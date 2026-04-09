@@ -8,21 +8,68 @@ string representations.
 
 from src.grammar.classes import Registry
 from src.fst_utils import Acceptor, ReservedSymbolMixin
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 from dataclasses import dataclass, field
 import os
 from loguru import logger
+
+# TODO: update Fst registry and orchestrator family to expect
+# new InventoryItem/Class API
 
 
 @dataclass
 class InventoryItem(Acceptor):
     """
-    Represents an item in the inventory, which may be a phone,
-    flag or class.
+    Represents a single phone or flag in the inventory.
     Attributes:
-        value: The string value of the item (e.g. "a", "[TBU]", "<V>").
-        type: The type of the item, one of "phone", "flag", or "class".
-        children: List of child InventoryItems (for nested structures).
+        value: The string value of the item (e.g. "a", "[TBU]",).
+        type: The type of the item, either "phone" or "flag"
+        parent: reference to parent InventoryItem (for upward traversal).
+        source: Optional string indicating filepath item originates from.
+        acceptor: pynini.Fst accepting the item (or, for classes, any member of the item).
+            Note this should NOT be passed as an argument but instead be assigned by an
+            InventoryRegistry class.
+    """
+
+    value: str = ""
+    type: Literal["phone", "flag"] = "phone"
+    parent: Optional["InventoryClass"] = None
+    source: os.PathLike | None = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        
+        if (self.type == "flag") and (
+            not self.value.startswith("[") or not self.value.endswith("]")
+        ):
+            raise ValueError(
+                "Flag items must have values that start with '[' and end with ']'"
+            )
+        if (self.type == "phone") and (
+            self.value.startswith("<") or self.value.startswith("[")
+        ):
+            raise ValueError(
+                "Phone items cannot have values that start with '<' or '['"
+            )
+        
+    def __str__(self):
+        return f"InventoryItem(value='{self.value}')"
+
+    def __repr__(self):
+        return self.__str__()
+
+
+@dataclass
+class InventoryClass(Acceptor):
+    """
+    Represents an inventory class, which is a node in the inventory tree whose
+    children are phones, flags (i.e. InventoryItem objects) or other InventoryClasses
+    (for "nested_class").
+
+    Attributes:
+        value: The string value of the item (e.g. "<V>", "<Stop>", "<Tone>").
+        type: The type of the item, one of "phone_class", "flag_class", or "nested_class".
+        children: List of child InventoryItems.
         parent: Optional reference to parent InventoryItem (for upward traversal).
         source: Optional string indicating filepath item originates from.
         acceptor: pynini.Fst accepting the item (or, for classes, any member of the item).
@@ -31,7 +78,7 @@ class InventoryItem(Acceptor):
     """
 
     value: str = ""
-    type: Literal["phone", "flag", "class"] = "phone"
+    type: Literal["phone_class", "flag_class", "nested_class"] = "phone_class"
     children: list["InventoryItem"] = field(default_factory=list)
     parent: Optional["InventoryItem"] = None
     source: os.PathLike | None = None
@@ -46,26 +93,10 @@ class InventoryItem(Acceptor):
 
         if self.type == "class" and self.children is None:
             raise ValueError("Class items must have children")
-        if self.type in ("phone", "flag") and self.children:
-            raise ValueError("Phone and flag items cannot have children")
 
-        if (self.type == "class") and (
-            not self.value.startswith("<") or not self.value.endswith(">")
-        ):
+        if not self.value.startswith("<") or not self.value.endswith(">"):
             raise ValueError(
                 "Class items must have values that start with '<' and end with '>'"
-            )
-        if (self.type == "flag") and (
-            not self.value.startswith("[") or not self.value.endswith("]")
-        ):
-            raise ValueError(
-                "Flag items must have values that start with '[' and end with ']'"
-            )
-        if (self.type == "phone") and (
-            self.value.startswith("<") or self.value.startswith("[")
-        ):
-            raise ValueError(
-                "Phone items cannot have values that start with '<' or '['"
             )
 
     @classmethod
@@ -95,11 +126,11 @@ class InventoryItem(Acceptor):
         for key, value in item_dict.items():
             if key == "_phones":
                 for phone in value:
-                    child = cls(value=phone, type="phone", parent=inventory_item)
+                    child = InventoryItem(value=phone, type="phone", parent=inventory_item)
                     children.append(child)
             elif key == "_flags":
                 for flag in value:
-                    child = cls(value=flag, type="flag", parent=inventory_item)
+                    child = InventoryItem(value=flag, type="flag", parent=inventory_item)
                     children.append(child)
             elif isinstance(value, dict):
                 child = cls.from_config(value, parent=inventory_item)
@@ -108,7 +139,7 @@ class InventoryItem(Acceptor):
         inventory_item.children = children
         return inventory_item
 
-    def flatten(self) -> list["InventoryItem"]:
+    def flatten(self) -> list["InventoryItem" | "InventoryClass"]:
         """Recursively InventoryItem into a list including itself and all children."""
         items = [self]
         for child in self.children:
@@ -116,23 +147,25 @@ class InventoryItem(Acceptor):
         return items
 
     def __str__(self):
-        return f"InventoryItem(value='{self.value}')"
+        return f"InventoryClass(value='{self.value}')"
 
     def __repr__(self):
         return self.__str__()
+    
+InventoryMemberType = Union[InventoryItem, InventoryClass]
 
 
 class InventoryRegistry(Registry):
     """
     Registry for storing inventory items (phones, flags, classes).
     Instantiated directly with a pre-built `data` dict mapping inventory
-    item names to `InventoryItem` objects, or a `config_objects` dict mapping
+    item names to `InventoryMemberType` objects, or a `config_objects` dict mapping
     filenames to YAML config objects.
     """
 
     def __init__(
         self,
-        data: dict[str, InventoryItem] | None = None,
+        data: dict[str, InventoryMemberType] | None = None,
         config_objects: dict[str, dict] | None = None,
     ):
         super().__init__(kind="Inventory", data=data, config_objects=config_objects)
@@ -153,7 +186,7 @@ class InventoryRegistry(Registry):
         self.flags = flags
         self.classes = classes
 
-    def load_all_configs(self) -> dict[str, InventoryItem]:
+    def load_all_configs(self) -> dict[str, InventoryMemberType]:
         config_items = {}
         for config in self.config_objects.values():
             config_data = self.load_data_from_config(config)
@@ -169,7 +202,7 @@ class InventoryRegistry(Registry):
     def load_data_from_config(
         self,
         config: dict,
-    ) -> dict[str, InventoryItem]:
+    ) -> dict[str, InventoryMemberType]:
         top_classes = config.get("data", [])
         if not top_classes:
             logger.error("No top-level inventory classes found in config")
@@ -178,7 +211,7 @@ class InventoryRegistry(Registry):
         # get flat list of items
         inventory_items = []
         for item_config in top_classes.values():
-            item = InventoryItem.from_config(item_config)
+            item = InventoryClass.from_config(item_config)
             flat_item = item.flatten()
             inventory_items.extend(flat_item)
 
@@ -198,11 +231,12 @@ class InventoryRegistry(Registry):
 
         return config_items
 
-    def _get_tokens_from_class(self, item: InventoryItem) -> list[str]:
+    def _get_tokens_from_class(self, item: InventoryMemberType) -> list[str]:
         """Recursively collect all phone/flag tokens from an InventoryItem subtree."""
         tokens = []
-        if item.type in ("phone", "flag"):
+        if isinstance(item, InventoryItem):
             tokens.append(item.value)
-        for child in item.children:
-            tokens.extend(self._get_tokens_from_class(child))
+        else:
+            for child in item.children:
+                tokens.extend(self._get_tokens_from_class(child))
         return tokens

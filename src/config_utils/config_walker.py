@@ -23,8 +23,27 @@ class ConfigWalker:
 
     def __init__(self, config_dir: str | Path) -> "ConfigWalker":
         self.config_dir = Path(config_dir)
+        self.config_data = self._get_all_config_data()
+        self.config_filemap = self._get_config_filemap()
 
-    def get_all_config_data(self) -> dict[str, list[dict]]:
+    def _get_config_filemap(self) -> dict[str, list[str]]:
+        """
+        Gets a mapping of config kind -> filenames from
+        `self.config_data`, i.e.
+        ```python
+        {
+            "inventory_configs": ["/path/to/file1.yaml", "path/to/file2.yaml"],
+            "pattern_configs": ["/path/to/file1.yaml", "path/to/file2.yaml"],
+            ...
+        }
+        ```
+        """
+        filemap = {}
+        for kind, config_objects in self.config_data.items():
+            filemap[kind] = list(config_objects.keys())
+        return filemap
+
+    def _get_all_config_data(self) -> dict[str, dict[str, dict]]:
         """
         Reads all YAML data in the config folder and returns
         as dict mapping config type to list of objects.
@@ -32,7 +51,25 @@ class ConfigWalker:
         Reformat kind name from PascalCase to snake_case, strip
         plural -s if present, and suffix + '_configs'
         to match format expected by `Grammar` class, e.g.
-        FeatureMarkers -> feature_markers_configs
+        FeatureMarkers -> feature_markers_configs.
+
+        Return dict is of format
+        ```python
+        {
+            'inventory_configs': {
+                '/path/to/inventory/file.yaml': {
+                    **YAML DATA
+                },
+                ...
+            },
+            'pattern_configs': {
+                '/path/to/pattern/file.yaml': {
+                    **YAML DATA
+                },
+                ...
+            }
+        }
+        ```
         """
         config_map = {}
         for kind in CONFIG_KINDS:
@@ -40,8 +77,6 @@ class ConfigWalker:
             configs = self.read_config_files(kind)
             config_map[kind_name] = configs
         return config_map
-    
-    # TODO: load config files eagerly, rebuild on invalidation
 
     def read_config_files(self, kind: str) -> dict[str, str]:
         """
@@ -159,4 +194,3 @@ def _normalize_config_dir(config_dir: str) -> Path | None:
     if not resolved.exists() or not resolved.is_dir():
         return None
     return resolved
-

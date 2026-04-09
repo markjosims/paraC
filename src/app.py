@@ -11,7 +11,7 @@ GRAMMAR_BUILD_STATUS: dict[tuple[str, str], dict] = {}
 
 
 def load_grammar(config_walker: ConfigWalker) -> Grammar:
-    config_data = config_walker.get_all_config_data()
+    config_data = config_walker.config_data
     grammar = Grammar(**config_data)
     return grammar
 
@@ -36,12 +36,15 @@ def initialize_state():
         st.session_state["config_walker"] = config_walker
     if watcher is None:
         logger.info("Starting watcher...")
-        watcher = start_watcher(config_dir=config_dir, invalidate_keys=['grammar'])
+        watcher = start_watcher(
+            config_dir=config_dir, invalidate_keys=["grammar", "config_walker"]
+        )
         st.session_state["watcher"] = watcher
     if grammar is None:
         logger.info(f"Loading grammar from {config_dir}...")
         grammar = load_grammar(config_walker=config_walker)
         st.session_state["grammar"] = grammar
+
 
 def navbar():
     pages = {
