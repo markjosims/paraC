@@ -1,16 +1,7 @@
 """
-Registries and dataclasses for morphological features.
-
-Registry classes (inherit Registry from src.registry_utils):
+Implements FeatureOrchestrator, which manages following registries:
 - FeatureValuesRegistry: loads/manages FeatureDefinitions configs
 - FeatureCombinationsRegistry: loads/manages FeatureCombinations configs
-- FeatureRegistry: orchestrates both registries
-
-Dataclasses:
-- Feature: a single feature category and its possible values
-
-Utilities:
-- FeatureValueCombinations: expands and queries licit feature-value combinations
 """
 
 from __future__ import annotations
@@ -36,10 +27,15 @@ class FeatureOrchestrator(Orchestrator):
     def __init__(
         self,
         feature_configs: dict[str, dict],
-        feature_combo_configs: dict[str, dict],
+        feature_combination_configs: dict[str, dict],
     ):
-        self.feature_values_registry = FeatureValuesRegistry(config_objects=feature_configs)
-        self.feature_combinations_registry = FeatureCombinationsRegistry(config_objects=feature_combo_configs)
+        self.feature_values_registry = FeatureValuesRegistry(
+            config_objects=feature_configs
+        )
+        self.feature_combinations_registry = FeatureCombinationsRegistry(
+            config_objects=feature_combination_configs,
+            feature_values_registry=self.feature_values_registry,
+        )
 
         self.features: dict[str, Feature] = self.feature_values_registry.data
         self.feature_combinations: dict[str, FeatureValueCombinations] = (

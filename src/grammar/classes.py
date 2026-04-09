@@ -6,10 +6,10 @@ all configs for a particular area of the grammar.
 
 Grammars is initialized in two primary stages: reading and loading.
 'Reading' refers to reading YAML files into Python dictionaries, but
-not interpreting or acting on the data in any way. The `Grammar` class
-(the Orchestrator of Orchestrators) handles all reading logic, and passes
-YAML data to child Orchestrator classes, which in turn pass data onto
-child Registries.
+not interpreting or acting on the data in any way. The `ConfigWalker` class
+handles all reading logic, and passes YAML data to the `Grammar` class
+(the orchestrator of orchestrators), which passes data onto child Orchestrator
+classes, which in turn pass data onto child Registries.
 
 The 'loading' phase is where YAML data is interpreted into actionable logic,
 e.g. the phones from an inventory config are built into FSTs.
@@ -25,7 +25,7 @@ class Orchestrator:
     At present there is no shard logic among orchestrators, but we
     still implement a dummy parent class for organizational purposes.
     """
-    def __init__():
+    def __init__(self):
         pass
 
 
@@ -49,14 +49,14 @@ class Registry:
             self.config_objects = config_objects
             self.data = self.load_all_configs()
         else:
-            raise ValueError("Cannot specify both data and config_list")
+            raise ValueError("Cannot specify both data and config_objects")
 
     def load_all_configs(self) -> dict:
         raise NotImplementedError(
-            "Must be implemented by subclass to load and merge all configs in config_list."
+            "Must be implemented by subclass to load and merge all configs in config_objects."
         )
 
-    def load_data_from_config(self) -> dict:
+    def load_data_from_config(self, config: dict) -> dict:
         raise NotImplementedError(
             "Must be implemented by subclass to load data from a single config dict."
         )

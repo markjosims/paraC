@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 from loguru import logger
+from copy import deepcopy
 from src.grammar.classes import Registry
 from src.grammar.registry.feature_values_registry import FeatureValuesRegistry
 
@@ -54,6 +55,7 @@ class FeatureValueCombinations:
 
     def combination_is_valid(self, combination: dict[str, str]) -> bool:
         """Check if a given combination of feature values is licit."""
+        combination = deepcopy(combination)
         for expected_feature in self.feature_names:
             if expected_feature not in combination:
                 combination[expected_feature] = "unmarked"
@@ -162,7 +164,7 @@ class FeatureCombinationsRegistry(Registry):
         self,
         feature_values_registry: FeatureValuesRegistry | None = None,
         data: dict[str, FeatureValueCombinations] | None = None,
-        config_objects: list[dict] | None = None,
+        config_objects: dict[str, dict] | None = None,
     ):
         self.feature_values_registry = feature_values_registry
         super().__init__(
@@ -171,7 +173,7 @@ class FeatureCombinationsRegistry(Registry):
 
     def load_all_configs(self) -> dict[str, FeatureValueCombinations]:
         config_items: dict[str, FeatureValueCombinations] = {}
-        for config in self.config_objects:
+        for config in self.config_objects.values():
             config_data = self.load_data_from_config(config)
             for key in config_data:
                 if key in config_items:

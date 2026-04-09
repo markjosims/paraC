@@ -65,7 +65,7 @@ class FeatureValuesRegistry(Registry):
     def __init__(
         self,
         data: dict[str, Feature] | None = None,
-        config_objects: list[dict] | None = None,
+        config_objects: dict[str, dict] | None = None,
     ):
         super().__init__(kind="FeatureDefinitions", data=data, config_objects=config_objects)
         self._populate_features_to_values()

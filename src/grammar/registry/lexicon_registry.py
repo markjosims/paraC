@@ -4,7 +4,6 @@ as well as the `LexiconRegistry` class, which is responsible for
 storing and managing the lexicon for a given language.
 """
 
-from asyncio.log import logger
 from dataclasses import dataclass, field
 import os
 
@@ -129,7 +128,9 @@ class Lexicon:
             raise ValueError(
                 f"Part of speech '{part_of_speech}' does not have a source config file."
             )
+        
 
+        # TODO: implement lazy loading of CSVs, should be handled by `ConfigWalker`
         part_of_speech_dir = os.path.dirname(config_source)
         config_dir = os.path.dirname(part_of_speech_dir)
         lexicon_dir = os.path.join(config_dir, "lexicon")
@@ -139,7 +140,6 @@ class Lexicon:
             raise ValueError(
                 f"Lexicon file '{lexicon_path}' not found for part of speech '{part_of_speech.name}'."
             )
-        # TODO: implement lazy loading of CSVs, should be handled by `Grammar`
         entries_df = pd.read_csv(lexicon_path, keep_default_na=False)
         return cls(
             part_of_speech=part_of_speech,
@@ -174,12 +174,12 @@ class LexiconRegistry(Registry):
 
     def __init__(
         self,
-        data: list[pd.DataFrame] | None = None,
-        config_objects: list[dict] | None = None,
+        data: dict[str, Lexicon] | None = None,
+        config_objects: dict[str, dict] | None = None,
         feature_orchestrator: FeatureOrchestrator | None = None,
     ):
-        super().__init__(kind="PartOfSpeech", data=data, config_objects=config_objects)
         self.feature_orchestrator = feature_orchestrator
+        super().__init__(kind="PartOfSpeech", data=data, config_objects=config_objects)
 
     def load_all_configs(self) -> dict[str, Lexicon]:
         config_items: dict[str, Lexicon] = {}

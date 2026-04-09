@@ -25,13 +25,15 @@ class Marker(TransducerList):
 
     Attributes:
         type: Type of formative represented, including:
-        - prefix: String to prepend to stem
-        - suffix: String to append to stem
+        - prefix: prepends value to stem
+        - suffix: appends value to stem
         - replace: (input, output) pair for substring replacement
         - suppletion: Full replacement form (incompatible with other operations)
         - rule: Name(s) of phonological rule(s) to apply ($ reference)
         - principal_part: Selects a principal part for the feature value
         value: String to be interpreted as formative
+        - if self.type == replace, type(self.value) is tuple[str, str]
+        - else type(self.value) is str
         order: Stage name controlling application order within a paradigm
         lexical_features: Dict indicating feature:value pairs this marker relies on
     """
@@ -451,10 +453,10 @@ class FeatureMarkersRegistry(Registry):
         config_objects: dict[str, dict] | None = None,
         feature_values_registry: FeatureOrchestrator | None = None,
     ):
+        self.feature_values_registry = feature_values_registry
         super().__init__(
             kind="FeatureMarkers", data=data, config_objects=config_objects
         )
-        self.feature_values_registry = feature_values_registry
         self.dependency_graph = None
         self.sorted_configs = None
 

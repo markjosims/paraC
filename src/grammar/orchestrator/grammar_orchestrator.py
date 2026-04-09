@@ -11,11 +11,9 @@ from src.grammar.classes import Orchestrator
 from src.grammar.orchestrator.marker_orchestrator import MarkerOrchestrator
 from src.grammar.orchestrator.fst_orchestrator import FstOrchestrator
 from src.grammar.orchestrator.feature_orchestrator import FeatureOrchestrator
-from src.grammar.registry.feature_values_registry import FeatureValuesRegistry
 from src.grammar.registry.lexicon_registry import LexiconRegistry
-from src.grammar.paradigm import Paradigm
+from src.grammar.registry.paradigm_registry import ParadigmRegistry
 import os
-from camel_converter import to_snake
 
 
 class Grammar(Orchestrator):
@@ -32,14 +30,13 @@ class Grammar(Orchestrator):
         pattern_configs: list[dict],
         rule_configs: list[dict],
         feature_configs: list[dict],
-        feature_combo_configs: list[dict],
-        paradigms: dict[str, Paradigm],
+        feature_combination_configs: list[dict],
+        paradigm_configs: list[dict],
     ):
         self.is_initialized = False
-        super().__init__(kind="Paradigm", data=paradigms)
 
         self.feature_orchestrator = FeatureOrchestrator(
-            feature_configs=feature_configs, feature_combo_configs=feature_combo_configs
+            feature_configs=feature_configs, feature_combination_configs=feature_combination_configs
         )
         self.lexicon_registry = LexiconRegistry(config_objects=lexicon_configs)
         self.fst_orchestrator = FstOrchestrator(
@@ -51,47 +48,17 @@ class Grammar(Orchestrator):
         self.marker_orchestrator = MarkerOrchestrator(
             contingent_marker_configs=contingent_marker_configs,
             feature_marker_configs=feature_marker_configs,
-            feature_values_registry=self.feature_orchestrator.feature_values_registry,
+            feature_orchestrator=self.feature_orchestrator,
+        )
+        self.paradigm_registry = ParadigmRegistry(
+            config_objects=paradigm_configs,
+            marker_orchestrator=self.marker_orchestrator,
+            lexicon_registry=self.lexicon_registry,
+            fst_orchestrator=self.fst_orchestrator,
         )
 
-        if not paradigms:
-            logger.info("Loading paradigms.")
-            try:
-                paradigms = self.load_all_configs()
-                logger.info(f"Loaded {len(paradigms)} paradigms successfully.")
-            except Exception as e:
-                logger.exception(f"Error occurred while loading paradigms: {e}")
-        self.paradigms = paradigms
+
         self.initialize()
-
-    def load_all_configs(self) -> dict[str, Paradigm]:
-        config_items: dict[str, Paradigm] = {}
-        for config in self.config_objects.values():
-            config_data = self.load_data_from_config(config)
-            for key in config_data:
-                if key in config_items:
-                    error = (
-                        f"Duplicate Paradigm '{key}' found in multiple config files."
-                    )
-                    logger.error(error)
-                    raise ValueError(error)
-            config_items.update(config_data)
-        return config_items
-
-    def load_data_from_config(self, config: dict) -> dict[str, Paradigm]:
-        source_path = config.get("source_path", "")
-        name = (
-            os.path.splitext(os.path.basename(source_path))[0]
-            if source_path
-            else config.get("part_of_speech", "")
-        )
-        paradigm = Paradigm.from_config(
-            config,
-            self.marker_orchestrator,
-            self.lexicon_registry,
-            self.fst_orchestrator,
-        )
-        return {name: paradigm}
 
     def initialize(self):
         if all(

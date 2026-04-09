@@ -7,6 +7,7 @@ from the lexicon.
 """
 
 from loguru import logger
+from src.grammar.classes import Registry
 from src.grammar.registry.lexicon_registry import LexiconRegistry, Lexicon
 from src.grammar.registry.feature_values_registry import Feature
 from src.grammar.registry.feature_combination_registry import FeatureValueCombinations
@@ -31,9 +32,11 @@ from pynini.lib import pynutil
 from collections import defaultdict
 import pandas as pd
 from tqdm import tqdm
+import os
 
 EDIT_BOUND = 5
 EDIT_COST = 1
+
 
 class Paradigm:
     """
@@ -48,11 +51,6 @@ class Paradigm:
 
     Allows for querying of marker combinations based on feature values,
     and also provides string I/O with marker transducers.
-
-    The `__init__` function expects all markers and contingent markers to be
-    passed directly, whereas the `from_config` factory method expects a
-    `MarkerOrchestrator` object from which it can pull the relevant marker objects,
-    and constructs any inline markers as needed.
     """
 
     def __init__(
@@ -81,7 +79,6 @@ class Paradigm:
         self.fixed_features = fixed_features or {}
         self.marker_order = marker_order or []
         self.features = lexicon.features
-        self.marker_order = marker_order
         self.part_of_speech = lexicon.part_of_speech
         self.lexicon = lexicon
         self.pattern_filter = pattern_filter
@@ -112,7 +109,7 @@ class Paradigm:
         config: dict,
         marker_orchestrator: MarkerOrchestrator,
         lexicon_registry: LexiconRegistry,
-        fst_registry: FstOrchestrator,
+        fst_orchestrator: FstOrchestrator,
     ) -> "Paradigm":
         """
         Factory method for constructing a Paradigm object from a MarkerOrchestrator
@@ -195,7 +192,7 @@ class Paradigm:
             marker_order=marker_order,
             lexicon=lexicon,
             feature_value_combinations=feature_value_combinations,
-            fst_registry=fst_registry,
+            fst_orchestrator=fst_orchestrator,
             global_markers=global_markers,
         )
 
@@ -212,6 +209,7 @@ class Paradigm:
         contingent marker matches the provided feature values, any standard feature markers that
         also match those feature values will be ignored.
         """
+        feature_values = deepcopy(feature_values)
 
         if (self.feature_value_combinations is not None) and (
             not self.feature_value_combinations.combination_is_valid(feature_values)
@@ -1023,3 +1021,47 @@ class Paradigm:
                 parsed_hits.append(parse_object)
 
         return parsed_hits
+
+
+class ParadigmRegistry(Registry):
+    def __init__(
+        self,
+        data,
+        config_objects,
+        marker_orchestrator: MarkerOrchestrator,
+        lexicon_registry: LexiconRegistry,
+        fst_orchestrator: FstOrchestrator,
+    ):
+        self.marker_orchestrator = marker_orchestrator
+        self.lexicon_registry = lexicon_registry
+        self.fst_orchestrator = fst_orchestrator
+        super().__init__(kind="Paradigm", data=data, config_objects=config_objects)
+
+    def load_all_configs(self) -> dict[str, Paradigm]:
+        config_items: dict[str, Paradigm] = {}
+        for config in self.config_objects.values():
+            config_data = self.load_data_from_config(config)
+            for key in config_data:
+                if key in config_items:
+                    error = (
+                        f"Duplicate Paradigm '{key}' found in multiple config files."
+                    )
+                    logger.error(error)
+                    raise ValueError(error)
+            config_items.update(config_data)
+        return config_items
+
+    def load_data_from_config(self, config: dict) -> dict[str, Paradigm]:
+        source_path = config.get("source_path", "")
+        name = (
+            os.path.splitext(os.path.basename(source_path))[0]
+            if source_path
+            else config.get("part_of_speech", "")
+        )
+        paradigm = Paradigm.from_config(
+            config,
+            self.marker_orchestrator,
+            self.lexicon_registry,
+            self.fst_orchestrator,
+        )
+        return {name: paradigm}

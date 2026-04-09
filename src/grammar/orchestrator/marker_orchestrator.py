@@ -1,30 +1,12 @@
 """
-Registries and dataclasses for morphological markers.
-
-Registry classes (inherit Registry from src.registry_utils):
+Implements `MarkerOrchestrator` which manages following registries:
 - FeatureMarkersRegistry: loads/manages FeatureMarkers configs
 - ContingentMarkersRegistry: loads/manages ContingentFeatureMarkers configs
 - MarkerRegistry: orchestrates both registries, provides unified lookup
-
-Unlike `FstRegistry` classes, where each pattern and rule contained
-must be unique, there is no unique feature vector <---> marker relation.
-Rather, an arbitrary number of different `FeatureMarkers` or
-`ContingentMarkers` may exist for a single feature value/combination.
-The `MarkerRegistry` class, along with its `FeatureMarkersRegistry`
-and `ContingentMarkersRegistry` children, allow for querying of entire
-(Contingent)Marker *files*.
-
-Dataclasses:
-- Marker: single morphological formative (inherits Transducer)
-- FeatureMarkers: maps values of one feature to Markers
-- ContingentMarkers: maps combinations of multiple feature values to Markers
-
-Utilities:
-- FeatureValueCombinations: tracks licit feature-value combinations
 """
 
 from __future__ import annotations
-from src.grammar.registry.feature_values_registry import FeatureValuesRegistry
+from src.grammar.orchestrator.feature_orchestrator import FeatureOrchestrator
 from src.grammar.registry.feature_marker_registry import FeatureMarkersRegistry
 from src.grammar.registry.contingent_marker_registry import (
     ContingentMarkers,
@@ -41,7 +23,7 @@ from loguru import logger
 class MarkerOrchestrator:
     """
     Orchestrates FeatureMarkersRegistry, ContingentMarkersRegistry,
-    and FeatureValuesRegistry. Uses FeatureValuesRegistry to validate all feature
+    and FeatureOrchestrator. Uses FeatureOrchestrator to validate all feature
     combintions and values listed.
     """
 
@@ -49,27 +31,23 @@ class MarkerOrchestrator:
         self,
         feature_marker_configs: list[dict],
         contingent_marker_configs: list[dict],
-        feature_values_registry: FeatureValuesRegistry | None = None,
+        feature_orchestrator: FeatureOrchestrator | None = None,
     ):
         self.is_initialized = False
-        self.feature_values_registry = FeatureValuesRegistry
-        if not feature_values_registry:
+        self.feature_orchestrator = feature_orchestrator
+        if not feature_orchestrator:
             logger.warning(
                 "MarkerRegistry requres at minumum a feature registry to initialize. "
                 "Returning an uninitialized MarkerRegistry. "
                 "Provide a feature registry to load configs and initialize MarkerRegistry."
             )
             return
-        self.features = feature_values_registry.features
-        self.feature_combinations = feature_values_registry.feature_combinations
-
-        self.feature_markers_registry = None
-        self.contingent_markers_registry = None
-        self.feature_markers = {}
-        self.contingent_markers = {}
+        self.features = feature_orchestrator.features
+        self.feature_combinations = feature_orchestrator.feature_combinations
 
         self.feature_markers_registry = FeatureMarkersRegistry(
-            config_objects=feature_marker_configs
+            config_objects=feature_marker_configs,
+            feature_orchestrator=self.feature_orchestrator
         )
         self.feature_markers = self.feature_markers_registry.data
 
@@ -77,7 +55,7 @@ class MarkerOrchestrator:
             config_objects=contingent_marker_configs
         )
         self.contingent_markers: dict[str, ContingentMarkers] = (
-            contingent_marker_configs.data
+            self.contingent_markers_registry.data
         )
 
         self.initialize()
@@ -89,7 +67,7 @@ class MarkerOrchestrator:
     def _validate_feature_values(self):
         """
         Iterate through every `FeatureMarkers` object and check its features
-        are supported by `self.feature_values_registry`
+        are supported by `self.feature_orchestrator`
         """
         for markers_name, markers in self.feature_markers.items():
             feature = markers.feature
@@ -109,7 +87,7 @@ class MarkerOrchestrator:
     def _validate_contingent_features(self):
         """
         Iterate through every `ContingentMarkers` object and check its features
-        are supported by `self.feature_values_registry`
+        are supported by `self.feature_orchestrator`
         """
         for markers_name, markers in self.contingent_markers.items():
             for feature in (markers.outer_feature, markers.inner_feature):

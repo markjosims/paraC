@@ -85,8 +85,8 @@ class ContingentMarkers:
 
     def get_marker(self, **feature_dict: str) -> MarkerList:
         """Retrieve markers for a given outer/inner feature value pair."""
-        outer_val = feature_dict.get(self.outer_feature)
-        inner_val = feature_dict.get(self.inner_feature)
+        outer_val = feature_dict.get(self.outer_feature.name)
+        inner_val = feature_dict.get(self.inner_feature.name)
         if outer_val is None:
             raise KeyError(
                 f"Missing outer feature '{self.outer_feature}' in query. "
@@ -132,14 +132,14 @@ class ContingentMarkersRegistry(Registry):
         self,
         data: dict[str, ContingentMarkers | None] = None,
         config_objects: dict[str, dict | None] = None,
-        feature_regsistry: FeatureOrchestrator | None = None,
+        feature_orchestrator: FeatureOrchestrator | None = None,
     ):
+        self.feature_values_registry = feature_orchestrator
         super().__init__(
             kind="ContingentFeatureMarkers",
             data=data,
             config_objects=config_objects,
         )
-        self.feature_values_registry = feature_regsistry
 
     def load_all_configs(self) -> dict[str, ContingentMarkers]:
         config_items: dict[str, ContingentMarkers] = {}
