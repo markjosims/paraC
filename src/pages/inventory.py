@@ -23,6 +23,7 @@ from src.grammar.registry.inventory_registry import (
     InventoryItem,
     InventoryClass,
     InventoryMemberType,
+    InventoryRegistry,
 )
 from src.grammar import Grammar
 from src.config_utils.config_walker import ConfigWalker
@@ -75,14 +76,13 @@ def _load_file(filepath: str) -> None:
     config_walker: ConfigWalker = st.session_state["config_walker"]
     try:
         config_object = config_walker.config_data[_config_key][filepath]
-        inventory_items = [
-            InventoryItem.from_config(item_config)
-            for item_config in config_object["data"]
-        ]
+        inventory_reg = InventoryRegistry(config_objects={filepath: config_object})
+        item_map = inventory_reg.data
+        top_items = inventory_reg.top_items
         state = EditorState(
             path=filepath,
             kind=_config_kind,
-            data=inventory_items,
+            data={"item_map": item_map, "top_items": top_items},
         )
     except KeyError:
         st.error(f"File not found: `{filepath}`")

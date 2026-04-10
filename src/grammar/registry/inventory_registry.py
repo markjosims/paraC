@@ -38,7 +38,7 @@ class InventoryItem(Acceptor):
 
     def __post_init__(self):
         super().__post_init__()
-        
+
         if (self.type == "flag") and (
             not self.value.startswith("[") or not self.value.endswith("]")
         ):
@@ -51,7 +51,7 @@ class InventoryItem(Acceptor):
             raise ValueError(
                 "Phone items cannot have values that start with '<' or '['"
             )
-        
+
     def __str__(self):
         return f"InventoryItem(value='{self.value}')"
 
@@ -100,6 +100,21 @@ class InventoryClass(Acceptor):
             )
 
     @classmethod
+    def infer_class_type(
+        cls,
+        item_dict: dict,
+    ) -> Literal["phone_class", "flag_class", "nested_class"]:
+        if "_phones" in item_dict:
+            ...
+
+    @classmethod
+    def validate_class_type(
+        cls,
+        class_type: Literal["phone_class", "flag_class", "nested_class"],
+        item_dict: dict,
+    ) ->
+
+    @classmethod
     def from_config(
         cls,
         item_dict: dict,
@@ -126,11 +141,15 @@ class InventoryClass(Acceptor):
         for key, value in item_dict.items():
             if key == "_phones":
                 for phone in value:
-                    child = InventoryItem(value=phone, type="phone", parent=inventory_item)
+                    child = InventoryItem(
+                        value=phone, type="phone", parent=inventory_item
+                    )
                     children.append(child)
             elif key == "_flags":
                 for flag in value:
-                    child = InventoryItem(value=flag, type="flag", parent=inventory_item)
+                    child = InventoryItem(
+                        value=flag, type="flag", parent=inventory_item
+                    )
                     children.append(child)
             elif isinstance(value, dict):
                 child = cls.from_config(value, parent=inventory_item)
@@ -138,6 +157,9 @@ class InventoryClass(Acceptor):
 
         inventory_item.children = children
         return inventory_item
+    
+    def serialize_to_config(self) -> dict:
+
 
     def flatten(self) -> list["InventoryItem" | "InventoryClass"]:
         """Recursively InventoryItem into a list including itself and all children."""
@@ -151,7 +173,8 @@ class InventoryClass(Acceptor):
 
     def __repr__(self):
         return self.__str__()
-    
+
+
 InventoryMemberType = Union[InventoryItem, InventoryClass]
 
 
@@ -169,6 +192,18 @@ class InventoryRegistry(Registry):
         config_objects: dict[str, dict] | None = None,
     ):
         super().__init__(kind="Inventory", data=data, config_objects=config_objects)
+
+        if not hasattr(self, "top_items"):
+            # top items initialized by 'load_data_from_configs'
+            # if InventoryRegistry is built from data dict directly,
+            # this attr will not be initialized yet
+            # if so, initialize by getting list of all classes with no parent class
+            self.top_items = list(
+                item
+                for item in self.data.values()
+                if isinstance(item, InventoryClass) and item.parent is None
+            )
+
         self._populate_subdicts()
 
     def _populate_subdicts(self):
@@ -186,37 +221,43 @@ class InventoryRegistry(Registry):
         self.flags = flags
         self.classes = classes
 
-    def load_all_configs(self) -> dict[str, InventoryMemberType]:
-        config_items = {}
+    def load_all_configs(
+        self,
+    ) -> tuple[list[InventoryClass], dict[str, InventoryMemberType]]:
+        inventory_item_map = {}
+        top_inventory_items = []
         for config in self.config_objects.values():
-            config_data = self.load_data_from_config(config)
+            config_top_items, config_data = self.load_data_from_config(config)
             # check for collisions
             for key in config_data:
-                if key in config_items:
+                if key in inventory_item_map:
                     error = f"Duplicate inventory item '{key}' found in multiple config files."
                     logger.error(error)
                     raise ValueError(error)
-            config_items.update(config_data)
-        return config_items
+            inventory_item_map.update(config_data)
+            top_inventory_items.extend(config_top_items)
+        return inventory_item_map
 
     def load_data_from_config(
         self,
         config: dict,
     ) -> dict[str, InventoryMemberType]:
-        top_classes = config.get("data", [])
-        if not top_classes:
+        top_data = config.get("data", [])
+        if not top_data:
             logger.error("No top-level inventory classes found in config")
             return {}
 
         # get flat list of items
-        inventory_items = []
-        for item_config in top_classes.values():
+        items_flat = []
+        items_top = []
+        for item_config in top_data.values():
             item = InventoryClass.from_config(item_config)
             flat_item = item.flatten()
-            inventory_items.extend(flat_item)
+            items_flat.extend(flat_item)
+            items_top.append(item)
 
         # check for item collisions
-        item_values = [item.value for item in inventory_items]
+        item_values = [item.value for item in items_flat]
         if len(item_values) != len(set(item_values)):
             duplicate_items = set([x for x in item_values if item_values.count(x) > 1])
             error = (
@@ -227,9 +268,12 @@ class InventoryRegistry(Registry):
             raise ValueError(error)
 
         # make dict mapping ref to item
-        config_items = {item.value: item for item in inventory_items}
+        item_dict = {item.value: item for item in items_flat}
 
-        return config_items
+        # set top items attr
+        self.top_items = self.top_items
+
+        return item_dict
 
     def _get_tokens_from_class(self, item: InventoryMemberType) -> list[str]:
         """Recursively collect all phone/flag tokens from an InventoryItem subtree."""
