@@ -13,25 +13,15 @@ Usage:
 """
 
 from __future__ import annotations
-import re
-
-from loguru import logger
-import glob
 import os
-from pathlib import Path
 
 import streamlit as st
-from unidecode.x002 import data
 from src.grammar.registry.inventory_registry import (
-    InventoryItem,
     InventoryClass,
-    InventoryMember,
     InventoryRegistry,
 )
-from src.grammar import Grammar
 from src.config_utils.config_walker import ConfigWalker
 from src.pages.editor_utils import EditorState
-import yaml
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -46,24 +36,9 @@ DIAC_TOKENS: list[str] = [
     "<DIAC:ã>",
 ]
 
-# TODO: remove all `_editor` logic and refactor to be internal to this script
-# or come from the new editor_utils.py file
-# TODO: use new InventoryItem/Class API
-# InventoryItem is only leaf nodes
 # Only InventoryClass is to be rendered: phone/flag leaf nodes
 # are built from CSVs in form for InventoryClass
 # and stored internally
-
-# Editor logic:
-# .load_state(dirpath, relpath) ->: {path, kind, nodes}
-# .new_state() ->: {path, kind, nodes}
-# .update_from_form() ->: {path: updated_path, nodes: self._update_items_from_form}
-# ._update_items_from_form() ->: recursively serialize nodes
-# .add_item(item: dict) ->: append item to self.nodes
-# .to_yaml() ->: serialize nodes using ._mapping_from_nodes
-# ._mapping_from_nodes(nodes_list) ->:
-#   - splits commas
-#   - changes DIAC tokens into actual diacritics
 
 _config_kind = "Inventory"
 _config_key = "inventory_configs"
@@ -117,7 +92,9 @@ def _new_file() -> None:
     """Reset editor to a blank state."""
     editor_state = st.session_state.get("editor_state", None)
     if editor_state is not None:
-        _clear_node_state_keys(editor_state.data["top_nodes"])
+        node_id_map = editor_state.data["node_id_map"]
+        top_ids = node_id_map["item"]
+        _clear_node_state_keys(top_ids)
     st.session_state.editor_state = EditorState(path="", kind=_config_kind)
     st.session_state.loaded_file = None
     # also reset the path widget
@@ -180,11 +157,12 @@ def _pop_node(node_id: str) -> None:
     item_map = data["item_map"]
     top_items = data["top_items"]
     node_id_map = data["node_id_map"]
+    top_ids = node_id_map["item"]
     if len(indices) == 1 and indices[0] < len(top_items) - 1:
         # top level node
         # recompute node ids and keys for top-level after pop, since all indices shift
         popped = top_items.pop(indices[0])
-        _clear_node_state_keys(top_items)
+        _clear_node_state_keys(top_ids)
         updated_item_map, updated_node_id_map = _populate_node_map(top_items)
         data["item_map"] = updated_item_map
         data["node_id_map"] = updated_node_id_map
@@ -287,7 +265,8 @@ def _clear_node_state_keys(node_ids: list[str]) -> None:
             for i in range(len(DIAC_TOKENS)):
                 st.session_state.pop(f"diac-{node_id}-{i}", None)
             if node.type == "nested_class":
-                _clear_node_state_keys(node.children)
+                child_ids = _get_child_ids(node_id)
+                _clear_node_state_keys(child_ids)
         except KeyError:
             continue
 
@@ -352,10 +331,9 @@ def _validate_node_id(node_id: str) -> list[int]:
     return indices
 
 
-# ---------------------------------------------------------------------------
-# Node rendering (recursive)
-# ---------------------------------------------------------------------------
-
+"""
+Node rendering (recursive)
+"""
 
 def _render_node(node_id: str, depth: int = 0) -> None:
     """Render a single inventory node and recurse into children."""
@@ -430,11 +408,6 @@ def _render_node(node_id: str, depth: int = 0) -> None:
                 diac_cols = st.columns(len(DIAC_TOKENS))
                 for i, token in enumerate(DIAC_TOKENS):
                     diac_cols[i].code(token, language="text")
-                    # if diac_cols[i].button(token, key=f"diac-{nid}-{i}"):
-                    # current = st.session_state.get(f"items_text-{nid}", "")
-                    # separator = ", " if current.strip() and not current.rstrip().endswith(",") else ""
-                    # st.session_state[f"items_text-{nid}"] = current + separator + token
-                    # st.rerun()
 
         # ── Node actions ──────────────────────────────────────────────────
         btn_add, btn_remove = st.columns(2)
@@ -454,10 +427,9 @@ def _render_node(node_id: str, depth: int = 0) -> None:
             _render_node(child_id, depth + 1)
 
 
-# ---------------------------------------------------------------------------
-# Page layout
-# ---------------------------------------------------------------------------
-
+"""
+Page function
+"""
 
 def inventory_page() -> None:
     st.set_page_config(
@@ -553,6 +525,8 @@ def inventory_page() -> None:
     with col_save:
         if st.button("💾 Save YAML", use_container_width=True, type="primary"):
             try:
+                # TODO implement save function!
+                # depends on YAML serialization logic
                 st.toast(f"✅ Saved to `{editor_state.path}`", icon="✅")
             except ValueError as exc:
                 st.error(str(exc))
@@ -564,7 +538,7 @@ def inventory_page() -> None:
     if show_preview:
         with st.container(border=True):
             st.caption("YAML preview — reflects unsaved edits")
-            st.code(_yaml_preview(editor_state), language="yaml")
+            # TODO implement YAML serialization
 
     st.divider()
 
