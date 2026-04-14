@@ -23,9 +23,9 @@ from src.grammar.registry.inventory_registry import (
 from src.config_utils.config_walker import ConfigWalker
 from src.pages.editor_utils import EditorState
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
+"""
+Constants
+"""
 
 DIAC_TOKENS: list[str] = [
     "<DIAC:á>",
@@ -351,7 +351,7 @@ def _render_node(node_id: str, depth: int = 0) -> None:
 
     node_ref = node.value or "(ref not set)"
     with content_col.popover(f"{node.name} `{node_ref}`"):
-        # ── Name & Reference ──────────────────────────────────────────────
+        # Name & Reference
         col_name, col_ref = st.columns(2)
         with col_name:
             st.text_input(
@@ -368,7 +368,7 @@ def _render_node(node_id: str, depth: int = 0) -> None:
                 placeholder="<C>",
             )
 
-        # ── Items (phones / flags) — disabled when node has children ──────
+        # Items (phones / flags) — disabled when node has children
         if is_nested:
             st.text_input(
                 "Node contents",
@@ -409,7 +409,7 @@ def _render_node(node_id: str, depth: int = 0) -> None:
                 for i, token in enumerate(DIAC_TOKENS):
                     diac_cols[i].code(token, language="text")
 
-        # ── Node actions ──────────────────────────────────────────────────
+        # node actions
         btn_add, btn_remove = st.columns(2)
         with btn_add:
             if st.button("＋ Add child", key=f"add-child-{node_id}"):
@@ -442,7 +442,7 @@ def inventory_page() -> None:
     config_walker: ConfigWalker = st.session_state["config_walker"]
     inventory_files = config_walker.config_filemap[_config_key]
 
-    # ── Sidebar: file picker ───────────────────────────────────────────────
+    # Sidebar: file picker 
     with st.sidebar:
         st.title("🔤 Inventory Editor")
         st.caption(f"`CONFIG_DIR`: `{config_dir}`")
@@ -491,7 +491,7 @@ def inventory_page() -> None:
             "(internal markers). See `README.md` for the full schema."
         )
 
-    # ── Guard: no state yet ────────────────────────────────────────────────
+    # Guard: no state yet
     if "editor_state" not in st.session_state:
         st.info(
             "👈 Select a file in the sidebar and click **Open**, or open a **(new file)** to begin."
@@ -500,7 +500,7 @@ def inventory_page() -> None:
 
     editor_state: EditorState = st.session_state.editor_state
 
-    # ── Header row ────────────────────────────────────────────────────────
+    # Header row
     title_label = editor_state.path or "New inventory file"
     st.header(title_label)
 
@@ -514,7 +514,7 @@ def inventory_page() -> None:
             help="Must be inside an `inventory/` directory, e.g. `inventory/segments.yaml`",
         )
 
-    # ── Top-level toolbar ─────────────────────────────────────────────────
+    # Top-level toolbar
     col_add, col_save, col_preview_toggle, _ = st.columns([1.4, 1.2, 1.6, 5])
 
     with col_add:
@@ -534,7 +534,7 @@ def inventory_page() -> None:
     with col_preview_toggle:
         show_preview = st.toggle("Show YAML preview", value=False)
 
-    # ── YAML preview ──────────────────────────────────────────────────────
+    # YAML preview
     if show_preview:
         with st.container(border=True):
             st.caption("YAML preview — reflects unsaved edits")
@@ -542,7 +542,7 @@ def inventory_page() -> None:
 
     st.divider()
 
-    # ── Node tree ─────────────────────────────────────────────────────────
+    # Node tree
     top_node_ids = editor_state.data["node_id_map"]["item"]
 
     if not top_node_ids:
