@@ -218,3 +218,6 @@ __marimo__/
 # tmp and backup files
 tmp/
 .backups/
+
+# Coding agent files
+.claude/
