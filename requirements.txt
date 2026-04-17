@@ -11,6 +11,12 @@ graphviz
 pydot
 fire
 pyyaml
-RecursiveNamespace
 unidecode
 loguru
+jsonschema
+dotenv
+watchdog
+streamlit
+levenshtein
+camel_converter
+numba

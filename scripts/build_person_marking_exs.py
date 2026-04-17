@@ -12,7 +12,7 @@ LABEL_MAP = {
     '1SG': '1sg',
     '2SG': '2sg',
     '3SG (human)': '3sg',
-    '1DUAL': '1du.incl',
+    '1DUAL': '1dual.incl',
     '1INCPL': '1pl.incl',
     '1EXCLPL': '1pl.excl',
     '2PL': '2pl',

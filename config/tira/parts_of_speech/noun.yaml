@@ -1,0 +1,10 @@
+kind: PartOfSpeech
+name: noun
+features:
+- case
+- number
+lexical_features:
+- singular_class
+- plural_class
+principal_parts:
+- plural_stem

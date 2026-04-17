@@ -1,0 +1,29 @@
+kind: Patterns
+patterns:
+- name: Tone bearing consonant
+  pattern: '{rwlj<N>}'
+  _ref: <TB_C>
+  test_includes:
+  - r
+  - m
+  - n
+  - ŋ
+  test_excludes:
+  - p
+  - o
+  - ɾ
+  - ɽ
+- name: Tone bearing segment
+  pattern: <TB_C>|<V>
+  _ref: <TB_Seg>
+  test_includes:
+  - a
+  - e
+  - ɛ
+  - o
+  - r
+  - m
+  - n
+  test_excludes:
+  - p
+  - ɾ

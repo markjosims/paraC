@@ -1,0 +1,221 @@
+<style>
+  #view-paradigm-results table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; }
+  #view-paradigm-results th, #view-paradigm-results td { padding: 0.45rem 0.65rem; border: 1px solid #ddd; text-align: left; }
+  #view-paradigm-results th { background: #f7f7f7; font-weight: 600; }
+  #view-paradigm-results tr:nth-child(even) { background: #fafafa; }
+  #view-paradigm-feature-dropdowns { display: grid; gap: 0.75rem; }
+  .fixed-features { margin-top: 0.25rem; }
+  .fixed-features span { display: inline-block; padding: 0.2rem 0.5rem; background: #f0ede6; border: 1px solid #d6d0c4; border-radius: 4px; font-size: 0.9rem; margin-right: 0.35rem; }
+</style>
+
+<section class="panel" id="view-paradigm-panel">
+  <h2>View paradigm</h2>
+  <p class="muted">Select a paradigm and enter a stem. Leave features unselected to see all values (wildcard). Pin a feature to filter the table to that value.</p>
+
+  {% if inflect_registry_error %}
+    <div class="notice error">{{ inflect_registry_error }}</div>
+  {% elif not paradigm_names %}
+    <div class="notice error">No paradigms found. Create a Paradigm config in the Grammar config tab first.</div>
+  {% else %}
+    <form method="post" action="{{ url_for('web.view_paradigm_run') }}" class="grid" id="view-paradigm-form">
+      <div class="two-col">
+        <label>
+          Paradigm
+          <select name="paradigm_name" id="view-paradigm-select">
+            <option value="">-- select paradigm --</option>
+            {% for name in paradigm_names %}
+              <option value="{{ name }}" {% if name == view_selected_paradigm %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Stem
+          <span class="checkbox-row">
+            <input type="checkbox" id="view-paradigm-use-lexicon">
+            <span>Use lexicon</span>
+          </span>
+          <input type="text" name="stem" id="view-paradigm-stem-text" value="{{ view_selected_stem | default('', true) }}" placeholder="pòk">
+          <select name="stem" id="view-paradigm-stem-select" disabled hidden style="display:none">
+            <option value="">-- select root --</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="two-col">
+        <label>
+          Max rows
+          <input type="number" name="max_rows" id="view-paradigm-max-rows" value="{{ view_selected_max_rows | default(100, true) }}" min="1">
+        </label>
+      </div>
+
+      <div id="view-paradigm-feature-dropdowns">
+        <!-- populated by JS based on paradigm selection -->
+      </div>
+
+      <div id="view-paradigm-fixed-features">
+        <!-- populated by JS based on paradigm selection -->
+      </div>
+
+      <div class="actions">
+        <button type="submit" id="view-paradigm-submit-btn" disabled>View</button>
+      </div>
+    </form>
+
+    {% if view_results is defined and view_results is not none %}
+      <section id="view-paradigm-results">
+        <h3>Inflected paradigm</h3>
+        {% if view_results | length == view_max_rows %}
+          <div class="notice error">
+            Showing {{ view_max_rows }} rows (limit reached). Increase max rows to see more results.
+          </div>
+        {% endif %}
+        {% if view_results %}
+          {% set columns = view_result_columns %}
+          <table>
+            <thead>
+              <tr>{% for col in columns %}<th>{{ col }}</th>{% endfor %}</tr>
+            </thead>
+            <tbody>
+              {% for row in view_results %}
+                <tr>{% for col in columns %}<td>{{ row[col] | default("\u2014") }}</td>{% endfor %}</tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="muted">No results returned.</p>
+        {% endif %}
+      </section>
+    {% endif %}
+  {% endif %}
+</section>
+
+<script>
+  const paradigmFeatures = {{ paradigm_features | default({}) | tojson }};
+  const paradigmFixedFeatures = {{ paradigm_fixed_features | default({}) | tojson }};
+  const paradigmRoots = {{ paradigm_roots | default({}) | tojson }};
+
+  // Restore previous selections after a POST round-trip
+  const previousFeatureValues = {{ view_selected_features | default({}) | tojson }};
+  const previousStem = {{ view_selected_stem | default('', true) | tojson }};
+
+  function updateViewStemMode() {
+    const checkbox = document.getElementById("view-paradigm-use-lexicon");
+    const textInput = document.getElementById("view-paradigm-stem-text");
+    const selectInput = document.getElementById("view-paradigm-stem-select");
+    if (!checkbox || !textInput || !selectInput) return;
+    const useLexicon = checkbox.checked;
+    textInput.hidden = useLexicon;
+    textInput.style.display = useLexicon ? "none" : "";
+    textInput.disabled = useLexicon;
+    selectInput.hidden = !useLexicon;
+    selectInput.style.display = useLexicon ? "" : "none";
+    selectInput.disabled = !useLexicon;
+  }
+
+  function rebuildViewRootDropdown() {
+    const paradigmSelect = document.getElementById("view-paradigm-select");
+    const selectInput = document.getElementById("view-paradigm-stem-select");
+    const checkbox = document.getElementById("view-paradigm-use-lexicon");
+    if (!paradigmSelect || !selectInput || !checkbox) return;
+    const paradigm = paradigmSelect.value;
+    const roots = paradigmRoots[paradigm] || [];
+    selectInput.innerHTML = '<option value="">-- select root --</option>';
+    roots.forEach(function(root) {
+      const opt = document.createElement("option");
+      opt.value = root;
+      opt.textContent = root;
+      if (root === previousStem) opt.selected = true;
+      selectInput.appendChild(opt);
+    });
+    checkbox.disabled = roots.length === 0;
+    if (roots.length === 0 && checkbox.checked) {
+      checkbox.checked = false;
+      updateViewStemMode();
+    }
+  }
+
+  function rebuildFeatureDropdowns() {
+    const select = document.getElementById("view-paradigm-select");
+    const container = document.getElementById("view-paradigm-feature-dropdowns");
+    const fixedContainer = document.getElementById("view-paradigm-fixed-features");
+    const submitBtn = document.getElementById("view-paradigm-submit-btn");
+    if (!select || !container || !fixedContainer) return;
+
+    const paradigm = select.value;
+    container.innerHTML = "";
+    fixedContainer.innerHTML = "";
+
+    if (!paradigm || !paradigmFeatures[paradigm]) {
+      if (submitBtn) submitBtn.disabled = true;
+      return;
+    }
+
+    // Selectable features
+    const features = paradigmFeatures[paradigm];
+    for (const [featureName, values] of Object.entries(features)) {
+      const label = document.createElement("label");
+      label.textContent = featureName;
+      const sel = document.createElement("select");
+      sel.name = "fv-" + featureName;
+
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "All (wildcard)";
+      sel.appendChild(placeholder);
+
+      for (const v of values) {
+        const opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = v;
+        if (previousFeatureValues[featureName] === v) opt.selected = true;
+        sel.appendChild(opt);
+      }
+      label.appendChild(sel);
+      container.appendChild(label);
+    }
+
+    // Fixed features
+    const fixed = paradigmFixedFeatures[paradigm] || {};
+    const fixedEntries = Object.entries(fixed);
+    if (fixedEntries.length > 0) {
+      const p = document.createElement("p");
+      p.className = "muted";
+      p.textContent = "Fixed features: ";
+      const wrapper = document.createElement("div");
+      wrapper.className = "fixed-features";
+      for (const [fname, fval] of fixedEntries) {
+        const span = document.createElement("span");
+        span.textContent = fname + " = " + fval;
+        wrapper.appendChild(span);
+
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "fv-" + fname;
+        hidden.value = fval;
+        wrapper.appendChild(hidden);
+      }
+      fixedContainer.appendChild(p);
+      fixedContainer.appendChild(wrapper);
+    }
+
+    if (submitBtn) submitBtn.disabled = false;
+    rebuildViewRootDropdown();
+  }
+
+  document.addEventListener("DOMContentLoaded", function() {
+    const select = document.getElementById("view-paradigm-select");
+    if (select) {
+      select.addEventListener("change", function() {
+        // Clear previous selections when paradigm changes
+        for (const key in previousFeatureValues) delete previousFeatureValues[key];
+        rebuildFeatureDropdowns();
+      });
+      // Build on load if a paradigm is already selected (POST round-trip)
+      if (select.value) rebuildFeatureDropdowns();
+    }
+    const lexiconCheckbox = document.getElementById("view-paradigm-use-lexicon");
+    if (lexiconCheckbox) {
+      lexiconCheckbox.addEventListener("change", updateViewStemMode);
+    }
+  });
+</script>

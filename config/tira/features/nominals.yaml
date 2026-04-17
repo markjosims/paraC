@@ -1,0 +1,32 @@
+kind: FeatureDefinitions
+features:
+  number:
+  - singular
+  - plural
+  case:
+  - nominative
+  - accusative
+  singular_class:
+  - l
+  - g
+  - r
+  - ð
+  - n
+  - ŋ
+  - ɲ
+  - j
+  - s
+  - t̪
+  - c
+  plural_class:
+  - l
+  - g
+  - r
+  - ð
+  - n
+  - ŋ
+  - ɲ
+  - j
+  - s
+  - t̪
+  - c

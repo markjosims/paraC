@@ -1,0 +1,26 @@
+kind: Inventory
+data:
+  - name: Tone flags
+    _ref: <TONE_SLOT>
+    _flags:
+    - '[TBU]'
+    - '[FLOAT]'
+  - name: Tones
+    _ref: <T>
+    _children:
+      - name: Falling
+        _ref: <HL>
+        _phones:
+        - ̂
+      - name: High
+        _ref: <H>
+        _phones:
+        - ́
+      - name: Low
+        _ref: <L>
+        _phones:
+        - ̀
+      - name: Rising
+        _ref: <LH>
+        _phones:
+        - ̌

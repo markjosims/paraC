@@ -1,0 +1,5 @@
+kind: Paradigm
+part_of_speech: noun
+feature_markers:
+  case: $case
+  number: $noun_number

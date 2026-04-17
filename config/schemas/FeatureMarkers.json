@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FeatureMarkers",
+  "description": "Schema for defining morphological formatives for a single feature.",
+  "type": "object",
+  "required": ["kind", "feature", "markers"],
+  "additionalProperties": false,
+  "properties": {
+    "source_path": {
+      "type": "string",
+      "description": "The file path from which this config was loaded."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["FeatureMarkers"]
+    },
+    "feature": {
+      "type": "string",
+      "description": "The name of the linguistic feature being marked (e.g., 'person')."
+    },
+    "inherits": {
+      "type": "string",
+      "pattern": "^\\$.*",
+      "description": "Path to another config to inherit markers from."
+    },
+    "global_order": {
+      "type": "string",
+      "description": "Allows specifying a default value for the 'order' attribute."
+    },
+    "global_markers": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/marker" },
+      "description": "A marker or list of markers applied to all forms in this paradigm."
+    },
+    "markers": {
+      "type": "object",
+      "description": "Map of feature values to their morphological realizations.",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "null" },
+          { "$ref": "#/definitions/marker" },
+          {
+            "type": "array",
+            "items": { "$ref": "#/definitions/marker" }
+          }
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "marker": {
+      "type": "object",
+      "properties": {
+        "type": { 
+          "type": "string" ,
+          "enum": ["prefix", "suffix", "infix", "replace", "suppletion", "rule", "principal_part"]
+        },
+        "value": { "oneOf": [
+          { "type": "string" },
+          { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 }
+          ]
+        },
+        "order": { "type": "string" },
+        "comment": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

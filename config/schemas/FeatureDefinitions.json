@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schemas/feature-definitions.schema.json",
+  "title": "FeatureDefinitions",
+  "type": "object",
+  "required": ["kind", "features"],
+  "additionalProperties": false,
+  "properties": {
+    "source_path": {
+      "type": "string",
+      "description": "The file path from which this config was loaded."
+    },
+    "kind": {
+      "type": "string",
+      "const": "FeatureDefinitions"
+    },
+    "features": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

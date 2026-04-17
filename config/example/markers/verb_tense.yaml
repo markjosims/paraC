@@ -1,0 +1,11 @@
+kind: FeatureMarkers
+feature: tense
+markers:
+  present: null
+  past:
+  - type: principal_part
+    value: past_stem
+  future:
+  - type: rule
+    value: initial_mutation
+    order: consonant_mutation

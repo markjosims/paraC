@@ -1,0 +1,6 @@
+<nav class="tabs">
+  <a class="tab {% if active_tab == 'home' %}active{% endif %}" href="{{ url_for('web.home') }}">Home</a>
+  <a class="tab {% if active_tab == 'config' %}active{% endif %}" href="{{ url_for('web.config') }}">Grammar config</a>
+  <a class="tab {% if active_tab == 'inflect' %}active{% endif %}" href="{{ url_for('web.inflect') }}">Inflect</a>
+  <a class="tab {% if active_tab == 'parse' %}active{% endif %}" href="{{ url_for('web.parse') }}">Parse</a>
+</nav>

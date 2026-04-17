@@ -1,0 +1,19 @@
+kind: FeatureCombinations
+features:
+- class_marker
+- deixis
+- object
+- subject
+- tam
+combinations:
+- class_marker: '*'
+  deixis: '*'
+  subject:
+  - 1sg
+  - 2sg
+  - 1dual.incl
+  - 1dual.excl
+  - 1pl.incl
+  - 1pl.excl
+  - 2pl
+  tam: perfective

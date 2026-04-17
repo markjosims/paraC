@@ -1,0 +1,399 @@
+{% macro render_rule_entry(rule) %}
+  <section class="node" id="rule-{{ rule.id }}" data-rule-id="{{ rule.id }}">
+    <div class="node-header">
+      <div class="two-col">
+        <label>
+          Rule name
+          <input type="text" name="name-{{ rule.id }}" value="{{ rule.name }}" data-initial="{{ rule.name }}" data-def-field placeholder="coalesce_before_i">
+        </label>
+        <label>
+          Rule type
+          <select name="rule_type-{{ rule.id }}" data-initial="{{ rule.rule_type }}" data-def-field>
+            <option value="simple_rule" {% if rule.rule_type == "simple_rule" %}selected{% endif %}>Simple rule</option>
+            <option value="string_map" {% if rule.rule_type == "string_map" %}selected{% endif %}>String map</option>
+            <option value="rule_sequence" {% if rule.rule_type == "rule_sequence" %}selected{% endif %}>Rule sequence</option>
+          </select>
+        </label>
+      </div>
+
+      <label>
+        Description
+        <textarea name="description-{{ rule.id }}" data-initial="{{ rule.description }}" data-def-field placeholder="Short explanation">{{ rule.description }}</textarea>
+      </label>
+
+      <div class="rule-type-fields" data-for-type="string_map" {% if rule.rule_type != "string_map" %}hidden{% endif %}>
+        <label>
+          String map
+          <textarea name="string_map_text-{{ rule.id }}" data-initial="{{ rule.string_map_text }}" data-def-field placeholder="o => ue&#10;e => ie">{{ rule.string_map_text }}</textarea>
+        </label>
+      </div>
+      <div class="rule-type-fields" data-for-type="rule_sequence" {% if rule.rule_type != "rule_sequence" %}hidden{% endif %}>
+        <label>Rule sequence</label>
+        <textarea name="rule_sequence_text-{{ rule.id }}"
+                  hidden style="display:none"
+                  data-rule-seq-hidden="{{ rule.id }}"
+                  data-initial="{{ rule.rule_sequence_text }}"
+                  data-def-field>{{ rule.rule_sequence_text }}</textarea>
+        <div class="rule-seq-list" data-rule-seq-list="{{ rule.id }}">
+          {% for step in rule.rule_sequence_text.split('\n') if step.strip() %}
+            <div class="rule-seq-entry node" data-rule-seq-entry>
+              <div class="rule-seq-row">
+                <select data-rule-seq-select>
+                  <option value="">-- select rule --</option>
+                  {% for rule_name in available_rules %}
+                    <option value="{{ rule_name }}" {% if rule_name == step.strip() %}selected{% endif %}>{{ rule_name }}</option>
+                  {% endfor %}
+                </select>
+                <button type="button" class="btn-icon btn-danger" onclick="removeRuleSeqEntry(this)" title="Remove">&#10005;</button>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="actions">
+          <button type="button" onclick="addRuleSeqEntry('{{ rule.id }}')">Add step</button>
+        </div>
+      </div>
+      <div class="rule-type-fields" data-for-type="simple_rule" {% if rule.rule_type != "simple_rule" %}hidden{% endif %}>
+        <div class="two-col">
+          <label>
+            Input pattern
+            <textarea name="input_pattern-{{ rule.id }}" data-initial="{{ rule.input_pattern }}" data-def-field placeholder="<V>-?">{{ rule.input_pattern }}</textarea>
+          </label>
+          <label>
+            Output pattern
+            <textarea name="output_pattern-{{ rule.id }}" data-initial="{{ rule.output_pattern }}" data-def-field placeholder="ɛ or null">{{ rule.output_pattern }}</textarea>
+          </label>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <label>
+          Left context
+          <textarea name="left_context-{{ rule.id }}" data-initial="{{ rule.left_context }}" data-def-field placeholder="(<R>|<N>)">{{ rule.left_context }}</textarea>
+        </label>
+        <label>
+          Right context
+          <textarea name="right_context-{{ rule.id }}" data-initial="{{ rule.right_context }}" data-def-field placeholder="<V>">{{ rule.right_context }}</textarea>
+        </label>
+      </div>
+
+      <div class="two-col">
+        <label>
+          Direction
+          <select name="direction-{{ rule.id }}" data-initial="{{ rule.direction }}" data-def-field>
+            <option value="" {% if not rule.direction %}selected{% endif %}>Default</option>
+            <option value="ltr" {% if rule.direction == "ltr" %}selected{% endif %}>ltr</option>
+            <option value="rtl" {% if rule.direction == "rtl" %}selected{% endif %}>rtl</option>
+            <option value="sim" {% if rule.direction == "sim" %}selected{% endif %}>sim</option>
+          </select>
+        </label>
+        <label>
+          Sigma star
+          <input type="text" name="sigma_star-{{ rule.id }}" value="{{ rule.sigma_star }}" data-initial="{{ rule.sigma_star }}" data-def-field placeholder="<Sigma>*">
+        </label>
+      </div>
+
+      <label>
+        Test mappings
+        <textarea name="test_mappings_text-{{ rule.id }}" data-initial="{{ rule.test_mappings_text }}" data-def-field placeholder="oi => ɛ&#10;ua => a">{{ rule.test_mappings_text }}</textarea>
+      </label>
+
+      <div class="actions">
+        <button type="submit" name="action" value="run-tests" data-action="run-tests" formaction="{{ url_for('web.rules_run_tests', rule_id=rule.id) }}">Test</button>
+        <span class="dirty-warning muted" style="display:none">Save first to test</span>
+        <button type="submit" name="action" value="remove-rule" formaction="{{ url_for('web.rules_remove_entry', rule_id=rule.id) }}">Remove</button>
+      </div>
+
+      {% if rule.test_results %}
+        <div class="test-results">
+          {% for r in rule.test_results.results %}
+            {% if r['pass'] %}
+            <span class="test-result pass">
+              &#10003;
+              {{ r['type'] }}: "{{ r['input'] }}" &rarr; "{{ r['expected_output'] }}"
+            </span>
+            {% else %}
+            <span class="test-result fail">
+              &#10007;
+              {{ r['type'] }}: "{{ r['input'] }}" &rarr; "{{ ';'.join(r['output']) }}" (expected "{{ r['expected_output'] }}")
+            </span>
+            {% endif %}
+          {% endfor %}
+          <strong class="{% if rule.test_results.all_pass %}pass{% else %}fail{% endif %}">
+            {% if rule.test_results.all_pass %}All pass &#10003;{% else %}Some failed &#10007;{% endif %}
+          </strong>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+{% endmacro %}
+
+<style>
+  .rule-new-highlight {
+    border-left-color: #b0621a;
+    background: #fff6ea;
+    box-shadow: 0 0 0 1px #ebc89d inset;
+    transition: background 1.2s ease, box-shadow 1.2s ease, border-left-color 1.2s ease;
+  }
+  .test-results { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding: 0.5rem 0; }
+  .test-result { padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.9rem; }
+  .test-result.pass { background: #eef8ee; color: #2d6a2d; }
+  .test-result.fail { background: #fff1f1; color: #a33; }
+  strong.pass { color: #2d6a2d; }
+  strong.fail { color: #a33; }
+  .dirty-warning { font-style: italic; }
+  .rule-seq-entry { margin: 0.25rem 0; }
+  .rule-seq-row { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: center; }
+  .marker-rule-field[hidden] { display: none !important; }
+</style>
+
+<section class="panel" id="config-editor-panel">
+  <h2>Rules editor</h2>
+  <p class="muted">Rule files use a structured editor for simple rewrites, string maps, and rule sequences. Use `null` for explicit deletion outputs.</p>
+
+  <form method="post" action="{{ url_for('web.config_editor') }}" class="grid" id="rules-editor-form">
+    <input type="hidden" name="editor_kind" value="Rules">
+    <textarea name="state" hidden>{{ state_json }}</textarea>
+
+    <label>
+      File path
+      <input type="text" name="path" value="{{ state.path }}" placeholder="rules/accentuation.yaml">
+    </label>
+
+    <div class="actions">
+      <button type="submit" name="action" value="add-rule" formaction="{{ url_for('web.rules_add_entry') }}">Add rule</button>
+      <button type="submit" name="action" value="save" formaction="{{ url_for('web.config_editor') }}">Save YAML</button>
+    </div>
+
+    <div id="rule-entry-list">
+      {% if state.rules %}
+        {% for rule in state.rules %}
+          {{ render_rule_entry(rule) }}
+        {% endfor %}
+      {% else %}
+        <p class="muted">No rules yet. Add a rewrite rule, string map, or rule sequence.</p>
+      {% endif %}
+    </div>
+
+    <section>
+      <h3>YAML preview</h3>
+      <pre class="preview">{{ yaml_preview }}</pre>
+    </section>
+  </form>
+</section>
+
+<script>
+  // --- Rule sequence dropdowns ---
+  const availableRules = {{ available_rules | default([]) | tojson }};
+
+  function addRuleSeqEntry(ruleId) {
+    const list = document.querySelector('[data-rule-seq-list="' + ruleId + '"]');
+    if (!list) return;
+    const entry = document.createElement("div");
+    entry.className = "rule-seq-entry node";
+    entry.setAttribute("data-rule-seq-entry", "");
+    const row = document.createElement("div");
+    row.className = "rule-seq-row";
+    const sel = document.createElement("select");
+    sel.setAttribute("data-rule-seq-select", "");
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "-- select rule --";
+    sel.appendChild(placeholder);
+    availableRules.forEach(function(name) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      sel.appendChild(opt);
+    });
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "btn-icon btn-danger";
+    removeBtn.title = "Remove";
+    removeBtn.innerHTML = "&#10005;";
+    removeBtn.onclick = function() { removeRuleSeqEntry(removeBtn); };
+    row.appendChild(sel);
+    row.appendChild(removeBtn);
+    entry.appendChild(row);
+    list.appendChild(entry);
+    syncRuleSeqHidden(ruleId);
+  }
+
+  function removeRuleSeqEntry(btn) {
+    const entry = btn.closest("[data-rule-seq-entry]");
+    if (!entry) return;
+    const list = entry.closest("[data-rule-seq-list]");
+    const ruleId = list ? list.getAttribute("data-rule-seq-list") : null;
+    entry.remove();
+    if (ruleId) syncRuleSeqHidden(ruleId);
+  }
+
+  function syncRuleSeqHidden(ruleId) {
+    const list = document.querySelector('[data-rule-seq-list="' + ruleId + '"]');
+    const hidden = document.querySelector('[data-rule-seq-hidden="' + ruleId + '"]');
+    if (!list || !hidden) return;
+    const values = [];
+    list.querySelectorAll("[data-rule-seq-select]").forEach(function(sel) {
+      if (sel.value) values.push(sel.value);
+    });
+    hidden.value = values.join("\n");
+    // Trigger dirty tracking
+    hidden.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function syncAllRuleSeqHidden() {
+    document.querySelectorAll("[data-rule-seq-list]").forEach(function(list) {
+      syncRuleSeqHidden(list.getAttribute("data-rule-seq-list"));
+    });
+  }
+
+  document.addEventListener("change", function(event) {
+    if (event.target.matches("[data-rule-seq-select]")) {
+      var list = event.target.closest("[data-rule-seq-list]");
+      if (list) syncRuleSeqHidden(list.getAttribute("data-rule-seq-list"));
+    }
+  });
+
+  // --- Dirty-state tracking ---
+  const _dirtyRules = new Set();
+
+  function _updateRuleTestButton(ruleId) {
+    const node = document.querySelector("#rule-" + ruleId);
+    if (!node) return;
+    const btn = node.querySelector("[data-action='run-tests']");
+    const warn = node.querySelector(".dirty-warning");
+    const dirty = _dirtyRules.has(ruleId);
+    if (btn) btn.disabled = dirty;
+    if (warn) warn.style.display = dirty ? "" : "none";
+  }
+
+  function _initRuleDirtyTracking() {
+    _dirtyRules.clear();
+    document.querySelectorAll("[data-rule-id]").forEach(function(node) {
+      _updateRuleTestButton(node.dataset.ruleId);
+    });
+  }
+
+  document.addEventListener("input", function(event) {
+    var field = event.target;
+    if (!field.closest || !field.closest("#rules-editor-form")) return;
+    if (!field.hasAttribute("data-def-field")) return;
+    var node = field.closest("[data-rule-id]");
+    if (!node) return;
+    var ruleId = node.dataset.ruleId;
+    var initial = field.dataset.initial || "";
+    if (field.value !== initial) {
+      _dirtyRules.add(ruleId);
+    } else {
+      _dirtyRules.delete(ruleId);
+    }
+    _updateRuleTestButton(ruleId);
+  });
+
+  _initRuleDirtyTracking();
+
+  // --- Rule type toggle (client-side only) ---
+  document.addEventListener("change", function(event) {
+    var select = event.target;
+    if (!select.name || !select.name.startsWith("rule_type-")) return;
+    var node = select.closest("[data-rule-id]");
+    if (!node) return;
+    node.querySelectorAll(".rule-type-fields").forEach(function(div) {
+      div.hidden = div.dataset.forType !== select.value;
+    });
+  });
+
+  // --- AJAX form submission ---
+  document.addEventListener("submit", async (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || form.id !== "rules-editor-form") {
+      return;
+    }
+
+    const submitter = event.submitter;
+    if (!(submitter instanceof HTMLElement)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const targetRule = submitter.closest("[data-rule-id]");
+    const targetRuleId = targetRule ? targetRule.getAttribute("data-rule-id") : null;
+    const actionValue = submitter instanceof HTMLButtonElement ? submitter.value : "";
+    const action = submitter.getAttribute("formaction") || form.action;
+    // Sync rule sequence hidden fields before collecting form data
+    syncAllRuleSeqHidden();
+    const formData = new FormData(form);
+
+    if (submitter instanceof HTMLButtonElement && submitter.name) {
+      formData.set(submitter.name, submitter.value);
+    }
+
+    submitter.setAttribute("disabled", "disabled");
+
+    try {
+      const response = await fetch(action, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-Requested-With": "fetch",
+        },
+      });
+
+      if (!response.ok) {
+        window.location.href = response.url || window.location.href;
+        return;
+      }
+
+      const html = await response.text();
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const nextPanel = doc.querySelector("#config-editor-panel");
+      const nextNotices = doc.querySelector("#page-notices");
+      const currentPanel = document.querySelector("#config-editor-panel");
+      const currentNotices = document.querySelector("#page-notices");
+
+      if (!nextPanel || !currentPanel) {
+        window.location.reload();
+        return;
+      }
+
+      if (nextNotices && currentNotices) {
+        currentNotices.replaceWith(nextNotices);
+      }
+
+      const nextSidebar = doc.querySelector("#config-sidebar");
+      const currentSidebar = document.querySelector("#config-sidebar");
+      if (nextSidebar && currentSidebar) {
+        currentSidebar.replaceWith(nextSidebar);
+      }
+
+      currentPanel.replaceWith(nextPanel);
+      _initRuleDirtyTracking();
+
+      let focusRule = null;
+      if (actionValue === "add-rule") {
+        const ruleList = document.querySelector("#rule-entry-list");
+        if (ruleList) {
+          const ruleNodes = Array.from(ruleList.children).filter(
+            (child) => child instanceof HTMLElement && child.classList.contains("node")
+          );
+          focusRule = ruleNodes[ruleNodes.length - 1] || null;
+        }
+      } else if (targetRuleId) {
+        focusRule = document.querySelector(`#rule-${targetRuleId}`);
+      }
+
+      if (focusRule) {
+        focusRule.classList.add("rule-new-highlight");
+        focusRule.scrollIntoView({ block: "center", behavior: "smooth" });
+        window.setTimeout(() => {
+          focusRule.classList.remove("rule-new-highlight");
+        }, 1800);
+      }
+    } catch (error) {
+      window.location.reload();
+    } finally {
+      submitter.removeAttribute("disabled");
+    }
+  });
+</script>

@@ -1,0 +1,115 @@
+kind: Rules
+rules:
+  add_all_tbus:
+    description: Assign TBUs after any consonant or vowel that can bear tone (i.e.
+      vowels and sonorant consonants)
+    input_pattern: <Empty>
+    output_pattern: '[TBU]'
+    left_context: '{<V><R><N>}'
+    test_mappings:
+    - - vəlɛð
+      - və[TBU]l[TBU]ɛ[TBU]ð
+    - - namal
+      - n[TBU]a[TBU]m[TBU]a[TBU]l[TBU]
+    - - r
+      - r[TBU]
+  remove_tbu_before_onset_c:
+    description: Remove any [TBU] flags from a consoant preceding a vowel. Assuming
+      that the following vowel will bear any tones.
+    input_pattern: '[TBU]'
+    output_pattern: <Empty>
+    left_context: <C>
+    right_context: <V>
+    test_mappings:
+    - - və[TBU]l[TBU]ɛ[TBU]ð
+      - və[TBU]lɛ[TBU]ð
+    - - n[TBU]a[TBU]m[TBU]a[TBU]l[TBU]
+      - na[TBU]ma[TBU]l[TBU]
+    - - r[TBU]
+      - r[TBU]
+  remove_tbu_before_coda_c:
+    description: Remove any [TBU] flags from a consonant following a vowel. Assuming
+      that the preceding vowel will bear any tones.
+    input_pattern: '[TBU]'
+    output_pattern: <Empty>
+    left_context: <V>[TBU]<C>
+    test_mappings:
+    - - və[TBU]l[TBU]ɛ[TBU]ð
+      - və[TBU]lɛ[TBU]ð
+    - - n[TBU]a[TBU]m[TBU]a[TBU]l[TBU]
+      - n[TBU]a[TBU]ma[TBU]l
+    - - r[TBU]
+      - r[TBU]
+  add_tbus_clean:
+    description: Add TBUs to syllable nuclei (only)
+    rule_sequence:
+    - add_all_tbus
+    - remove_tbu_before_coda_c
+    - remove_tbu_before_onset_c
+    test_mappings:
+    - - vəlɛð
+      - və[TBU]lɛ[TBU]ð
+    - - namal
+      - na[TBU]ma[TBU]l
+    - - r
+      - r[TBU]
+  all_low_tone:
+    description: Assign L to all TBUs
+    input_pattern: '[TBU]'
+    output_pattern: <L>
+    test_mappings:
+    - - və[TBU]lɛ[TBU]ð
+      - və̀lɛ̀ð
+    - - na[TBU]ma[TBU]l
+      - nàmàl
+    - - r[TBU]
+      - r̀
+  set_all_low_tone:
+    rule_sequence:
+    - add_tbus_clean
+    - all_low_tone
+    test_mappings:
+    - - vəlɛð
+      - və̀lɛ̀ð
+    - - namal
+      - nàmàl
+    - - r
+      - r̀
+  first_high:
+    description: Assigns <H> to the first TBU
+    input_pattern: '[TBU]'
+    output_pattern: <H>
+    left_context: '#{^[TBU]<T>}*'
+    test_mappings:
+    - - və[TBU]lɛ[TBU]ð
+      - və́lɛ[TBU]ð
+    - - na[TBU]ma[TBU]l
+      - náma[TBU]l
+    - - r[TBU]
+      - ŕ
+  set_hl_melody:
+    rule_sequence:
+    - add_tbus_clean
+    - first_high
+    - all_low_tone
+    test_mappings:
+    - - vəlɛð
+      - və́lɛ̀ð
+    - - namal
+      - námàl
+    - - r
+      - ŕ
+  all_high_tone:
+    input_pattern: '[TBU]'
+    output_pattern: <H>
+  set_all_high_tone:
+    rule_sequence:
+    - add_tbus_clean
+    - all_high_tone
+    test_mappings:
+    - - vəlɛð
+      - və́lɛ́ð
+    - - namal
+      - námál
+    - - r
+      - ŕ

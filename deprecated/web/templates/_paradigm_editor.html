@@ -1,0 +1,601 @@
+{% from "_marker_list_editor.html" import render_marker_list %}
+
+<style>
+  .paradigm-highlight {
+    border-left-color: #2f6f96;
+    background: #edf6fb;
+    box-shadow: 0 0 0 1px #b7d8ea inset;
+    transition: background 1.2s ease, box-shadow 1.2s ease, border-left-color 1.2s ease;
+  }
+  .paradigm-grid { display: grid; gap: 1rem; }
+  .paradigm-two-col { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .marker-list-boxed { padding: 1rem; border: 1px solid #cfc4b2; border-radius: 8px; background: #fbf7f0; }
+  .stem-value-field[hidden] { display: none !important; }
+  .marker-value-field[hidden] { display: none !important; }
+  .marker-replace-fields[hidden] { display: none !important; }
+  .mode-value-field[hidden] { display: none !important; }
+  .mode-ref-select[hidden] { display: none !important; }
+  .mode-fixed-input[hidden] { display: none !important; }
+  .validation-msg.warn { color: #b8860b; font-style: italic; }
+  #pattern-select[hidden] { display: none !important; }
+  #pattern-text[hidden] { display: none !important; }
+</style>
+
+<section class="panel" id="config-editor-panel">
+  <h2>Paradigm editor</h2>
+  <p class="muted">Define a paradigm by choosing a part of speech, marker ordering, global markers, one-feature marker sources or fixed values, and any contingent marker imports.</p>
+
+  <form method="post" action="{{ url_for('web.config_editor') }}" class="grid" id="paradigm-editor-form">
+    <input type="hidden" name="editor_kind" value="Paradigm">
+    <textarea name="state" hidden>{{ state_json }}</textarea>
+
+    <label>
+      File path
+      <input type="text" name="path" value="{{ state.path }}" placeholder="paradigms/ipfv_it.yaml">
+    </label>
+
+    <label>
+      Part of speech
+      <input type="text" name="part_of_speech" value="{{ state.part_of_speech }}" placeholder="verb" list="paradigm-pos-list">
+    </label>
+    <datalist id="paradigm-pos-list">
+      {% for item in state.available_part_of_speech %}
+        <option value="{{ item }}">
+      {% endfor %}
+    </datalist>
+
+    <section class="paradigm-grid">
+      <h3>Order</h3>
+      <p class="muted">Ordered stages of application. Any marker with an explicit <code>order</code> should reference one of these stage names.</p>
+      <div class="actions">
+        <button type="submit" name="action" value="add-order-stage" formaction="{{ url_for('web.paradigms_add_order_stage') }}">Add order stage</button>
+      </div>
+      <div id="paradigm-order-list">
+        {% if state.order_stages %}
+          {% for stage in state.order_stages %}
+            <section class="node" id="order-stage-{{ stage.id }}" data-order-id="{{ stage.id }}">
+              <div class="paradigm-two-col">
+                <label>
+                  Stage name
+                  <input type="text" name="order-name-{{ stage.id }}" value="{{ stage.name }}" placeholder="argument_marker">
+                </label>
+                <div class="actions">
+                  <button type="submit" name="action" value="remove-order-stage" formaction="{{ url_for('web.paradigms_remove_order_stage', stage_id=stage.id) }}">Remove stage</button>
+                </div>
+              </div>
+            </section>
+          {% endfor %}
+        {% else %}
+          <p class="muted">No order stages yet. Add stages like <code>argument_marker</code> or <code>tone_processes</code>.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section>
+      <h3>Global markers</h3>
+      <p class="muted">Applied to every form in the paradigm. Use this for whole-paradigm rules or a shared stem selector.</p>
+      {{ render_marker_list(
+        state.global_markers,
+        "global",
+        url_for('web.paradigms_add_global_marker'),
+        'web.paradigms_remove_marker',
+        "A global stem selector applies to every form unless some later stage overrides that stem in downstream processing.",
+        true,
+        "Global stem selector",
+        "Add global marker",
+        available_rules=available_rules
+      ) }}
+    </section>
+
+    <section class="paradigm-grid">
+      <h3>Feature markers</h3>
+      <p class="muted">Each feature can be fixed to a value, imported from a <code>FeatureMarkers</code> config, or marked only through contingent markers.</p>
+      <div class="actions">
+        <button type="submit" name="action" value="add-feature-mapping" formaction="{{ url_for('web.paradigms_add_entry') }}">Add feature mapping</button>
+      </div>
+      <div id="paradigm-feature-mapping-list">
+        {% if state.feature_mappings %}
+          {% for item in state.feature_mappings %}
+            <section class="node" id="feature-mapping-{{ item.id }}" data-feature-mapping-id="{{ item.id }}">
+              <div class="paradigm-two-col">
+                <label>
+                  Feature
+                  <input type="text" name="feature-name-{{ item.id }}" value="{{ item.feature_name }}" placeholder="tam">
+                </label>
+                <label>
+                  Source
+                  <select name="feature-mode-{{ item.id }}" data-feature-mode>
+                    <option value="ref" {% if item.mode == "ref" %}selected{% endif %}>FeatureMarkers ref</option>
+                    <option value="fixed" {% if item.mode == "fixed" %}selected{% endif %}>Fixed value</option>
+                    <option value="null" {% if item.mode == "null" %}selected{% endif %}>Contingent only</option>
+                  </select>
+                </label>
+              </div>
+              <label class="mode-value-field" {% if item.mode == "null" %}hidden style="display:none"{% endif %}>
+                Value
+                <select name="feature-value-{{ item.id }}"
+                        class="mode-ref-select"
+                        {% if item.mode != "ref" %}disabled hidden style="display:none"{% endif %}>
+                  <option value="">-- select feature markers --</option>
+                  {% for fm_name in state.available_feature_markers %}
+                    <option value="${{ fm_name }}" {% if "$" ~ fm_name == item.value %}selected{% endif %}>{{ fm_name }}</option>
+                  {% endfor %}
+                </select>
+                <input type="text"
+                       name="feature-value-{{ item.id }}"
+                       class="mode-fixed-input"
+                       value="{{ item.value }}"
+                       {% if item.mode == "ref" %}disabled hidden style="display:none"{% endif %}
+                       placeholder="imperfective">
+              </label>
+              <div class="validation-msg muted" data-feature-mapping-validation="{{ item.id }}" style="display:none"></div>
+              <div class="actions">
+                <button type="submit" name="action" value="remove-feature-mapping" formaction="{{ url_for('web.paradigms_remove_entry', item_id=item.id) }}">Remove feature mapping</button>
+              </div>
+            </section>
+          {% endfor %}
+        {% else %}
+          <p class="muted">No feature mappings yet. Add entries like <code>tam = imperfective</code> or <code>object = $ipfv_object_markers</code>.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="paradigm-grid">
+      <h3>Feature combinations</h3>
+      <label>
+        Feature combinations ref
+        <input type="text" name="feature_combinations" value="{{ state.feature_combinations }}" placeholder="$ipfv_feature_set" list="paradigm-feature-combinations-list">
+      </label>
+      <datalist id="paradigm-feature-combinations-list">
+        {% for item in state.available_feature_combinations %}
+          <option value="${{ item }}">
+        {% endfor %}
+      </datalist>
+    </section>
+
+    <section class="paradigm-grid">
+      <h3>Contingent markers</h3>
+      <div class="actions">
+        <button type="submit" name="action" value="add-contingent-marker" formaction="{{ url_for('web.paradigms_add_contingent_marker') }}">Add contingent marker ref</button>
+      </div>
+      <div id="paradigm-contingent-list">
+        {% if state.contingent_markers %}
+          {% for item in state.contingent_markers %}
+            <section class="node" id="contingent-marker-{{ item.id }}" data-contingent-id="{{ item.id }}">
+              <label>
+                Contingent marker ref
+                <select name="contingent-ref-{{ item.id }}">
+                  <option value="">-- select contingent markers --</option>
+                  {% for cm_name in state.available_contingent_markers %}
+                    <option value="${{ cm_name }}" {% if "$" ~ cm_name == item.ref %}selected{% endif %}>{{ cm_name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <div class="validation-msg muted" data-contingent-validation="{{ item.id }}" style="display:none"></div>
+              <div class="actions">
+                <button type="submit" name="action" value="remove-contingent-marker" formaction="{{ url_for('web.paradigms_remove_contingent_marker', marker_id=item.id) }}">Remove contingent marker ref</button>
+              </div>
+            </section>
+          {% endfor %}
+        {% else %}
+          <p class="muted">No contingent marker refs yet.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="paradigm-grid">
+      <h3>Filter</h3>
+
+      <section class="paradigm-grid">
+        <h4>Lexical features</h4>
+        <p class="muted">Filter roots to those carrying specific lexical features. Each row is a (feature name, feature value) pair.</p>
+        <div class="actions">
+          <button type="submit" name="action" value="add-lexical-feature"
+                  formaction="{{ url_for('web.paradigms_add_lexical_feature') }}">Add lexical feature</button>
+        </div>
+        <div id="paradigm-lexical-feature-list">
+          {% if state.filter_lexical_features %}
+            {% for item in state.filter_lexical_features %}
+              <section class="node paradigm-two-col" id="lexical-feature-{{ item.id }}" data-lexical-feature-id="{{ item.id }}">
+                <label>
+                  Feature name
+                  <select name="lf-name-{{ item.id }}" data-lf-name="{{ item.id }}">
+                    <option value="">-- select feature --</option>
+                    {% for fname in state.available_features_to_values %}
+                      <option value="{{ fname }}" {% if fname == item.feature_name %}selected{% endif %}>{{ fname }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label>
+                  Feature value
+                  <select name="lf-value-{{ item.id }}" data-lf-value="{{ item.id }}">
+                    <option value="">-- select value --</option>
+                    {% for fval in state.available_features_to_values.get(item.feature_name, []) %}
+                      <option value="{{ fval }}" {% if fval == item.feature_value %}selected{% endif %}>{{ fval }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <div class="actions">
+                  <button type="submit" name="action" value="remove-lexical-feature"
+                          formaction="{{ url_for('web.paradigms_remove_lexical_feature', feature_id=item.id) }}">Remove</button>
+                </div>
+              </section>
+            {% endfor %}
+          {% else %}
+            <p class="muted">No lexical feature filters yet.</p>
+          {% endif %}
+        </div>
+      </section>
+
+      <label>
+        Pattern
+        <span class="checkbox-row">
+          <input type="checkbox" id="pattern-use-dropdown"
+                 {% if not state.available_patterns %}disabled{% endif %}>
+          <span>Select from list</span>
+        </span>
+        {% if not state.available_patterns %}
+          <span class="validation-msg warn">No patterns found in config.</span>
+        {% endif %}
+        <select name="filter_pattern" id="pattern-select" disabled hidden style="display:none">
+          <option value="">-- select pattern --</option>
+          {% for p in state.available_patterns %}
+            <option value="{{ p }}" {% if p == state.filter_pattern %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+        <input type="text" name="filter_pattern" id="pattern-text"
+               value="{{ state.filter_pattern }}" placeholder="&lt;TwoSyllableWord&gt;">
+      </label>
+    </section>
+
+    <div class="actions">
+      <button type="submit" name="action" value="save" formaction="{{ url_for('web.config_editor') }}">Save YAML</button>
+    </div>
+
+    <section>
+      <h3>YAML preview</h3>
+      <pre class="preview">{{ yaml_preview }}</pre>
+    </section>
+  </form>
+</section>
+
+<script>
+  const availableFeaturesValues = {{ state.available_features_to_values | default({}) | tojson }};
+  const availablePatterns = {{ state.available_patterns | default([]) | tojson }};
+
+  function updateLexicalFeatureValueDropdowns(root) {
+    root.querySelectorAll("[data-lexical-feature-id]").forEach(function(node) {
+      var rowId = node.dataset.lexicalFeatureId;
+      var nameSelect = node.querySelector("[data-lf-name]");
+      var valueSelect = node.querySelector("[data-lf-value]");
+      if (!nameSelect || !valueSelect) return;
+      var selectedName = nameSelect.value;
+      var selectedValue = valueSelect.value;
+      var values = availableFeaturesValues[selectedName] || [];
+      valueSelect.innerHTML = '<option value="">-- select value --</option>';
+      values.forEach(function(v) {
+        var opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = v;
+        if (v === selectedValue) opt.selected = true;
+        valueSelect.appendChild(opt);
+      });
+    });
+  }
+
+  function updatePatternMode() {
+    var cb = document.getElementById("pattern-use-dropdown");
+    var sel = document.getElementById("pattern-select");
+    var txt = document.getElementById("pattern-text");
+    if (!cb || !sel || !txt) return;
+    var useDropdown = cb.checked;
+    sel.hidden = !useDropdown;
+    sel.style.display = useDropdown ? "" : "none";
+    sel.disabled = !useDropdown;
+    txt.hidden = useDropdown;
+    txt.style.display = useDropdown ? "none" : "";
+    txt.disabled = useDropdown;
+  }
+
+  function updateParadigmMarkerTypeFields(root) {
+    root.querySelectorAll("[data-marker-id]").forEach(function(node) {
+      var select = node.querySelector("[data-marker-type]");
+      var valueField = node.querySelector(".marker-value-field");
+      var valueInput = valueField ? valueField.querySelector("input") : null;
+      var replaceFields = node.querySelector(".marker-replace-fields");
+      var ruleField = node.querySelector(".marker-rule-field");
+      if (!select || !valueField || !replaceFields) return;
+      var isReplace = select.value === "replace";
+      var isRule = select.value === "rule";
+      valueField.hidden = isReplace || isRule;
+      valueField.style.display = (isReplace || isRule) ? "none" : "";
+      if (valueInput) valueInput.disabled = isReplace || isRule;
+      replaceFields.hidden = !isReplace;
+      replaceFields.style.display = isReplace ? "" : "none";
+      if (ruleField) {
+        var ruleSel = ruleField.querySelector("select");
+        ruleField.hidden = !isRule;
+        ruleField.style.display = isRule ? "" : "none";
+        if (ruleSel) ruleSel.disabled = !isRule;
+      }
+      if (valueInput) {
+        if (select.value === "prefix") {
+          valueInput.placeholder = "ba-";
+        } else {
+          valueInput.placeholder = "-o";
+        }
+      }
+    });
+  }
+
+  function updateParadigmStemSelectorFields(root) {
+    root.querySelectorAll("[data-stem-toggle]").forEach(function(toggle) {
+      var block = toggle.closest(".marker-stem-block");
+      if (!block) return;
+      var field = block.querySelector(".stem-value-field");
+      if (!field) return;
+      field.hidden = !toggle.checked;
+      field.style.display = toggle.checked ? "" : "none";
+    });
+  }
+
+  function updateParadigmFeatureModes(root) {
+    root.querySelectorAll("[data-feature-mapping-id]").forEach(function(node) {
+      var select = node.querySelector("[data-feature-mode]");
+      var valueField = node.querySelector(".mode-value-field");
+      var refSelect = valueField ? valueField.querySelector(".mode-ref-select") : null;
+      var fixedInput = valueField ? valueField.querySelector(".mode-fixed-input") : null;
+      if (!select || !valueField || !refSelect || !fixedInput) return;
+      var mode = select.value;
+      var isNull = mode === "null";
+      var isRef = mode === "ref";
+      valueField.hidden = isNull;
+      valueField.style.display = isNull ? "none" : "";
+      refSelect.hidden = !isRef;
+      refSelect.style.display = isRef ? "" : "none";
+      refSelect.disabled = !isRef;
+      fixedInput.hidden = isRef || isNull;
+      fixedInput.style.display = (isRef || isNull) ? "none" : "";
+      fixedInput.disabled = isRef;
+    });
+  }
+
+  function validateParadigmEditor() {
+    var form = document.getElementById("paradigm-editor-form");
+    if (!form) return;
+
+    var seenFeatures = {};
+    form.querySelectorAll("[data-feature-mapping-id]").forEach(function(node) {
+      var id = node.dataset.featureMappingId;
+      var featureInput = node.querySelector("[name='feature-name-" + id + "']");
+      var modeInput = node.querySelector("[name='feature-mode-" + id + "']");
+      var valueInput = node.querySelector("[name='feature-value-" + id + "']");
+      var msg = node.querySelector("[data-feature-mapping-validation]");
+      var warnings = [];
+      var featureName = featureInput ? featureInput.value.trim() : "";
+      if (!featureName) {
+        warnings.push("Feature name is empty");
+      } else if (seenFeatures[featureName]) {
+        warnings.push("Duplicate feature mapping: " + featureName);
+      } else {
+        seenFeatures[featureName] = true;
+      }
+      if (modeInput && modeInput.value !== "null") {
+        var activeInput = modeInput.value === "ref"
+          ? node.querySelector(".mode-ref-select")
+          : node.querySelector(".mode-fixed-input");
+        var value = activeInput ? activeInput.value.trim() : "";
+        if (!value) {
+          warnings.push("Value is required unless this feature is contingent-only");
+        }
+      }
+      if (warnings.length) {
+        msg.textContent = warnings.join(" · ");
+        msg.className = "validation-msg warn";
+        msg.style.display = "";
+      } else {
+        msg.textContent = "";
+        msg.className = "validation-msg muted";
+        msg.style.display = "none";
+      }
+    });
+
+    form.querySelectorAll("[data-contingent-id]").forEach(function(node) {
+      var id = node.dataset.contingentId;
+      var msg = node.querySelector("[data-contingent-validation]");
+      msg.textContent = "";
+      msg.className = "validation-msg muted";
+      msg.style.display = "none";
+    });
+
+    form.querySelectorAll("[data-marker-id]").forEach(function(node) {
+      var markerId = node.dataset.markerId;
+      var type = form.querySelector("[name='type-" + markerId + "']");
+      var value = form.querySelector("[name='value-" + markerId + "']");
+      var input = form.querySelector("[name='replace-input-" + markerId + "']");
+      var output = form.querySelector("[name='replace-output-" + markerId + "']");
+      var msg = node.querySelector("[data-marker-validation]");
+      if (!type || !msg) return;
+      var warnings = [];
+      var markerType = type.value;
+      var markerValue = value ? value.value.trim() : "";
+      if (markerType === "prefix" && markerValue && !(/[=-_]$/).test(markerValue)) {
+        warnings.push("Prefix values should end with -, = or _");
+      }
+      if (markerType === "suffix" && markerValue && !(/^[-=_]/).test(markerValue)) {
+        warnings.push("Suffix values should start with -, = or _");
+      }
+      if (markerType === "replace" && (!input.value.trim() || !output.value.trim())) {
+        warnings.push("Replace markers require both input and output");
+      }
+      if (warnings.length) {
+        msg.textContent = warnings.join(" · ");
+        msg.className = "validation-msg warn";
+        msg.style.display = "";
+      } else {
+        msg.textContent = "";
+        msg.className = "validation-msg muted";
+        msg.style.display = "none";
+      }
+    });
+  }
+
+  function initParadigmEditor() {
+    updateParadigmMarkerTypeFields(document);
+    updateParadigmStemSelectorFields(document);
+    updateParadigmFeatureModes(document);
+    updateLexicalFeatureValueDropdowns(document);
+    updatePatternMode();
+    validateParadigmEditor();
+  }
+
+  document.addEventListener("change", function(event) {
+    if (event.target.matches("[data-marker-type]")) {
+      updateParadigmMarkerTypeFields(document);
+      validateParadigmEditor();
+      return;
+    }
+    if (event.target.matches("[data-stem-toggle]")) {
+      updateParadigmStemSelectorFields(document);
+      validateParadigmEditor();
+      return;
+    }
+    if (event.target.matches("[data-feature-mode]")) {
+      updateParadigmFeatureModes(document);
+      validateParadigmEditor();
+      return;
+    }
+    if (event.target.matches("[data-lf-name]")) {
+      updateLexicalFeatureValueDropdowns(document);
+      return;
+    }
+    if (event.target.matches("#pattern-use-dropdown")) {
+      updatePatternMode();
+      return;
+    }
+    if (event.target.closest("#paradigm-editor-form")) {
+      validateParadigmEditor();
+    }
+  });
+
+  document.addEventListener("input", function(event) {
+    if (event.target.closest("#paradigm-editor-form")) {
+      validateParadigmEditor();
+    }
+  });
+
+  initParadigmEditor();
+
+  document.addEventListener("submit", async (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || form.id !== "paradigm-editor-form") {
+      return;
+    }
+
+    const submitter = event.submitter;
+    if (!(submitter instanceof HTMLElement)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const targetNode = submitter.closest("[data-order-id], [data-feature-mapping-id], [data-contingent-id], [data-marker-id], [data-lexical-feature-id]");
+    const targetId = targetNode
+      ? (targetNode.getAttribute("data-order-id")
+        || targetNode.getAttribute("data-feature-mapping-id")
+        || targetNode.getAttribute("data-contingent-id")
+        || targetNode.getAttribute("data-marker-id")
+        || targetNode.getAttribute("data-lexical-feature-id"))
+      : null;
+    const actionValue = submitter instanceof HTMLButtonElement ? submitter.value : "";
+    const action = submitter.getAttribute("formaction") || form.action;
+    const formData = new FormData(form);
+
+    if (submitter instanceof HTMLButtonElement && submitter.name) {
+      formData.set(submitter.name, submitter.value);
+    }
+
+    submitter.setAttribute("disabled", "disabled");
+
+    try {
+      const response = await fetch(action, {
+        method: "POST",
+        body: formData,
+        headers: { "X-Requested-With": "fetch" },
+      });
+
+      if (!response.ok) {
+        window.location.href = response.url || window.location.href;
+        return;
+      }
+
+      const html = await response.text();
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const nextPanel = doc.querySelector("#config-editor-panel");
+      const nextNotices = doc.querySelector("#page-notices");
+      const currentPanel = document.querySelector("#config-editor-panel");
+      const currentNotices = document.querySelector("#page-notices");
+
+      if (!nextPanel || !currentPanel) {
+        window.location.reload();
+        return;
+      }
+
+      if (nextNotices && currentNotices) {
+        currentNotices.replaceWith(nextNotices);
+      }
+
+      const nextSidebar = doc.querySelector("#config-sidebar");
+      const currentSidebar = document.querySelector("#config-sidebar");
+      if (nextSidebar && currentSidebar) {
+        currentSidebar.replaceWith(nextSidebar);
+      }
+
+      currentPanel.replaceWith(nextPanel);
+      initParadigmEditor();
+
+      let focusNode = null;
+      if (actionValue === "add-order-stage") {
+        const list = document.querySelector("#paradigm-order-list");
+        if (list) {
+          const nodes = Array.from(list.children).filter((child) => child instanceof HTMLElement && child.dataset.orderId);
+          focusNode = nodes[nodes.length - 1] || null;
+        }
+      } else if (actionValue === "add-feature-mapping") {
+        const list = document.querySelector("#paradigm-feature-mapping-list");
+        if (list) {
+          const nodes = Array.from(list.children).filter((child) => child instanceof HTMLElement && child.dataset.featureMappingId);
+          focusNode = nodes[nodes.length - 1] || null;
+        }
+      } else if (actionValue === "add-contingent-marker") {
+        const list = document.querySelector("#paradigm-contingent-list");
+        if (list) {
+          const nodes = Array.from(list.children).filter((child) => child instanceof HTMLElement && child.dataset.contingentId);
+          focusNode = nodes[nodes.length - 1] || null;
+        }
+      } else if (actionValue === "add-lexical-feature") {
+        const list = document.querySelector("#paradigm-lexical-feature-list");
+        if (list) {
+          const nodes = Array.from(list.children).filter((child) => child instanceof HTMLElement && child.dataset.lexicalFeatureId);
+          focusNode = nodes[nodes.length - 1] || null;
+        }
+      } else if (targetId) {
+        focusNode = document.querySelector("#order-stage-" + targetId)
+          || document.querySelector("#feature-mapping-" + targetId)
+          || document.querySelector("#contingent-marker-" + targetId)
+          || document.querySelector("#marker-" + targetId)
+          || document.querySelector("#lexical-feature-" + targetId);
+      }
+
+      if (focusNode) {
+        focusNode.classList.add("paradigm-highlight");
+        focusNode.scrollIntoView({ block: "center", behavior: "smooth" });
+        window.setTimeout(() => focusNode.classList.remove("paradigm-highlight"), 1800);
+      }
+    } catch (error) {
+      window.location.reload();
+    } finally {
+      submitter.removeAttribute("disabled");
+    }
+  });
+</script>

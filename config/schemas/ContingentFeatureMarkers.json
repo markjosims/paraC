@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ContingentFeatureMarkers",
+  "description": "Schema for morphological realizations contingent on multiple features.",
+  "type": "object",
+  "required": ["kind", "inner_feature", "outer_feature", "markers"],
+  "additionalProperties": false,
+  "properties": {
+    "source_path": {
+      "type": "string",
+      "description": "The file path from which this config was loaded."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["ContingentFeatureMarkers"]
+    },
+    "inner_feature": {
+      "type": "string",
+      "description": "The name of the feature whose values define the inner branches of the hierarchy."
+    },
+    "outer_feature": {
+      "type": "string",
+      "description": "The name of the feature whose values define the outer branches of the hierarchy."
+    },
+    "global_order": {
+      "type": "string",
+      "description": "Allows specifying a default value for the 'order' attribute."
+    },
+    "global_markers": {
+      "type": "array",
+      "items": { "$ref": "./FeatureMarkers.json#/definitions/marker" },
+      "description": "A marker or list of markers applied to all forms in this paradigm."
+    },
+    "markers": {
+      "type": "array",
+      "description": "An array over outer feature values.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "outer_feature_value": {
+            "type": "string",
+            "description": "The feature value specified for the outer feature for all child nodes."
+          },
+          "inner_feature_values": {
+            "type": "object",
+            "additionalProperties": { 
+              "oneOf": [
+                { "$ref": "./FeatureMarkers.json#/definitions/marker" },
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "./FeatureMarkers.json#/definitions/marker"
+                  }
+                }
+              ]
+          }
+          }
+        }
+      } 
+    }
+  }
+}

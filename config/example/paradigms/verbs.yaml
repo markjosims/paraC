@@ -1,0 +1,18 @@
+kind: Paradigm
+part_of_speech: verb
+order:
+- consonant_mutation
+- inner_suffix
+- outer_suffix
+- post_affixation
+global_markers:
+- type: rule
+  value: harmonize_suffix
+feature_markers:
+  person_number: $present_tense_person_markers
+  mood: $present_tense_mood_markers
+  tense: $verb_tense
+filter:
+  lexical_features:
+  - - conjugation_class
+    - class_A

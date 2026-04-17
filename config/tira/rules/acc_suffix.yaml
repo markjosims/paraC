@@ -1,0 +1,43 @@
+kind: Rules
+rules:
+  acc_suffix:
+    string_map:
+    - - '[-a]'
+      - -a
+    - - '[-ɔ]'
+      - -ɔ
+    - - '[-ɛ]'
+      - -ɛ
+    - - '[-ŋù]'
+      - -ŋù
+    - - '[-ɲa]'
+      - -ɲa
+  assign_acc_tone:
+    description: Tonally underspecified accusative suffixes gain tone of previous
+      syllable.
+    rule_sequence:
+    - assign_acc_tone_H
+    - assign_acc_tone_L
+    test_mappings:
+    - - ðɔ̀nd̪-a
+      - ðɔ̀nd̪-à
+    - - àpɾí-ɲa
+      - àpɾí-ɲá
+  assign_acc_tone_H:
+    input_pattern: <Empty>
+    output_pattern: <H>
+    left_context: <H>{^<T>}*<V>
+    right_context: '#'
+  assign_acc_tone_L:
+    input_pattern: <Empty>
+    output_pattern: <L>
+    left_context: <L>{^<T>}*<V>
+    right_context: '#'
+  set_acc_suffix:
+    rule_sequence:
+    - acc_suffix
+    - assign_acc_tone
+    - resolve_hiatus
+    test_mappings:
+    - - ðɔ̀nd̪ɔ̀[-a]
+      - ðɔ̀nd̪-à

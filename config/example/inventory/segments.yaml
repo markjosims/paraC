@@ -1,0 +1,65 @@
+kind: Inventory
+data:
+  consonants:
+    _ref: <C>
+    stops:
+      _ref: <Stop>
+      voiceless:
+        _ref: <P>
+        _phones:
+        - p
+        - t
+        - k
+      voiced:
+        _ref: <B>
+        _phones:
+        - b
+        - d
+        - g
+    fricatives:
+      _ref: <Fric>
+      _phones:
+      - f
+      - s
+      - x
+    affricates:
+      _ref: <Affr>
+      _phones:
+      - ch
+      - ts
+      - dz
+      - j
+    nasals:
+      _ref: <N>
+      _phones:
+      - m
+      - n
+      - ŋ
+    liquids:
+      _ref: <Liq>
+      _phones:
+      - l
+      - r
+    glides:
+      _ref: <Glide>
+      _phones:
+      - y
+      - w
+  vowels:
+    _ref: <V>
+    +ATR vowels:
+      _ref: <V_ATR>
+      _phones:
+      - ə
+      - e
+      - i
+      - o
+      - u
+    -ATR vowels:
+      _ref: <V_RTR>
+      _phones:
+      - a
+      - ɛ
+      - ɪ
+      - ɔ
+      - ʊ

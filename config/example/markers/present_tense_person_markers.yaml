@@ -1,0 +1,26 @@
+kind: FeatureMarkers
+feature: person_number
+global_order: outer_suffix
+global_markers:
+- type: rule
+  value: harmonize_suffix
+  order: post_affixation
+markers:
+  1sg:
+  - type: suffix
+    value: -a
+  2sg:
+  - type: suffix
+    value: -ʊ
+  3sg:
+  - type: suffix
+    value: -i
+  1pl:
+  - type: suffix
+    value: -ko
+  - type: prefix
+    value: ba-
+  2pl: null
+  3pl:
+  - type: rule
+    value: $final_devoice

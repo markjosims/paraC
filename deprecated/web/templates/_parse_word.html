@@ -1,0 +1,207 @@
+<style>
+  #parse-results table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; }
+  #parse-results th, #parse-results td { padding: 0.45rem 0.65rem; border: 1px solid #ddd; text-align: left; }
+  #parse-results th { background: #f7f7f7; font-weight: 600; }
+  #parse-results tr:nth-child(even) { background: #fafafa; }
+  .parse-status-area { margin-top: 0.5rem; min-height: 1.8rem; }
+  .parse-status-ready { color: #3a7a3a; font-size: 0.9rem; }
+  .parse-status-building { color: #666; font-size: 0.9rem; font-style: italic; }
+  .parse-status-error { color: #a33; font-size: 0.9rem; }
+  .parse-spinner { display: inline-block; width: 0.8em; height: 0.8em; border: 2px solid #ccc; border-top-color: #666; border-radius: 50%; animation: parse-spin 0.7s linear infinite; vertical-align: middle; margin-right: 0.3em; }
+  @keyframes parse-spin { to { transform: rotate(360deg); } }
+</style>
+
+<section class="panel" id="parse-word-panel">
+  <h2>Parse word</h2>
+  <p class="muted">Select a paradigm, build its parse graphs, then enter a surface form to retrieve parses. Enable inexact search for fuzzy matching.</p>
+
+  {% if parse_registry_error %}
+    <div class="notice error">{{ parse_registry_error }}</div>
+  {% elif not paradigm_names %}
+    <div class="notice error">No paradigms found. Create a Paradigm config in the Grammar config tab first.</div>
+  {% else %}
+    <div class="grid">
+      <div class="two-col">
+        <label>
+          Paradigm
+          <select name="paradigm_name" id="parse-paradigm-select">
+            <option value="">-- select paradigm --</option>
+            {% for name in paradigm_names %}
+              <option value="{{ name }}" {% if name == parse_selected_paradigm %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <div>
+          <div class="parse-status-area" id="parse-status-area"></div>
+          <form method="post" action="{{ url_for('web.parse_build_graphs') }}" id="parse-build-form" style="display:none">
+            <input type="hidden" name="paradigm_name" id="parse-build-paradigm-input">
+            <button type="submit" id="parse-build-btn">Build graphs</button>
+          </form>
+        </div>
+      </div>
+
+      <form method="post" action="{{ url_for('web.parse_word') }}" class="grid" id="parse-word-form">
+        <label>
+          Form
+          <input type="text" name="query" id="parse-query-input" value="{{ parse_query }}" placeholder="pòk" disabled>
+        </label>
+
+        <label class="checkbox-row">
+          <input type="checkbox" name="inexact" value="1" id="parse-inexact-checkbox" {% if parse_inexact %}checked{% endif %} disabled>
+          Inexact search
+        </label>
+
+        <input type="hidden" name="paradigm_name" id="parse-form-paradigm-input" value="{{ parse_selected_paradigm }}">
+
+        <div class="actions">
+          <button type="submit" id="parse-submit-btn" disabled>Parse</button>
+        </div>
+      </form>
+    </div>
+
+    {% if parse_results is defined and parse_results is not none %}
+      <section id="parse-results">
+        <h3>Parse results</h3>
+        {% if parse_results %}
+          <table>
+            <thead>
+              <tr>
+                {% if parse_inexact %}<th>Form</th>{% endif %}
+                <th>Root</th>
+                <th>Parse</th>
+                {% if parse_inexact %}<th>Num edits</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in parse_results %}
+                <tr>
+                  {% if parse_inexact %}<td>{{ row.form }}</td>{% endif %}
+                  <td>{{ row.root }}</td>
+                  <td>{{ row.parse }}</td>
+                  {% if parse_inexact %}<td>{{ row.num_edits }}</td>{% endif %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="muted">No parses found.</p>
+        {% endif %}
+      </section>
+    {% endif %}
+  {% endif %}
+</section>
+
+<script>
+  // Status fetched once, updated by polling
+  let _parseStatuses = {};
+  let _pollTimer = null;
+
+  function _isAnyBuilding(statuses) {
+    return Object.values(statuses).some(s => s.status === "building");
+  }
+
+  function _updateParseUI() {
+    const select = document.getElementById("parse-paradigm-select");
+    const statusArea = document.getElementById("parse-status-area");
+    const buildForm = document.getElementById("parse-build-form");
+    const buildParadigmInput = document.getElementById("parse-build-paradigm-input");
+    const formParadigmInput = document.getElementById("parse-form-paradigm-input");
+    const queryInput = document.getElementById("parse-query-input");
+    const inexactCheckbox = document.getElementById("parse-inexact-checkbox");
+    const submitBtn = document.getElementById("parse-submit-btn");
+
+    if (!select) return;
+
+    const paradigm = select.value;
+    if (formParadigmInput) formParadigmInput.value = paradigm;
+    if (buildParadigmInput) buildParadigmInput.value = paradigm;
+
+    if (!paradigm) {
+      if (statusArea) statusArea.innerHTML = "";
+      if (buildForm) buildForm.style.display = "none";
+      if (queryInput) queryInput.disabled = true;
+      if (inexactCheckbox) inexactCheckbox.disabled = true;
+      if (submitBtn) submitBtn.disabled = true;
+      return;
+    }
+
+    const info = _parseStatuses[paradigm] || { status: "idle", main_graphs_built: false, edit_graphs_built: false, error: null };
+
+    // Render status area
+    if (statusArea) {
+      if (info.status === "building") {
+        statusArea.innerHTML = '<span class="parse-status-building"><span class="parse-spinner"></span>Building graphs\u2026 this may take a moment.</span>';
+      } else if (info.status === "done" || (info.main_graphs_built && info.edit_graphs_built)) {
+        statusArea.innerHTML = '<span class="parse-status-ready">\u2713 Ready</span>';
+      } else if (info.status === "error") {
+        statusArea.innerHTML = '<span class="parse-status-error">Error: ' + _escapeHtml(info.error || "unknown error") + '</span>';
+      } else {
+        statusArea.innerHTML = "";
+      }
+    }
+
+    // Show/hide build form
+    const showBuild = info.status !== "building" && !(info.main_graphs_built && info.edit_graphs_built);
+    if (buildForm) buildForm.style.display = showBuild ? "" : "none";
+
+    // Lock/unlock form fields
+    const mainReady = info.main_graphs_built || info.status === "done";
+    const editReady = info.edit_graphs_built || info.status === "done";
+
+    if (queryInput) queryInput.disabled = !mainReady;
+    if (submitBtn) submitBtn.disabled = !mainReady;
+
+    if (inexactCheckbox) {
+      inexactCheckbox.disabled = !editReady;
+      if (!editReady && inexactCheckbox.checked) {
+        inexactCheckbox.checked = false;
+      }
+    }
+  }
+
+  function _escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function _fetchStatus(callback) {
+    fetch("{{ url_for('web.parse_build_status') }}")
+      .then(r => r.json())
+      .then(data => {
+        if (data.paradigms) {
+          _parseStatuses = data.paradigms;
+        }
+        _updateParseUI();
+        if (callback) callback();
+      })
+      .catch(() => {
+        if (callback) callback();
+      });
+  }
+
+  function _startPolling() {
+    if (_pollTimer !== null) return;
+    _pollTimer = setInterval(function() {
+      _fetchStatus(function() {
+        if (!_isAnyBuilding(_parseStatuses)) {
+          clearInterval(_pollTimer);
+          _pollTimer = null;
+        }
+      });
+    }, 2000);
+  }
+
+  function _initParseWord() {
+    const select = document.getElementById("parse-paradigm-select");
+    if (select) {
+      select.addEventListener("change", _updateParseUI);
+    }
+
+    _fetchStatus(function() {
+      if (_isAnyBuilding(_parseStatuses)) {
+        _startPolling();
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", _initParseWord);
+</script>

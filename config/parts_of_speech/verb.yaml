@@ -1,4 +1,0 @@
-kind: PartOfSpeech
-name: verb
-features: [tam, deixis, class, subject, object, wh]
-lexical_flags: [fv_class]

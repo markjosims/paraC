@@ -1,0 +1,17 @@
+kind: Patterns
+patterns:
+- Front vowel:
+    pattern: '{eiɛɪ}'
+    _ref: <V_Front>
+    test_includes:
+    - ɛ
+    - ɪ
+    - i
+    - e
+    test_excludes:
+    - a
+    - o
+    - u
+    - ə
+    - s
+    - f

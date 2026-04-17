@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}M4 - Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <h1 class="mb-4">M4 Morphological Parser</h1>
+
+        <p class="lead">
+            A web interface for parsing and generating morphology for language documentation using finite-state transducers.
+        </p>
+
+        <div class="row mt-5">
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Inflector</h5>
+                        <p class="card-text">
+                            Generate inflected forms from a root and morphological features.
+                            Select a part of speech and fill in the relevant features.
+                        </p>
+                        <a href="/inflector" class="btn btn-primary">Go to Inflector</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Parser</h5>
+                        <p class="card-text">
+                            Parse a word to get its morphological analysis.
+                            Supports exact and fuzzy matching.
+                        </p>
+                        <a href="/parser" class="btn btn-primary">Go to Parser</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Corpus Searcher</h5>
+                        <p class="card-text">
+                            Search the corpus for sentences containing a word,
+                            or search parsed data by root and features.
+                        </p>
+                        <a href="/corpus" class="btn btn-primary">Go to Corpus</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-5">
+            <h4>About !TARGETLANGUAGE</h4>
+            <p>
+                !TARGETLANGUAGE is a hypothetical language used for demonstration purposes in this project.
+                It belongs to the !MADEUP family and is sister to the equally fictional !SISTERLANGUAGE.
+                It is spoken by !PEOPLE in !PLACE.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
