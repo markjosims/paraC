@@ -1,5 +1,5 @@
 import streamlit as st
-from src.config_utils.watcher import start_watcher
+from src.config_utils.watcher import start_watcher, check_and_apply_invalidation
 from src.config_utils.config_walker import get_config_dir, ConfigWalker
 from src.grammar import Grammar
 from loguru import logger
@@ -7,8 +7,7 @@ from loguru import logger
 from src.pages.inventory import inventory_page
 from src.pages.patterns import patterns_page
 
-GRAMMAR_REGISTRY_CACHE: dict[str, tuple[float, Grammar]] = {}
-GRAMMAR_BUILD_STATUS: dict[tuple[str, str], dict] = {}
+_INVALIDATE_KEYS = ["grammar", "config_walker"]
 
 
 def load_grammar(config_walker: ConfigWalker) -> Grammar:
@@ -19,8 +18,12 @@ def load_grammar(config_walker: ConfigWalker) -> Grammar:
 
 def initialize_state():
     """
-    Loads directory watcher and GrammarRegistry.
+    Checks for config file changes, then ensures the watcher, config
+    walker, and grammar are loaded into session state.
     """
+    # Check watcher flag first — must run every rerun from the main thread.
+    if check_and_apply_invalidation(_INVALIDATE_KEYS):
+        st.rerun()
 
     config_dir = st.session_state.get("config_dir", None)
     config_walker = st.session_state.get("config_walker", None)
@@ -37,9 +40,7 @@ def initialize_state():
         st.session_state["config_walker"] = config_walker
     if watcher is None:
         logger.info("Starting watcher...")
-        watcher = start_watcher(
-            config_dir=config_dir, invalidate_keys=["grammar", "config_walker"]
-        )
+        watcher = start_watcher(config_dir=config_dir)
         st.session_state["watcher"] = watcher
     if grammar is None:
         logger.info(f"Loading grammar from {config_dir}...")
