@@ -20,3 +20,5 @@ streamlit
 levenshtein
 camel_converter
 numba
+nltk
+scipy

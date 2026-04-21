@@ -1,6 +1,6 @@
 import os
 
-from src.beam_search import (
+from src.search.beam_search import (
     ascii_table,
     intersect_beam,
     intersect_beam_forward_back,

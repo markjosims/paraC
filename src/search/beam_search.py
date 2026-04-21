@@ -3,7 +3,7 @@ import pynini
 import numpy as np
 from dataclasses import dataclass
 import graphviz
-from src.beam_search_jit import intersect_beam_jit
+from src.search.beam_search_jit import intersect_beam_jit
 
 ascii_table = pynini.SymbolTable()
 ascii_table.add_symbol("<eps>")
