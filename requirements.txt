@@ -22,3 +22,6 @@ camel_converter
 numba
 nltk
 scipy
+seaborn
+matplotlib
+scikit-learn

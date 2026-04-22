@@ -12,7 +12,15 @@ from src.search.edit_modeling import (
     kl_divergence_from_uniform,
     conditional_kl_divergence_from_uniform,
 )
-from src.search.edit_graph import intersect_graphs, ascii_table, alphabet
+from src.search.edit_graph import (
+    intersect_graphs,
+    ascii_table,
+    alphabet,
+    get_search_graph,
+    get_query_graph,
+    get_edit_factors,
+    prepare_cost_matrix_for_edit_graph,
+)
 
 import pynini
 import graphviz
@@ -28,6 +36,7 @@ from sklearn.linear_model import LinearRegression
 import random
 from nltk.corpus import words
 import nltk
+import Levenshtein
 
 nltk.download("words", quiet=True)
 
@@ -103,19 +112,17 @@ def apply_random_edit(
     is_insert = insert_likelihood < insert_prob
 
     if edit_prob_matrix is None:
-        edit_prob_matrix = np.ones((len(ascii_table), len(ascii_table))) / len(
-            ascii_table
-        )
+        edit_prob_matrix = np.ones((len(alphabet), len(alphabet))) / len(alphabet)
 
     if is_insert:
         index = np.random.randint(0, len(word) + 1)
-        insert_char = np.random.choice(len(ascii_table), p=edit_prob_matrix[0])
+        insert_char = np.random.choice(len(alphabet), p=edit_prob_matrix[0])
         word = word[:index] + (insert_char,) + word[index:]
     else:
         index = np.random.randint(0, len(word))
         original_char = word[index]
         edit_probs = edit_prob_matrix[original_char]
-        new_char = np.random.choice(len(ascii_table), p=edit_probs)
+        new_char = np.random.choice(len(alphabet), p=edit_probs)
         if new_char == 0:
             # Deletion
             word = word[:index] + word[index + 1 :]
@@ -126,11 +133,25 @@ def apply_random_edit(
     return word
 
 
-def sample_word_and_edit(wordlist: list[str], num_edits: int = 5) -> tuple[str, str]:
+def sample_word_and_edit(
+    wordlist: list[str],
+    num_edits: int = 5,
+    insert_prob: float = 0.3,
+    edit_prob_matrix: np.ndarray | None = None,
+) -> tuple[str, str]:
     word = random.choice(wordlist)
     edited_word = word
-    for _ in range(num_edits):
-        edited_word = apply_random_edit(edited_word)
+    edited_word_tokenized = [alphabet.index(c) for c in edited_word]
+
+    # use while loop instead of for loop in case of vacuous or colliding edits
+    while Levenshtein.distance(word, edited_word) < num_edits:
+        edited_word_tokenized = apply_random_edit(
+            edited_word_tokenized,
+            insert_prob=insert_prob,
+            edit_prob_matrix=edit_prob_matrix,
+        )
+        edited_word = "".join(alphabet[i] for i in edited_word_tokenized)
+
     return word, edited_word
 
 
@@ -161,6 +182,7 @@ def profile_beam_search(
     query: str,
     top_k: int = 5,
     unique_only: bool = True,
+    cost_matrix: np.ndarray | None = None,
 ) -> dict[str, Any]:
     # lexicon preprocessing
     lexicon_preproc_time, lexicon_csr = time_execution(
@@ -183,6 +205,7 @@ def profile_beam_search(
             num_beam=top_k,
             fuzzy_search=True,
             unique_only=unique_only,
+            cost_matrix=cost_matrix,
         )
         return results
 
@@ -194,6 +217,7 @@ def profile_beam_search(
             fuzzy_search=True,
             unique_only=unique_only,
             use_jit=True,
+            cost_matrix=cost_matrix,
         )
         return results
 
@@ -220,6 +244,7 @@ def profile_beam_search_forward_backward(
     query: str,
     top_k: int = 5,
     unique_only: bool = True,
+    cost_matrix: np.ndarray | None = None,
 ) -> dict[str, Any]:
     # lexicon preprocessing
     def preproc_lexicon():
@@ -250,6 +275,7 @@ def profile_beam_search_forward_backward(
             num_beam=top_k,
             fuzzy_search=True,
             unique_only=unique_only,
+            cost_matrix=cost_matrix,
         )
         return results
 
@@ -263,6 +289,7 @@ def profile_beam_search_forward_backward(
             fuzzy_search=True,
             unique_only=unique_only,
             use_jit=True,
+            cost_matrix=cost_matrix,
         )
         return results
 
@@ -285,16 +312,27 @@ def profile_beam_search_forward_backward(
 
 
 def profile_graph_search(
-    lexicon: pynini.Fst, query: str, top_k: int = 5
+    lexicon: pynini.Fst,
+    query: str,
+    top_k: int = 5,
+    cost_matrix: np.ndarray | None = None,
 ) -> dict[str, Any]:
     # lexicon preprocessing
-    lexicon_preproc_time, search_graph = time_execution(
-        lambda: get_search_graph(lexicon)
-    )
+    def preproc_lexicon():
+        edit_dict = (
+            prepare_cost_matrix_for_edit_graph(cost_matrix, alphabet)
+            if cost_matrix is not None
+            else None
+        )
+        left_factor, right_factor = get_edit_factors(**edit_dict)
+        search_graph = get_search_graph(lexicon, right_factor)
+        return left_factor, search_graph
+
+    lexicon_preproc_time, (left_factor, search_graph) = time_execution(preproc_lexicon)
 
     # query preprocessing
     def preproc_query():
-        query_graph = get_query_graph(query)
+        query_graph = get_query_graph(query, left_factor)
         return query_graph
 
     query_preproc_time, query_graph = time_execution(preproc_query)
@@ -520,6 +558,16 @@ def run_profiler() -> pd.DataFrame:
 
     time_rows = []
 
+    # Hyperparameters for profiling
+    # - alphas: alpha values to pass to edit cost matrix construction
+    # - insert_prob: probability of insertion vs. deletion/substitution
+    #       when generating random edits
+    # - lexicon sizes: num words in search lexicon
+    # - num queries: number of random queries to sample per lexicon
+    # - beam sizes: number of beams to keep for beam search
+
+    alphas = np.logspace(0.0, 100, 5)
+    insert_prob = 0.3
     # reverse for pyschological benefit
     # (loop speeds up as it progresses instead of slowing down)
     lexicon_sizes = np.arange(1_000, 101_000, 10_000)[::-1]
@@ -527,82 +575,185 @@ def run_profiler() -> pd.DataFrame:
     beam_sizes = [10, 20, 50, 100, 200]
 
     for size in tqdm(lexicon_sizes):
-        wordlist, lexicon = get_english_lexicon(size)
-        num_states = lexicon.num_states()
-        for _ in range(num_queries):
-            target, query = sample_word_and_edit(wordlist, num_edits=5)
-            query_len = len(query)
+        for alpha in alphas:
+            edit_probs = get_random_transition_matrix(len(alphabet), alpha)
+            edit_costs = -np.log(
+                edit_probs + 1e-10
+            )  # add small value to prevent log(0)
 
-            graph_result = profile_graph_search(lexicon, query, top_k=10)
-            time_rows.append(
-                {
-                    **graph_result,
-                    "num_words": size,
-                    "num_states": num_states,
-                    "query_len": query_len,
-                    "query": query,
-                    "target": target,
-                }
-            )
-
-            for num_beam in beam_sizes:
-                beam_result = profile_beam_search(
-                    lexicon, query, top_k=num_beam, unique_only=True
+            wordlist, lexicon = get_english_lexicon(size)
+            num_states = lexicon.num_states()
+            for _ in range(num_queries):
+                target, query = sample_word_and_edit(
+                    wordlist,
+                    num_edits=5,
+                    edit_prob_matrix=edit_costs,
+                    insert_prob=insert_prob,
                 )
+                query_len = len(query)
 
-                # beam search may miss some results due to pruning
-                # calculate recall based on graph search results
+                graph_result, graph_result_row = perform_graph_search(
+                    size, lexicon, num_states, target, query, query_len
+                )
                 graph_results_set = set(graph_result["results"])
-                beam_results_set = set(beam_result["results"])
-                recall = (
-                    len(graph_results_set.intersection(beam_results_set))
-                    / len(graph_results_set)
-                    if graph_results_set
-                    else 1.0
-                )
 
-                time_rows.append(
-                    {
-                        **beam_result,
-                        "num_words": size,
-                        "num_states": num_states,
-                        "query_len": query_len,
-                        "recall": recall,
-                        "num_beam": num_beam,
-                        "query": query,
-                        "target": target,
-                    }
-                )
+                time_rows.append(graph_result_row)
 
-                beam_fb_result = profile_beam_search_forward_backward(
-                    lexicon, query, top_k=num_beam, unique_only=True
-                )
+                for num_beam in beam_sizes:
+                    beam_result_row = perform_beam_search(
+                        size=size,
+                        lexicon=lexicon,
+                        num_states=num_states,
+                        target=target,
+                        query=query,
+                        query_len=query_len,
+                        graph_results_set=graph_results_set,
+                        num_beam=num_beam,
+                    )
 
-                # get foerward-backward beam search recall
-                fb_results_set = set(beam_fb_result["results"])
-                fb_recall = (
-                    len(graph_results_set.intersection(fb_results_set))
-                    / len(graph_results_set)
-                    if graph_results_set
-                    else 1.0
-                )
+                    beam_result_row_w_costs = perform_beam_search(
+                        size=size,
+                        lexicon=lexicon,
+                        num_states=num_states,
+                        target=target,
+                        query=query,
+                        query_len=query_len,
+                        graph_results_set=graph_results_set,
+                        num_beam=num_beam,
+                        cost_matrix=edit_costs,
+                    )
 
-                time_rows.append(
-                    {
-                        **beam_fb_result,
-                        "num_words": size,
-                        "num_states": num_states,
-                        "query_len": query_len,
-                        "recall": fb_recall,
-                        "num_beam": num_beam,
-                        "query": query,
-                        "target": target,
-                    }
-                )
+                    beam_search_fb_row = perform_beam_search_fb(
+                        size=size,
+                        lexicon=lexicon,
+                        num_states=num_states,
+                        target=target,
+                        query=query,
+                        query_len=query_len,
+                        num_beam=num_beam,
+                        graph_results_set=graph_results_set,
+                    )
+
+                    beam_search_fb_row_w_costs = perform_beam_search_fb(
+                        size=size,
+                        lexicon=lexicon,
+                        num_states=num_states,
+                        target=target,
+                        query=query,
+                        query_len=query_len,
+                        num_beam=num_beam,
+                        graph_results_set=graph_results_set,
+                        cost_matrix=edit_costs,
+                    )
+
+                    time_rows.extend(
+                        [
+                            beam_result_row,
+                            beam_result_row_w_costs,
+                            beam_search_fb_row,
+                            beam_search_fb_row_w_costs,
+                        ]
+                    )
 
     time_df = pd.DataFrame(time_rows)
     plot_df = prepare_df_for_plotting(time_df)
     return plot_df
+
+
+def perform_beam_search_fb(
+    size: int,
+    lexicon: pynini.Fst,
+    num_states: int,
+    target: str,
+    query: str,
+    query_len: int,
+    num_beam: int,
+    graph_results_set: set,
+    cost_matrix: np.ndarray | None = None,
+):
+    beam_fb_result = profile_beam_search_forward_backward(
+        lexicon, query, top_k=num_beam, unique_only=True, cost_matrix=cost_matrix
+    )
+
+    # get forward-backward beam search recall
+    fb_results_set = set(beam_fb_result["results"])
+    fb_recall = (
+        len(graph_results_set.intersection(fb_results_set)) / len(graph_results_set)
+        if graph_results_set
+        else 1.0
+    )
+
+    beam_search_fb_row = {
+        **beam_fb_result,
+        "num_words": size,
+        "num_states": num_states,
+        "query_len": query_len,
+        "recall": fb_recall,
+        "num_beam": num_beam,
+        "query": query,
+        "target": target,
+    }
+
+    return beam_search_fb_row
+
+
+def perform_beam_search(
+    size: int,
+    lexicon: pynini.Fst,
+    num_states: int,
+    target: str,
+    query: str,
+    query_len: int,
+    graph_results_set: set[str],
+    num_beam: int,
+    cost_matrix: np.ndarray | None = None,
+):
+    beam_result = profile_beam_search(
+        lexicon, query, top_k=num_beam, unique_only=True, cost_matrix=cost_matrix
+    )
+
+    # beam search may miss some results due to pruning
+    # calculate recall based on graph search results
+    beam_results_set = set(beam_result["results"])
+    recall = (
+        len(graph_results_set.intersection(beam_results_set)) / len(graph_results_set)
+        if graph_results_set
+        else 1.0
+    )
+
+    beam_result_row = {
+        **beam_result,
+        "num_words": size,
+        "num_states": num_states,
+        "query_len": query_len,
+        "recall": recall,
+        "num_beam": num_beam,
+        "query": query,
+        "target": target,
+    }
+
+    return beam_result_row
+
+
+def perform_graph_search(
+    size: int,
+    lexicon: pynini.Fst,
+    num_states: int,
+    target: str,
+    query: str,
+    query_len: int,
+):
+    graph_result = profile_graph_search(lexicon, query, top_k=10)
+    graph_result_row = {
+        **graph_result,
+        "num_words": size,
+        "num_states": num_states,
+        "query_len": query_len,
+        "query": query,
+        "target": target,
+    }
+
+    return graph_result, graph_result_row
 
 
 if __name__ == "__main__":

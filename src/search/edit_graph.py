@@ -4,6 +4,7 @@ import pynini
 from pynini.lib import pynutil
 from pynini.lib.edit_transducer import EditTransducer
 from pynini.lib.rewrite import lattice_to_nshortest
+import numpy as np
 
 DEFAULT_INSERT_COST = 1
 DEFAULT_DELETE_COST = 1
@@ -36,6 +37,7 @@ def print_fst(f):
         graph = graphviz.Source(file.read())
     graph.render(tmp_path.removesuffix(".dot") + ".gv")
 
+
 def decode_lattice(lattice: pynini.Fst) -> list[tuple[str, float]]:
     result = []
 
@@ -52,16 +54,20 @@ def decode_lattice(lattice: pynini.Fst) -> list[tuple[str, float]]:
     return result
 
 
-def get_search_graph(lexicon: pynini.Fst, right_factor: pynini.Fst | None = None) -> pynini.Fst:
+def get_search_graph(
+    lexicon: pynini.Fst, right_factor: pynini.Fst | None = None
+) -> pynini.Fst:
     if right_factor is None:
         right_factor = _edit_transducer._e_o
-    
+
     search_graph = right_factor @ lexicon
     search_graph.optimize()
     return search_graph
 
 
-def get_query_graph(query_str: pynini.Fst, left_factor: pynini.Fst | None = None) -> pynini.Fst:
+def get_query_graph(
+    query_str: pynini.Fst, left_factor: pynini.Fst | None = None
+) -> pynini.Fst:
     if left_factor is None:
         left_factor = _edit_transducer._e_i
 
@@ -84,6 +90,46 @@ def intersect_graphs(
         "lattice_num_states": lattice_num_states,
     }
 
+
+def prepare_cost_matrix_for_edit_graph(
+    cost_matrix: np.ndarray, alphabet: list[str]
+) -> dict:
+    """
+    Prepares a transition matrix for use in the edit graph by converting it to a dictionary format.
+    The dictionary contains the keys "insertions", "deletions", and "substitutions",
+    each mapping to a list of tuples that specify the edit operations and their associated
+    probabilities.
+
+    Args:
+        cost_matrix: A 2D numpy array representing the transition probabilities between symbols.
+        alphabet: A list of symbols representing the alphabet.
+
+    Returns:
+        A dictionary where keys are tuples of (input_symbol, output_symbol)
+        and values are the corresponding probabilities.
+    """
+    substitutions: list[tuple[str, str, float]] = []
+    insertions: list[tuple[str, float]] = []
+    deletions: list[tuple[str, float]] = []
+
+    for i, input_symbol in enumerate(alphabet):
+        for j, output_symbol in enumerate(alphabet):
+            if input_symbol == output_symbol:
+                continue  # No edit operation for identical symbols
+            elif input_symbol == "<eps>":
+                insertions.append((output_symbol, cost_matrix[i, j]))
+            elif output_symbol == "<eps>":
+                deletions.append((input_symbol, cost_matrix[i, j]))
+            else:
+                substitutions.append((input_symbol, output_symbol, cost_matrix[i, j]))
+                
+    cost_dict = {
+        "substitutions": substitutions,
+        "insertions": insertions,
+        "deletions": deletions,
+    }
+
+    return cost_dict
 
 def get_edit_factors(
     insertions: list[tuple[pynini.FstLike, pynini.WeightLike]],
@@ -187,7 +233,9 @@ def _get_insertion_graph(
     """
     insert_inputs = pynini.union(*[insert[0] for insert in insertions])
     sigma_except_custom = sigma - insert_inputs
-    sigma_except_custom_weighted = sigma_except_custom + pynini.accep("", weight=insert_cost)
+    sigma_except_custom_weighted = sigma_except_custom + pynini.accep(
+        "", weight=insert_cost
+    )
     insert_symbol = "[INSERT]"
     insert_graph_left = pynutil.insert(insert_symbol)
     insert_graph_right = pynini.Fst(insert_symbol, sigma_except_custom_weighted)
@@ -217,7 +265,9 @@ def _get_deletion_graph(
     delete_inputs = pynini.union(*[delete[0] for delete in deletions])
     sigma_except_custom = sigma - delete_inputs
     delete_symbol = f"[DELETE]"
-    delete_graph_left = pynini.Fst(sigma_except_custom, delete_symbol, weight=delete_cost)
+    delete_graph_left = pynini.Fst(
+        sigma_except_custom, delete_symbol, weight=delete_cost
+    )
     for delete_str, cost in deletions:
         deletion_fst = pynini.Fst(delete_str, delete_symbol, cost)
         delete_graph_left = delete_graph_left | deletion_fst

@@ -3,6 +3,7 @@ import pynini
 import numpy as np
 from dataclasses import dataclass
 from src.search.beam_search_jit import intersect_beam_jit
+from src.search.edit_graph import ascii_table
 
 
 class WfsaCsr(NamedTuple):
@@ -176,14 +177,22 @@ def get_next_beams(
 
 
 def get_next_beams_fuzzy(
-    beam: WfsaCsrBeam, left: WfsaCsr, right: WfsaCsr
+    beam: WfsaCsrBeam,
+    left: WfsaCsr,
+    right: WfsaCsr,
+    cost_matrix: np.ndarray | None = None,
 ) -> list[WfsaCsrBeam]:
     """
     Computes next beams allowing for inexact matches,
-    weighted by Levenshtein edit distance
-    """
-    next_beams = []
+    weighted by naive Levenshtein edit distance or
+    weighted distance when `cost_matrix` is provided.
 
+    If `cost_matrix` is provided, it should be a 2D array where
+    `cost_matrix[i, j]` represents the cost of substituting character
+    `i` with character `j`, and the zero-th row and column represent the
+    cost of insertions and deletions, respectively (i.e. substituting the
+    blank token).
+    """
     left_start_arc = left.offsets[beam.left_state]
     left_end_arc = left.offsets[beam.left_state + 1]
 
@@ -194,9 +203,107 @@ def get_next_beams_fuzzy(
     right_labels = right.labels[right_start_arc:right_end_arc]
 
     # consider all possible matches and substitutions
+
+    matches_and_subs = matches_and_substitutions(
+        beam,
+        left,
+        right,
+        cost_matrix,
+        left_start_arc,
+        right_start_arc,
+        left_labels,
+        right_labels,
+    )
+
+    # consider deletions (of left language)
+    delete_beams = deletions(
+        beam, left, right, cost_matrix, left_start_arc, left_labels
+    )
+
+    # consider insertions (of left language)
+    insert_beams = insertions(
+        beam, left, right, cost_matrix, right_start_arc, right_labels
+    )
+
+    return matches_and_subs + delete_beams + insert_beams
+
+
+def insertions(beam, left, right, cost_matrix, right_start_arc, right_labels):
+    insert_beams = []
+    for right_i, right_label in enumerate(right_labels):
+        if cost_matrix is not None:
+            # cost of substituting blank with right_label
+            insert_weight = cost_matrix[0, right_label]
+        else:
+            insert_weight = 1
+
+        right_next_state = right.next_states[right_start_arc + right_i]
+        right_weight = right.weights[right_start_arc + right_i]
+
+        is_final = left.final[beam.left_state] and right.final[right_next_state]
+        hypothesis_weight = beam.path_weight + insert_weight + right_weight
+
+        hypothesis = WfsaCsrBeam(
+            left_state=beam.left_state,
+            right_state=right_next_state,
+            path_weight=hypothesis_weight,
+            labels=beam.labels + (right_label.item(),),
+            final=is_final,
+        )
+        insert_beams.append(hypothesis)
+    return insert_beams
+
+
+def deletions(
+    beam: WfsaCsrBeam,
+    left: WfsaCsr,
+    right: WfsaCsr,
+    cost_matrix: np.ndarray | None,
+    left_start_arc: int,
+    left_labels: np.ndarray,
+) -> list[WfsaCsrBeam]:
+    delete_beams = []
+    for left_i, left_label in enumerate(left_labels):
+        if cost_matrix is not None:
+            # cost of substituting left_label with blank
+            delete_weight = cost_matrix[left_label, 0]
+        else:
+            delete_weight = 1
+
+        left_next_state = left.next_states[left_start_arc + left_i]
+        left_weight = left.weights[left_start_arc + left_i]
+
+        is_final = left.final[left_next_state] and right.final[beam.right_state]
+        hypothesis_weight = beam.path_weight + delete_weight + left_weight
+
+        hypothesis = WfsaCsrBeam(
+            left_state=left_next_state,
+            right_state=beam.right_state,
+            path_weight=hypothesis_weight,
+            labels=beam.labels,
+            final=is_final,
+        )
+        delete_beams.append(hypothesis)
+    return delete_beams
+
+
+def matches_and_substitutions(
+    beam: WfsaCsrBeam,
+    left: WfsaCsr,
+    right: WfsaCsr,
+    cost_matrix: np.ndarray | None,
+    left_start_arc: int,
+    right_start_arc: int,
+    left_labels: np.ndarray,
+    right_labels: np.ndarray,
+) -> list[WfsaCsrBeam]:
+    match_and_sub_beams = []
     for left_i, left_label in enumerate(left_labels):
         for right_i, right_label in enumerate(right_labels):
-            edit_weight = 1 if left_label != right_label else 0
+            if cost_matrix is not None:
+                edit_weight = cost_matrix[left_label, right_label]
+            else:
+                edit_weight = 1 if left_label != right_label else 0
 
             left_next_state = left.next_states[left_start_arc + left_i]
             left_weight = left.weights[left_start_arc + left_i]
@@ -216,47 +323,8 @@ def get_next_beams_fuzzy(
                 final=is_final,
                 labels=beam.labels + (right_label.item(),),
             )
-            next_beams.append(hypothesis)
-
-    # consider deletions (of left language)
-    for left_i, left_label in enumerate(left_labels):
-        delete_weight = 1
-
-        left_next_state = left.next_states[left_start_arc + left_i]
-        left_weight = left.weights[left_start_arc + left_i]
-
-        is_final = left.final[left_next_state] and right.final[beam.right_state]
-        hypothesis_weight = beam.path_weight + delete_weight + left_weight
-
-        hypothesis = WfsaCsrBeam(
-            left_state=left_next_state,
-            right_state=beam.right_state,
-            path_weight=hypothesis_weight,
-            labels=beam.labels,
-            final=is_final,
-        )
-        next_beams.append(hypothesis)
-
-    # consider insertions (of left language)
-    for right_i, right_label in enumerate(right_labels):
-        delete_weight = 1
-
-        right_next_state = right.next_states[right_start_arc + right_i]
-        right_weight = right.weights[right_start_arc + right_i]
-
-        is_final = left.final[beam.left_state] and right.final[right_next_state]
-        hypothesis_weight = beam.path_weight + delete_weight + right_weight
-
-        hypothesis = WfsaCsrBeam(
-            left_state=beam.left_state,
-            right_state=right_next_state,
-            path_weight=hypothesis_weight,
-            labels=beam.labels + (right_label.item(),),
-            final=is_final,
-        )
-        next_beams.append(hypothesis)
-
-    return next_beams
+            match_and_sub_beams.append(hypothesis)
+    return match_and_sub_beams
 
 
 def filter_repeat_beams(beams: list[WfsaCsrBeam]) -> list[WfsaCsrBeam]:
@@ -289,6 +357,7 @@ def intersect_beam(
     fuzzy_search: bool = False,
     unique_only: bool = False,
     use_jit: bool = False,
+    cost_matrix: np.ndarray | None = None,
 ) -> list[WfsaCsrBeam]:
     """
     Compose left FstCsr with right, pruning the top `num_beams`
@@ -327,7 +396,9 @@ def intersect_beam(
         # get possible continuations per previous beam
         for beam in beams:
             if fuzzy_search:
-                beams_from_current = get_next_beams_fuzzy(beam, left, right)
+                beams_from_current = get_next_beams_fuzzy(
+                    beam, left, right, cost_matrix
+                )
             else:
                 beams_from_current = get_next_beams(beam, left, right)
             beams_from_current.sort(key=lambda b: b.path_weight)
@@ -353,6 +424,7 @@ def intersect_beam(
     successful_beams = successful_beams[:num_beam]
 
     return successful_beams
+
 
 def intersect_beam_forward_back(
     left_forward: WfsaCsr,
@@ -403,6 +475,7 @@ def intersect_beam_forward_back(
     hypotheses_filtered = filter_repeat_beams(forward_hypotheses + backward_hypotheses)
     hypotheses_filtered.sort(key=lambda b: b.path_weight)
     return hypotheses_filtered[:num_beam]
+
 
 if __name__ == "__main__":
     test = pynini.union(
