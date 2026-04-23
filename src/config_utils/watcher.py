@@ -47,6 +47,8 @@ def check_and_apply_invalidation(invalidate_keys: list[str]) -> bool:
     """
     import streamlit as st
 
+    logger.info(f"Invalidation check: {invalidate_keys}")
+
     if _config_changed.is_set():
         _config_changed.clear()
         for key in invalidate_keys:
