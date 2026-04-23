@@ -10,6 +10,9 @@ Requires:
 
 Usage:
     CONFIG_DIR=/path/to/configs streamlit run src/streamlit/app.py
+
+BUG: state does not get torn down when switching from one inventory page to another
+resulting in merged data
 """
 
 from __future__ import annotations
