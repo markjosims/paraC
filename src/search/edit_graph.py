@@ -122,7 +122,7 @@ def prepare_cost_matrix_for_edit_graph(
                 deletions.append((input_symbol, cost_matrix[i, j]))
             else:
                 substitutions.append((input_symbol, output_symbol, cost_matrix[i, j]))
-                
+
     cost_dict = {
         "substitutions": substitutions,
         "insertions": insertions,
@@ -131,11 +131,14 @@ def prepare_cost_matrix_for_edit_graph(
 
     return cost_dict
 
+
 def get_edit_factors(
-    insertions: list[tuple[pynini.FstLike, pynini.WeightLike]],
-    substitutions: list[tuple[pynini.FstLike, pynini.FstLike, pynini.WeightLike]],
-    deletions: list[tuple[pynini.FstLike, pynini.WeightLike]],
     sigma: pynini.FstLike,
+    insertions: list[tuple[pynini.FstLike, pynini.WeightLike]] | None = None,
+    substitutions: (
+        list[tuple[pynini.FstLike, pynini.FstLike, pynini.WeightLike]] | None
+    ) = None,
+    deletions: list[tuple[pynini.FstLike, pynini.WeightLike]] | None = None,
     insert_cost: float = DEFAULT_INSERT_COST,
     sub_cost: float = DEFAULT_SUBSTITUTE_COST,
     delete_cost: float = DEFAULT_DELETE_COST,
@@ -165,13 +168,13 @@ def get_edit_factors(
     `deletions` and `substitutions`. Returns left and right factors for searching. Usage for searching is `query@left_factor@right_factor@lexicon`.
     """
     insert_graph_left, insert_graph_right = _get_insertion_graph(
-        insertions, insert_cost, sigma
+        insertions=insertions, insert_cost=insert_cost, sigma=sigma
     )
     delete_graph_left, delete_graph_right = _get_deletion_graph(
-        deletions, delete_cost, sigma
+        deletions=deletions, delete_cost=delete_cost, sigma=sigma
     )
     sub_graph_left, sub_graph_right = _get_substitution_graph(
-        substitutions, sub_cost, sigma
+        substitutions=substitutions, sub_cost=sub_cost, sigma=sigma
     )
 
     edit_graph_left = (
@@ -215,9 +218,9 @@ def _compose_edit_graph_w_sigma(
 
 
 def _get_insertion_graph(
-    insertions: list[tuple[str, pynini.WeightLike]],
-    insert_cost: pynini.WeightLike,
     sigma: pynini.Fst,
+    insert_cost: pynini.WeightLike,
+    insertions: list[tuple[str, pynini.WeightLike]] | None = None,
 ) -> pynini.Fst:
     """
     Arguments:
@@ -231,24 +234,32 @@ def _get_insertion_graph(
     Builds right factor as a map of insertion symbol to each element on the alphabet with a weight
     as defined by `insertions` where applicable, else `insert_cost`.
     """
-    insert_inputs = pynini.union(*[insert[0] for insert in insertions])
-    sigma_except_custom = sigma - insert_inputs
-    sigma_except_custom_weighted = sigma_except_custom + pynini.accep(
-        "", weight=insert_cost
-    )
+
+    if insertions:
+        insert_inputs = pynini.union(*[insert[0] for insert in insertions])
+        sigma_except_custom = sigma - insert_inputs
+        sigma_except_custom_weighted = sigma_except_custom + pynini.accep(
+            "", weight=insert_cost
+        )
+    else:
+        sigma_except_custom_weighted = sigma + pynini.accep("", weight=insert_cost)
     insert_symbol = "[INSERT]"
     insert_graph_left = pynutil.insert(insert_symbol)
-    insert_graph_right = pynini.Fst(insert_symbol, sigma_except_custom_weighted)
-    for insert_str, cost in insertions:
-        insertion_fst = pynini.Fst(insert_symbol, insert_str, cost)
-        insert_graph_right = insert_graph_right | insertion_fst
+    insert_graph_right = pynini.cross(insert_symbol, sigma_except_custom_weighted)
+
+    if insertions:
+        for insert_str, cost in insertions:
+            insertion_fst = pynini.cross(insert_symbol, insert_str) + pynini.accep(
+                "", weight=cost
+            )
+            insert_graph_right = insert_graph_right | insertion_fst
     return insert_graph_left, insert_graph_right
 
 
 def _get_deletion_graph(
-    deletions: list[tuple[str, pynini.WeightLike]],
     delete_cost: pynini.WeightLike,
     sigma: pynini.Fst,
+    deletions: list[tuple[str, pynini.WeightLike]] | None = None,
 ) -> pynini.Fst:
     """
     Arguments:
@@ -262,24 +273,32 @@ def _get_deletion_graph(
     weight defined by `deletions` if applicable else `delete_cost`.
     Builds the right factor as a simple FST mapping the deletion symbol to epsilon, weight semiring Zero.
     """
-    delete_inputs = pynini.union(*[delete[0] for delete in deletions])
-    sigma_except_custom = sigma - delete_inputs
+
+    if deletions:
+        delete_inputs = pynini.union(*[delete[0] for delete in deletions])
+        sigma_except_custom = sigma - delete_inputs
+    else:
+        sigma_except_custom = sigma
     delete_symbol = f"[DELETE]"
-    delete_graph_left = pynini.Fst(
-        sigma_except_custom, delete_symbol, weight=delete_cost
+    delete_graph_left = pynini.cross(
+        sigma_except_custom, pynini.accep(delete_symbol, weight=delete_cost)
     )
-    for delete_str, cost in deletions:
-        deletion_fst = pynini.Fst(delete_str, delete_symbol, cost)
-        delete_graph_left = delete_graph_left | deletion_fst
+
+    if deletions:
+        for delete_str, cost in deletions:
+            deletion_fst = pynini.cross(
+                delete_str, pynini.accep(delete_symbol, weight=cost)
+            )
+            delete_graph_left = delete_graph_left | deletion_fst
 
     delete_graph_right = pynutil.delete(delete_symbol)
     return delete_graph_left, delete_graph_right
 
 
 def _get_substitution_graph(
-    substitutions: list[tuple[str, pynini.WeightLike]],
     sub_cost: pynini.WeightLike,
     sigma: pynini.Fst,
+    substitutions: list[tuple[str, pynini.WeightLike]] | None = None,
 ) -> pynini.Fst:
     """
     Arguments:
@@ -306,13 +325,24 @@ def _get_substitution_graph(
     Weight values from `substitutions` or `sub_cost` are used for the left factor.
     Arcs on the right factor use semiring Zero.
     """
-    intabs = [sub[0] for sub in substitutions]
-    intab_fst = pynini.union(*intabs)
-    sigma_except_intabs = sigma - intab_fst
+
+    if substitutions:
+        intabs = [sub[0] for sub in substitutions]
+        intab_fst = pynini.union(*intabs)
+        sigma_except_intabs = sigma - intab_fst
+    else:
+        sigma_except_intabs = sigma
+        intabs = []
+
     sub_symbol = f"[SUBSTITUTE]"
     sub_acceptor = pynini.accep(sub_symbol)
-    sub_graph_left = pynini.Fst(sigma_except_intabs, sub_acceptor)
-    sub_graph_right = pynini.Fst(sub_acceptor, sigma, weight=sub_cost)
+    sub_graph_left = pynini.cross(sigma_except_intabs, sub_acceptor)
+    sub_graph_right = pynini.cross(sub_acceptor, sigma) + pynini.accep(
+        "", weight=sub_cost
+    )
+
+    if not substitutions:
+        return sub_graph_left, sub_graph_right
 
     # cache all intabs that have been accounted for
     # can't call `set` on intabs since pynini.Fst in unhashable
@@ -326,15 +356,19 @@ def _get_substitution_graph(
         outtabs_for_element = [sub[1] for sub in subs_w_intab]
         outtabs_fst = pynini.union(*outtabs_for_element)
         remaining_outtabs = sigma - outtabs_fst
-        sub_fst_left = pynini.Fst(intab, intab_sub_symbol)
+        sub_fst_left = pynini.cross(intab, intab_sub_symbol)
         sub_graph_left = sub_graph_left | sub_fst_left
 
-        sub_fst_right = pynini.Fst(intab_sub_symbol, remaining_outtabs, sub_cost)
+        sub_fst_right = pynini.cross(
+            intab_sub_symbol, remaining_outtabs
+        ) + pynini.accep("", weight=sub_cost)
         sub_graph_right = sub_graph_right | sub_fst_right
 
         for sub in subs_w_intab:
             _, outtab, cost = sub
-            sub_fst_right = pynini.Fst(intab_sub_symbol, outtab, cost)
+            sub_fst_right = pynini.cross(
+                intab_sub_symbol, outtab
+            ) + pynini.accep("", weight=cost)
 
             sub_graph_right = sub_graph_right | sub_fst_right
 

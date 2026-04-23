@@ -1,3 +1,7 @@
+# TODO: decide how to handle alphabet/symbol table mismatch
+# e.g. whether to pad cost matrix before passing to beam search
+# or to construct with 0-prob edits for out-of-alphabet symbols
+
 import os
 
 from src.search.beam_search import (
@@ -141,7 +145,7 @@ def sample_word_and_edit(
 ) -> tuple[str, str]:
     word = random.choice(wordlist)
     edited_word = word
-    edited_word_tokenized = [alphabet.index(c) for c in edited_word]
+    edited_word_tokenized = tuple([alphabet.index(c) for c in edited_word])
 
     # use while loop instead of for loop in case of vacuous or colliding edits
     while Levenshtein.distance(word, edited_word) < num_edits:
@@ -158,6 +162,7 @@ def sample_word_and_edit(
 def get_english_lexicon(num_words: int) -> tuple[list[str], pynini.Fst]:
     wordlist = words.words()
     sampled_words = random.sample(wordlist, num_words)
+    sampled_words = [w.lower() for w in sampled_words if w.isalpha()]
     lexicon = pynini.union(*sampled_words)
     lexicon.optimize()
     return sampled_words, lexicon
@@ -313,6 +318,7 @@ def profile_beam_search_forward_backward(
 
 def profile_graph_search(
     lexicon: pynini.Fst,
+    sigma: pynini.Fst,
     query: str,
     top_k: int = 5,
     cost_matrix: np.ndarray | None = None,
@@ -322,9 +328,9 @@ def profile_graph_search(
         edit_dict = (
             prepare_cost_matrix_for_edit_graph(cost_matrix, alphabet)
             if cost_matrix is not None
-            else None
+            else {}
         )
-        left_factor, right_factor = get_edit_factors(**edit_dict)
+        left_factor, right_factor = get_edit_factors(sigma=sigma, **edit_dict)
         search_graph = get_search_graph(lexicon, right_factor)
         return left_factor, search_graph
 
@@ -558,6 +564,9 @@ def run_profiler() -> pd.DataFrame:
 
     time_rows = []
 
+    # alphabet FSA: same regardless of lexicon
+    sigma = pynini.union(*alphabet).optimize()
+
     # Hyperparameters for profiling
     # - alphas: alpha values to pass to edit cost matrix construction
     # - insert_prob: probability of insertion vs. deletion/substitution
@@ -587,13 +596,19 @@ def run_profiler() -> pd.DataFrame:
                 target, query = sample_word_and_edit(
                     wordlist,
                     num_edits=5,
-                    edit_prob_matrix=edit_costs,
+                    edit_prob_matrix=edit_probs,
                     insert_prob=insert_prob,
                 )
                 query_len = len(query)
 
                 graph_result, graph_result_row = perform_graph_search(
-                    size, lexicon, num_states, target, query, query_len
+                    size=size,
+                    sigma=sigma,
+                    lexicon=lexicon,
+                    num_states=num_states,
+                    target=target,
+                    query=query,
+                    query_len=query_len,
                 )
                 graph_results_set = set(graph_result["results"])
 
@@ -737,13 +752,16 @@ def perform_beam_search(
 
 def perform_graph_search(
     size: int,
+    sigma: pynini.Fst,
     lexicon: pynini.Fst,
     num_states: int,
     target: str,
     query: str,
     query_len: int,
 ):
-    graph_result = profile_graph_search(lexicon, query, top_k=10)
+    graph_result = profile_graph_search(
+        lexicon=lexicon, sigma=sigma, query=query, top_k=10
+    )
     graph_result_row = {
         **graph_result,
         "num_words": size,
