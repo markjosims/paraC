@@ -52,8 +52,11 @@ class Marker(TransducerList):
     def __post_init__(self):
         super().__post_init__()
 
-        if not self.value:
-            raise ValueError("Marker must have value")
+        # allow empty value so frontend can instantiate marker objects
+        # before user has filled in a value
+        # TODO: standardize empty object instantiation logic across all configs
+        # if not self.value:
+        #     raise ValueError("Marker must have value")
 
         if self.type == "replace":
             if type(self.value) is not tuple:
