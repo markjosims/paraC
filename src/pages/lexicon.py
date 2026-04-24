@@ -213,7 +213,6 @@ def _render_lexicon_row(
 
     with cols[-1]:
         if st.button("✕", key=editor.get_widget_key(_REMOVE_ROW_PREFIX, uid), help="Delete row"):
-            editor.read_form_to_state()
             editor.remove_row(uid)
             st.rerun()
 
@@ -223,7 +222,6 @@ def lexicon_toolbar(editor: LexiconEditor) -> None:
 
     with col_add:
         if st.button("➕ Add lexicon row", use_container_width=True):
-            editor.read_form_to_state()
             editor.insert_row()
             st.rerun()
 
@@ -243,7 +241,6 @@ def lexicon_toolbar(editor: LexiconEditor) -> None:
         show_preview = st.toggle("Show YAML preview", value=False)
 
     if show_preview:
-        editor.read_form_to_state()
         with st.container(border=True):
             st.caption("YAML preview — reflects unsaved edits")
             st.code(yaml.dump(editor.to_yaml(), allow_unicode=True, sort_keys=False))
@@ -270,6 +267,7 @@ def lexicon_page() -> None:
     )
 
     editor = editor_guard(kind=_config_kind)
+    editor.read_form_to_state()
     editor_header(kind=_config_kind, editor=editor)
 
     grammar = st.session_state.get("grammar")
@@ -291,7 +289,6 @@ def lexicon_page() -> None:
                 key=editor.get_widget_key(_FEATURES_PREFIX, "main"),
             )
             if sel_f != current_f:
-                editor.read_form_to_state()
                 st.rerun()
         with col2:
             current_lf = editor.data["lexical_features"]
@@ -302,7 +299,6 @@ def lexicon_page() -> None:
                 key=editor.get_widget_key(_LEXICAL_FEATURES_PREFIX, "main"),
             )
             if sel_lf != current_lf:
-                editor.read_form_to_state()
                 st.rerun()
 
         st.text_input(

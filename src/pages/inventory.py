@@ -431,7 +431,6 @@ def inventory_toolbar(editor: InventoryEditor) -> None:
 
     # YAML preview
     if show_preview:
-        editor.read_form_to_state()
         with st.container(border=True):
             st.caption("YAML preview — reflects unsaved edits")
 
@@ -479,7 +478,7 @@ def inventory_page() -> None:
         _help_str,
     )
     editor = editor_guard(kind=_config_kind)
-
+    editor.read_form_to_state()
     editor_header(kind=_config_kind, editor=editor)
     toolbar_placeholder = st.empty()
 

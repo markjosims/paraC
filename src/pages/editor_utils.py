@@ -164,7 +164,6 @@ class EditorBase(ABC):
         Updates self.path to the written location.
         """
         dest = self.resolve_save_path(stem)
-        self.read_form_to_state()
         yaml_doc = self.to_yaml()
         dest.parent.mkdir(parents=True, exist_ok=True)
         with dest.open("w", encoding="utf-8") as f:
@@ -346,7 +345,6 @@ def render_marker_row(
             )
             if selected_type != marker.type:
                 # Reset value fields when type changes to avoid confusion
-                editor.read_form_to_state()
                 st.rerun()
         with col_order:
             st.text_input(
@@ -426,7 +424,6 @@ def render_marker_list(
     # Check for pending removals
     pending_rm = st.session_state.pop(f"pending_remove_marker_{scope}", None)
     if pending_rm:
-        editor.read_form_to_state()
         # Subclasses must implement remove_marker(markers, m_uuid)
         if hasattr(editor, "remove_marker"):
             editor.remove_marker(markers, pending_rm)
@@ -441,7 +438,6 @@ def render_marker_list(
             )
 
     if st.button(f"➕ Add marker to {label.lower()}", key=f"add-m-{scope}"):
-        editor.read_form_to_state()
         if hasattr(editor, "add_marker"):
             editor.add_marker(markers)
         st.rerun()

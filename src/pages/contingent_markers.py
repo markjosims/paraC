@@ -248,7 +248,6 @@ def contingent_markers_toolbar(editor: ContingentMarkersEditor) -> None:
 
     with col_add:
         if st.button("➕ Add outer value", use_container_width=True):
-            editor.read_form_to_state()
             editor.insert_outer()
             st.rerun()
 
@@ -268,7 +267,6 @@ def contingent_markers_toolbar(editor: ContingentMarkersEditor) -> None:
         show_preview = st.toggle("Show YAML preview", value=False)
 
     if show_preview:
-        editor.read_form_to_state()
         with st.container(border=True):
             st.caption("YAML preview — reflects unsaved edits")
             st.code(yaml.dump(editor.to_yaml(), allow_unicode=True, sort_keys=False))
@@ -295,6 +293,7 @@ def contingent_markers_page() -> None:
     )
 
     editor = editor_guard(kind=_config_kind)
+    editor.read_form_to_state()
     editor_header(kind=_config_kind, editor=editor)
 
     grammar = st.session_state.get("grammar")
@@ -371,13 +370,11 @@ def contingent_markers_page() -> None:
             with o_btn_add:
                 st.write("##")
                 if st.button("➕ Inner", key=f"add-i-{o_uid}", use_container_width=True):
-                    editor.read_form_to_state()
                     editor.insert_inner(outer)
                     st.rerun()
             with o_btn_del:
                 st.write("##")
                 if st.button("✕ Outer", key=editor.get_widget_key(_REMOVE_OUTER_PREFIX, o_uid), use_container_width=True):
-                    editor.read_form_to_state()
                     editor.remove_outer(o_uid)
                     st.rerun()
             
@@ -399,7 +396,6 @@ def contingent_markers_page() -> None:
                     with i_btn_del:
                         st.write("##")
                         if st.button("✕ Inner", key=editor.get_widget_key(_REMOVE_INNER_PREFIX, i_uid), use_container_width=True):
-                            editor.read_form_to_state()
                             editor.remove_inner(outer, i_uid)
                             st.rerun()
                     

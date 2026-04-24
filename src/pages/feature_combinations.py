@@ -159,7 +159,6 @@ def _render_combination(combo: dict, features: list[str], editor: FeatureCombina
             
     with cols[-1]:
         if st.button("✕", key=editor.get_widget_key(_REMOVE_COMBO_PREFIX, uid), help="Delete this combination"):
-            editor.read_form_to_state()
             editor.remove_combination(uid)
             st.rerun()
 
@@ -169,7 +168,6 @@ def feature_combinations_toolbar(editor: FeatureCombinationsEditor) -> None:
 
     with col_add:
         if st.button("➕ Add combination", use_container_width=True):
-            editor.read_form_to_state()
             editor.insert_combination()
             st.rerun()
 
@@ -189,7 +187,6 @@ def feature_combinations_toolbar(editor: FeatureCombinationsEditor) -> None:
         show_preview = st.toggle("Show YAML preview", value=False)
 
     if show_preview:
-        editor.read_form_to_state()
         with st.container(border=True):
             st.caption("YAML preview — reflects unsaved edits")
             st.code(yaml.dump(editor.to_yaml(), allow_unicode=True, sort_keys=False))
@@ -216,6 +213,7 @@ def feature_combinations_page() -> None:
     )
 
     editor = editor_guard(kind=_config_kind)
+    editor.read_form_to_state()
     # Sync from session state before rendering to catch multiselect changes
     editor_header(kind=_config_kind, editor=editor)
 
@@ -236,7 +234,6 @@ def feature_combinations_page() -> None:
             help="Adding or removing features will update the table columns below."
         )
         if selected_features != current_features:
-            editor.read_form_to_state()
             st.rerun()
 
     toolbar_placeholder = st.empty()

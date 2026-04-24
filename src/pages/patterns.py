@@ -19,6 +19,7 @@ from typing import Any
 import streamlit as st
 
 from src.config_utils.config_walker import ConfigWalker
+from src.grammar import Grammar
 from src.grammar.registry.pattern_registry import Pattern, PatternRegistry
 from src.grammar.orchestrator.fst_orchestrator import FstOrchestrator
 from src.pages.editor_utils import EditorBase, editor_guard, editor_sidebar, editor_header
@@ -226,8 +227,7 @@ def _render_pattern(uid: str, editor: PatternEditor) -> None:
                 if grammar is None:
                     st.warning("Grammar not loaded — cannot run tests.")
                 else:
-                    editor.read_form_to_state()
-                    editor.run_tests(uid, grammar)
+                    st.session_state["do_run_tests"] = uid
                     st.rerun()
         with col_remove:
             if st.button(
@@ -283,7 +283,6 @@ def pattern_toolbar(editor: PatternEditor) -> None:
         show_preview = st.toggle("Show YAML preview", value=False)
 
     if show_preview:
-        editor.read_form_to_state()
         import yaml as _yaml
         with st.container(border=True):
             st.caption("YAML preview — reflects unsaved edits")
@@ -329,6 +328,16 @@ def patterns_page() -> None:
     )
 
     editor = editor_guard(kind=_config_kind)
+    editor.read_form_to_state()
+
+    # check if tests need to be run for a pattern (triggered by test button)
+    if "do_run_tests" in st.session_state:
+        uid: str = st.session_state.pop("do_run_tests")
+        grammar: Grammar | None = st.session_state.get("grammar")
+        if grammar is not None:
+            editor.run_tests(uid, grammar)
+            st.rerun()
+
     editor_header(kind=_config_kind, editor=editor)
 
     toolbar_placeholder = st.empty()

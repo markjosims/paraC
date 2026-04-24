@@ -178,12 +178,10 @@ def _render_feature(uid: str, editor: FeatureValuesEditor) -> None:
                 )
             with d_col:
                 if st.button("✕", key=editor.get_widget_key("del-val-", uid, suffix=str(i)), help="Delete this value"):
-                    editor.read_form_to_state()
                     editor.remove_value(uid, i)
                     st.rerun()
         
         if st.button("➕ Add value", key=editor.get_widget_key("add-val-", uid)):
-            editor.read_form_to_state()
             editor.add_value(uid)
             st.rerun()
 
@@ -213,7 +211,6 @@ def feature_values_toolbar(editor: FeatureValuesEditor) -> None:
         show_preview = st.toggle("Show YAML preview", value=False)
 
     if show_preview:
-        editor.read_form_to_state()
         with st.container(border=True):
             st.caption("YAML preview — reflects unsaved edits")
             st.code(yaml.dump(editor.to_yaml(), allow_unicode=True, sort_keys=False))
@@ -241,6 +238,7 @@ def feature_values_page() -> None:
     )
 
     editor = editor_guard(kind=_config_kind)
+    editor.read_form_to_state()
     editor_header(kind=_config_kind, editor=editor)
 
     toolbar_placeholder = st.empty()

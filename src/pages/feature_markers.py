@@ -206,7 +206,6 @@ def feature_markers_toolbar(editor: FeatureMarkersEditor) -> None:
 
     with col_add:
         if st.button("➕ Add value entry", use_container_width=True):
-            editor.read_form_to_state()
             editor.insert_entry()
             st.rerun()
 
@@ -226,7 +225,6 @@ def feature_markers_toolbar(editor: FeatureMarkersEditor) -> None:
         show_preview = st.toggle("Show YAML preview", value=False)
 
     if show_preview:
-        editor.read_form_to_state()
         with st.container(border=True):
             st.caption("YAML preview — reflects unsaved edits")
             st.code(yaml.dump(editor.to_yaml(), allow_unicode=True, sort_keys=False))
@@ -253,6 +251,7 @@ def feature_markers_page() -> None:
     )
 
     editor = editor_guard(kind=_config_kind)
+    editor.read_form_to_state()
     editor_header(kind=_config_kind, editor=editor)
 
     # 1. Config section
@@ -350,7 +349,6 @@ def feature_markers_page() -> None:
                     key=editor.get_widget_key(_REMOVE_ENTRY_PREFIX, e_uid),
                     use_container_width=True,
                 ):
-                    editor.read_form_to_state()
                     editor.remove_entry(e_uid)
                     st.rerun()
 

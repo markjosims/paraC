@@ -299,7 +299,6 @@ def paradigm_toolbar(editor: ParadigmEditor) -> None:
         show_preview = st.toggle("Show YAML preview", value=False)
 
     if show_preview:
-        editor.read_form_to_state()
         with st.container(border=True):
             st.caption("YAML preview — reflects unsaved edits")
             st.code(yaml.dump(editor.to_yaml(), allow_unicode=True, sort_keys=False))
@@ -314,6 +313,7 @@ def paradigm_page() -> None:
 
     editor_sidebar(_config_kind, ParadigmEditor, config_dir, config_walker, p_files, _help_str)
     editor = editor_guard(kind=_config_kind)
+    editor.read_form_to_state()
     editor_header(kind=_config_kind, editor=editor)
 
     grammar = st.session_state.get("grammar")
@@ -365,21 +365,17 @@ def paradigm_page() -> None:
                 st.text_input("Stage name", value=stage["name"], key=editor.get_widget_key(_ORDER_STAGE_PREFIX, stage["uuid"]), label_visibility="collapsed")
             with sc2:
                 if st.button("↑", key=f"up-{stage['uuid']}", disabled=(i == 0), help="Move up"):
-                    editor.read_form_to_state()
                     editor.move_order_stage(stage["uuid"], "up")
                     st.rerun()
             with sc3:
                 if st.button("↓", key=f"down-{stage['uuid']}", disabled=(i == len(editor.data["order_stages"]) - 1), help="Move down"):
-                    editor.read_form_to_state()
                     editor.move_order_stage(stage["uuid"], "down")
                     st.rerun()
             with sc4:
                 if st.button("✕", key=f"del-stage-{stage['uuid']}", help="Remove stage"):
-                    editor.read_form_to_state()
                     editor.remove_order_stage(stage["uuid"])
                     st.rerun()
         if st.button("➕ Add order stage"):
-            editor.read_form_to_state()
             editor.insert_order_stage()
             st.rerun()
 
@@ -415,11 +411,9 @@ def paradigm_page() -> None:
                         st.write("Marked via Contingent Markers only.")
                 with mc4:
                     if st.button("✕", key=f"del-fm-{uid}"):
-                        editor.read_form_to_state()
                         editor.remove_feature_mapping(uid)
                         st.rerun()
         if st.button("➕ Add feature mapping"):
-            editor.read_form_to_state()
             editor.insert_feature_mapping()
             st.rerun()
 
@@ -435,11 +429,9 @@ def paradigm_page() -> None:
                              label_visibility="collapsed")
             with cc2:
                 if st.button("✕", key=f"del-cm-{cm['uuid']}"):
-                    editor.read_form_to_state()
                     editor.remove_contingent_ref(cm["uuid"])
                     st.rerun()
         if st.button("➕ Add contingent marker ref"):
-            editor.read_form_to_state()
             editor.insert_contingent_ref()
             st.rerun()
 
@@ -462,11 +454,9 @@ def paradigm_page() -> None:
                              label_visibility="collapsed")
             with lc3:
                 if st.button("✕", key=f"del-lf-{uid}"):
-                    editor.read_form_to_state()
                     editor.remove_lf_filter(uid)
                     st.rerun()
         if st.button("➕ Add lexical filter"):
-            editor.read_form_to_state()
             editor.insert_lf_filter()
             st.rerun()
 
