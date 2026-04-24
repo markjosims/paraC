@@ -15,7 +15,6 @@ Usage:
 from __future__ import annotations
 
 from typing import Any
-from uuid import uuid4
 
 import streamlit as st
 
@@ -27,7 +26,22 @@ from src.pages.editor_utils import EditorBase, editor_guard, editor_sidebar, edi
 _config_kind = "Patterns"
 _config_key = "pattern_configs"
 
-_NODE_PREFIXES = ("name-", "ref-", "pattern_text-", "test_includes-", "test_excludes-")
+_NAME_PREFIX = "name-"
+_REF_PREFIX = "ref-"
+_PATTERN_TEXT_PREFIX = "pattern_text-"
+_TEST_INCLUDES_PREFIX = "test_includes-"
+_TEST_EXCLUDES_PREFIX = "test_excludes-"
+_TEST_BUTTON_PREFIX = "test_button-"
+_REMOVE_PREFIX = "remove-"
+_WIDGET_PREFIXES: list[str] = [
+    _NAME_PREFIX,
+    _REF_PREFIX,
+    _PATTERN_TEXT_PREFIX,
+    _TEST_INCLUDES_PREFIX,
+    _TEST_EXCLUDES_PREFIX,
+    _TEST_BUTTON_PREFIX,
+    _REMOVE_PREFIX,
+]
 
 _help_str = """
 Pattern files define FSA shorthands used in morphological rules.
@@ -62,7 +76,7 @@ class PatternEditor(EditorBase):
         filepath = config_object["source_path"]
         registry = PatternRegistry(config_objects={filepath: config_object})
         # patterns_sorted gives topological order (dependencies first)
-        id_map: dict[str, Pattern] = {uuid4().hex: p for p in registry.patterns_sorted}
+        id_map: dict[str, Pattern] = {p.uuid: p for p in registry.patterns_sorted}
         return {
             "patterns": list(id_map.values()),
             "id_map": id_map,
@@ -81,11 +95,11 @@ class PatternEditor(EditorBase):
             old_ref = pattern._ref
             old_value = pattern.value
 
-            name_val = st.session_state.get(f"name-{uid}")
-            ref_val = st.session_state.get(f"ref-{uid}")
-            pattern_val = st.session_state.get(f"pattern_text-{uid}")
-            includes_val = st.session_state.get(f"test_includes-{uid}")
-            excludes_val = st.session_state.get(f"test_excludes-{uid}")
+            name_val = self.get_node_widget(_NAME_PREFIX, uid)
+            ref_val = self.get_node_widget(_REF_PREFIX, uid)
+            pattern_val = self.get_node_widget(_PATTERN_TEXT_PREFIX, uid)
+            includes_val = self.get_node_widget(_TEST_INCLUDES_PREFIX, uid)
+            excludes_val = self.get_node_widget(_TEST_EXCLUDES_PREFIX, uid)
 
             if name_val is not None:
                 pattern.name = name_val
@@ -113,12 +127,6 @@ class PatternEditor(EditorBase):
             "patterns": [p.to_dict() for p in patterns],
         }
 
-    def clear_widget_keys(self) -> None:
-        id_map: dict[str, Pattern] = self.data.get("id_map", {})
-        for uid in list(id_map.keys()):
-            for prefix in _NODE_PREFIXES:
-                st.session_state.pop(f"{prefix}{uid}", None)
-
     # ------------------------------------------------------------------
     # Mutations
     # ------------------------------------------------------------------
@@ -126,17 +134,16 @@ class PatternEditor(EditorBase):
     def insert_pattern(self) -> str:
         """Append a blank pattern at the bottom; return its uuid."""
         new_pattern = Pattern(name="", value="", _ref="<new_ref>")
-        uid = uuid4().hex
-        self.data["id_map"][uid] = new_pattern
+        self.data["id_map"][new_pattern.uuid] = new_pattern
         self.data["patterns"].append(new_pattern)
-        return uid
+        return new_pattern.uuid
 
     def remove_pattern(self, uid: str) -> Pattern:
         """Remove pattern by uuid, clear its widget keys."""
         pattern = self.data["id_map"].pop(uid)
         self.data["patterns"].remove(pattern)
         self.data["test_results"].pop(uid, None)
-        for prefix in _NODE_PREFIXES:
+        for prefix in _WIDGET_PREFIXES:
             st.session_state.pop(f"{prefix}{uid}", None)
         return pattern
 
@@ -163,7 +170,7 @@ Pattern rendering
 
 def _render_pattern(uid: str, editor: PatternEditor) -> None:
     """Render a single pattern entry as an expandable card."""
-    pattern = editor.data["id_map"][uid]
+    pattern: Pattern = editor.data["id_map"][uid]
     test_results = editor.data["test_results"].get(uid)
 
     ref_label = pattern._ref or "(ref not set)"
@@ -174,21 +181,21 @@ def _render_pattern(uid: str, editor: PatternEditor) -> None:
         with col_name:
             st.text_input(
                 "Pattern name",
-                key=f"name-{uid}",
+                key=editor.get_widget_key(_NAME_PREFIX, uid),
                 value=pattern.name,
                 placeholder="Front vowel",
             )
         with col_ref:
             st.text_input(
                 "Reference",
-                key=f"ref-{uid}",
+                key=editor.get_widget_key(_REF_PREFIX, uid),
                 value=pattern._ref,
                 placeholder="<V_Front>",
             )
 
         st.text_input(
             "Pattern",
-            key=f"pattern_text-{uid}",
+            key=editor.get_widget_key(_PATTERN_TEXT_PREFIX, uid),
             value=pattern.value,
             placeholder="(<e>|<i>|<ɛ>)",
             help="Regular expression string interpreted as an FSA.",
@@ -198,7 +205,7 @@ def _render_pattern(uid: str, editor: PatternEditor) -> None:
         with col_inc:
             st.text_input(
                 "Test includes",
-                key=f"test_includes-{uid}",
+                key=editor.get_widget_key(_TEST_INCLUDES_PREFIX, uid),
                 value=", ".join(pattern.test_includes),
                 placeholder="e, i, ɛ",
                 help="Comma-separated strings the pattern should accept.",
@@ -206,7 +213,7 @@ def _render_pattern(uid: str, editor: PatternEditor) -> None:
         with col_exc:
             st.text_input(
                 "Test excludes",
-                key=f"test_excludes-{uid}",
+                key=editor.get_widget_key(_TEST_EXCLUDES_PREFIX, uid),
                 value=", ".join(pattern.test_excludes),
                 placeholder="a, o, u",
                 help="Comma-separated strings the pattern should reject.",
@@ -214,7 +221,7 @@ def _render_pattern(uid: str, editor: PatternEditor) -> None:
 
         col_test, col_remove = st.columns(2)
         with col_test:
-            if st.button("▶ Run tests", key=f"test-{uid}", use_container_width=True):
+            if st.button("▶ Run tests", key=editor.get_widget_key(_TEST_BUTTON_PREFIX, uid), use_container_width=True):
                 grammar = st.session_state.get("grammar")
                 if grammar is None:
                     st.warning("Grammar not loaded — cannot run tests.")
@@ -224,7 +231,7 @@ def _render_pattern(uid: str, editor: PatternEditor) -> None:
                     st.rerun()
         with col_remove:
             if st.button(
-                "✕ Delete", key=f"remove-{uid}", use_container_width=True
+                "✕ Delete", key=editor.get_widget_key(_REMOVE_PREFIX, uid), use_container_width=True
             ):
                 editor.remove_pattern(uid)
                 st.rerun()
@@ -324,11 +331,14 @@ def patterns_page() -> None:
     editor = editor_guard(kind=_config_kind)
     editor_header(kind=_config_kind, editor=editor)
 
-    pattern_toolbar(editor)
+    toolbar_placeholder = st.empty()
 
     st.divider()
 
     pattern_form(editor)
+
+    with toolbar_placeholder.container():
+        pattern_toolbar(editor)
 
     
 
