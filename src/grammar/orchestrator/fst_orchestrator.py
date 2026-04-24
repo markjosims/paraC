@@ -508,8 +508,10 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         elif rule.type == "string_map":
             transducers = []
             for input_acceptor, output_acceptor in rule.string_map:
-                input_acceptor.set_acceptor(self._parse_pattern(input_acceptor.value))
-                output_acceptor.set_acceptor(self._parse_pattern(output_acceptor.value))
+                if not input_acceptor.acceptor_built:
+                    input_acceptor.set_acceptor(self._parse_pattern(input_acceptor.value))
+                if not output_acceptor.acceptor_built:
+                    output_acceptor.set_acceptor(self._parse_pattern(output_acceptor.value))
                 transducer = pynini.cross(
                     input_acceptor.fsa,
                     output_acceptor.fsa,
@@ -547,7 +549,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         return left_context_fsa, right_context_fsa
 
     def _parse_pattern(
-        self, pattern_input: str | Acceptor | list[str] | None
+        self, pattern_input: FsaLike | list[str] | None
     ) -> pynini.Fst:
         """
         Interprets a pattern string as an FSA.
@@ -561,6 +563,8 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
             pattern_input = pattern_input.value
         if not pattern_input:
             return pynini.accep("", token_type=self.symbols)
+        elif isinstance(pattern_input, pynini.Fst):
+            return pattern_input
         elif isinstance(pattern_input, list):
             acceptors = []
             for sub_pattern in pattern_input:
@@ -613,7 +617,6 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
                     match = token
                     break
             if not match:
-                breakpoint()
                 error = f"Unrecognized token '{input_str[i:]}' starting at position {i} in string '{input_str}'"
                 logger.error(error)
                 raise ValueError(error)
