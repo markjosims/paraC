@@ -8,6 +8,7 @@ from collections import UserList
 from loguru import logger
 from graphlib import TopologicalSorter
 import os
+from uuid import uuid4
 
 
 @dataclass
@@ -46,6 +47,7 @@ class Marker(TransducerList):
     order: str | None = None
     comment: str | None = None
     lexical_features: dict[str, str] = field(default_factory=dict)
+    uuid: str = field(default_factory=lambda: str(uuid4()), init=False)
 
     def __post_init__(self):
         super().__post_init__()
@@ -250,6 +252,11 @@ class MarkerList(UserList):
         for marker in self:
             if marker.order is None and global_order is not None:
                 marker.order = global_order
+
+    def to_dict(self) -> dict:
+        """
+        TODO
+        """
 
     def __str__(self):
         return str(self.data)
