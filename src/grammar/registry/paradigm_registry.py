@@ -87,11 +87,6 @@ class Paradigm:
         self.markers = deepcopy(markers)
         self.contingent_markers = deepcopy(contingent_markers)
         self.global_markers = global_markers
-        if contingent_markers is not None:
-            self.contingent_feature_pairs = set(
-                (contingent_set.outer_feature, contingent_set.inner_feature)
-                for contingent_set in contingent_markers
-            )
         self.fst_orchestrator = fst_orchestrator
 
         if self.fst_orchestrator and self.fst_orchestrator.is_initialized:
@@ -236,22 +231,13 @@ class Paradigm:
         remaining_features = set(feature_values.keys())
         assigned_features = remaining_features.copy()
 
-        for outer_feature, inner_feature in self.contingent_feature_pairs:
-            requested_outer_feature_value = feature_values.get(
-                outer_feature.name, "unmarked"
-            )
-            outer_tuple = (outer_feature.name, requested_outer_feature_value)
-            if outer_tuple in self.contingent_marker_map:
-                inner_map = self.contingent_marker_map[outer_tuple]
-                requested_inner_feature_value = feature_values.get(
-                    inner_feature.name, "unmarked"
-                )
-                inner_tuple = (inner_feature.name, requested_inner_feature_value)
-                if inner_tuple in inner_map:
-                    marker_list = inner_map[inner_tuple]
+        # Vector-based contingent marker lookup
+        for contingent_set in self.contingent_markers:
+            for vector, marker_list in contingent_set.feature_mappings.items():
+                if vector.issubset(feature_values.items()):
                     applicable_markers.extend(marker_list)
-                    remaining_features -= {inner_feature.name, outer_feature.name}
-                    assigned_features.update({inner_feature.name, outer_feature.name})
+                    matched_feature_names = {k for k, v in vector}
+                    remaining_features -= matched_feature_names
 
         for feature in remaining_features:
             feature_value_pair = (feature, feature_values[feature])
@@ -308,61 +294,81 @@ class Paradigm:
                 )
 
         for marker_set in self.markers:
-            if marker_set.feature not in self.features:
-                raise ValueError(
-                    f"Feature '{marker_set.feature}' in marker set not recognized. "
-                    f"Expected one of {self.features}."
-                )
+            # validate that inflectional feature in marker set is recognized
+            self._validate_marker_set(marker_set)
             supported_features.add(marker_set.feature.name)
-            for marker_list in marker_set.data.values():
-                for marker in marker_list:
-                    order = marker.order
-                    if order and order not in self.marker_order:
-                        raise ValueError(
-                            f"Marker order '{order}' not recognized. "
-                            f"Expected one of {self.marker_order}."
-                        )
-                    lexical_features = marker.lexical_features
-                    for feature_name, feature_value in lexical_features.items():
-                        feature = [
-                            feature
-                            for feature in self.lexicon.lexical_features
-                            if feature.name == feature_name
-                        ]
-                        if not feature:
-                            raise ValueError(
-                                f"Marker {marker} has unrecognized lexical feature {feature_name}"
-                            )
-                        assert len(feature) == 1
-                        feature = feature[0]
-                        if feature_value not in feature.values:
-                            raise ValueError(
-                                f"Marker {marker} has unrecognized value {feature_value} for lexical feature {feature_name}"
-                            )
 
         for contingent_marker_set in self.contingent_markers:
-            if contingent_marker_set.inner_feature not in self.features:
-                raise ValueError(
-                    f"Feature '{contingent_marker_set.inner_feature}' in contingent marker set not recognized. "
-                    f"Expected one of {self.features}."
-                )
-            if contingent_marker_set.outer_feature not in self.features:
-                raise ValueError(
-                    f"Feature '{contingent_marker_set.outer_feature}' in contingent marker set not recognized. "
-                    f"Expected one of {self.features}."
-                )
-            supported_features.add(contingent_marker_set.inner_feature.name)
-            supported_features.add(contingent_marker_set.outer_feature.name)
+            supported_features.update(
+                self._validate_contingent_marker_set(contingent_marker_set)
+            )
 
-            for marker_set in contingent_marker_set.inner_maps.values():
-                for marker_list in marker_set.data.values():
-                    for marker in marker_list:
-                        order = marker.order
-                        if order and order not in self.marker_order:
-                            raise ValueError(
-                                f"Marker order '{order}' not recognized. "
-                                f"Expected one of {self.marker_order}."
-                            )
+    def _validate_marker_set(self, marker_set: FeatureMarkers):
+        """
+        Validate that the inflectional feature in the marker set is recognized and that all
+        order and lexical feature values in the marker set are recognized.
+        """
+        if marker_set.feature not in self.features:
+            raise ValueError(
+                f"Feature '{marker_set.feature}' in marker set not recognized. "
+                f"Expected one of {self.features}."
+            )
+
+        # validate that order and lexical feature values are recognized
+        for marker_list in marker_set.data.values():
+            for marker in marker_list:
+                order = marker.order
+                if order and order not in self.marker_order:
+                    raise ValueError(
+                        f"Marker order '{order}' not recognized. "
+                        f"Expected one of {self.marker_order}."
+                    )
+                lexical_features = marker.lexical_features
+                for feature_name, feature_value in lexical_features.items():
+                    feature = [
+                        feature
+                        for feature in self.lexicon.lexical_features
+                        if feature.name == feature_name
+                    ]
+                    if not feature:
+                        raise ValueError(
+                            f"Marker {marker} has unrecognized lexical feature {feature_name}"
+                        )
+                    assert len(feature) == 1
+                    feature = feature[0]
+                    if feature_value not in feature.values:
+                        raise ValueError(
+                            f"Marker {marker} has unrecognized value {feature_value} for lexical feature {feature_name}"
+                        )
+
+    def _validate_contingent_marker_set(self, contingent_marker_set: ContingentMarkers):
+        """
+        Validate that all feature values in the contingent marker set are recognized and that all
+        order values in the marker set are recognized.
+
+        Returns the set of features that are marked by the contingent marker set,
+        for later validation that all features are supported by markers in the paradigm.
+        """
+        supported_features = set()
+        for vector, marker_list in contingent_marker_set.feature_mappings.items():
+            for f_name, f_val in vector:
+                # check if feature is recognized
+                feature = next((f for f in self.features if f.name == f_name), None)
+                if not feature:
+                    raise ValueError(
+                        f"Feature '{f_name}' in contingent marker vector not recognized. "
+                        f"Expected one of {self.features}."
+                    )
+                supported_features.add(f_name)
+
+            for marker in marker_list:
+                order = marker.order
+                if order and order not in self.marker_order:
+                    raise ValueError(
+                        f"Marker order '{order}' not recognized. "
+                        f"Expected one of {self.marker_order}."
+                    )
+        return supported_features
 
     def _validate_principal_parts_and_filters(self):
         """
@@ -398,16 +404,12 @@ class Paradigm:
 
     def _build_marker_mappings(self):
         """
-        Builds two mappings, one for feature markers and one for
-        contingent markers, that map from feature values (represented
-        as tuples of (feature, value) pairs) to the list of markers that
-        should be applied for that combination of feature values.
+        Builds a mapping for feature markers that map from feature values
+        (represented as tuples of (feature, value) pairs) to the list of
+        markers that should be applied for that combination of feature values.
 
-        For feature markers, the mapping is from (feature, value) to the
-        list of markers in the corresponding marker set. For contingent
-        markers, the mapping is nested and order-insensitive, such that
-        contingent_map[(feature1, value1)][(feature2, value2)] gives
-        the same result as contingent_map[(feature2, value2)][(feature1, value1)].
+        Contingent marker mappings are handled directly within the
+        ContingentMarkers objects.
         """
 
         # build flat mapping for feature markers
@@ -418,33 +420,13 @@ class Paradigm:
                     marker_list
                 )
 
-        # build nested mapping for contingent markers
-        self.contingent_marker_map: dict[
-            tuple[str, str], dict[tuple[str, str], MarkerList]
-        ] = defaultdict(dict)
-        for contingent_marker_set in self.contingent_markers:
-            for outer_value, inner_map in contingent_marker_set.inner_maps.items():
-                outer_pair = (contingent_marker_set.outer_feature.name, outer_value)
-                for inner_value, marker_set in inner_map.data.items():
-                    innner_pair = (
-                        contingent_marker_set.inner_feature.name,
-                        inner_value,
-                    )
-                    self.contingent_marker_map[outer_pair][
-                        innner_pair
-                    ] = marker_set.data
-                    self.contingent_marker_map[innner_pair][
-                        outer_pair
-                    ] = marker_set.data
-
     def _add_global_markers(self):
         for marker_set in self.markers:
             for marker_list in marker_set.data.values():
                 marker_list.merge_list(self.global_markers)
         for contingent_set in self.contingent_markers:
-            for marker_set in contingent_set.inner_maps.values():
-                for marker_list in marker_set.data.values():
-                    marker_list.merge_list(self.global_markers)
+            for marker_list in contingent_set.feature_mappings.values():
+                marker_list.merge_list(self.global_markers)
 
     def _build_all_marker_transducers(self):
         """
@@ -456,10 +438,9 @@ class Paradigm:
                 for marker in marker_list:
                     self._build_marker_transducer(marker)
         for contingent_set in self.contingent_markers:
-            for marker_set in contingent_set.inner_maps.values():
-                for marker_list in marker_set.data.values():
-                    for marker in marker_list:
-                        self._build_marker_transducer(marker)
+            for marker_list in contingent_set.feature_mappings.values():
+                for marker in marker_list:
+                    self._build_marker_transducer(marker)
 
     def _build_marker_transducer(self, marker: Marker):
         if marker.transducer_built:
