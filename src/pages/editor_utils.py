@@ -3,7 +3,8 @@ from __future__ import annotations
 import yaml
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+from loguru import logger
 
 import streamlit as st
 from camel_converter import to_snake
@@ -12,6 +13,28 @@ from src.config_utils.schema_validation import ConfigKindType
 
 if TYPE_CHECKING:
     from src.config_utils.config_walker import ConfigWalker
+    from src.grammar.registry.feature_marker_registry import Marker
+
+EDITOR_WIDGET_PREFIX = "editor-widget-"
+
+# Marker Editor Constants
+_MARKER_TYPE_PREFIX = "marker-type-"
+_MARKER_VALUE_PREFIX = "marker-val-"
+_MARKER_REPLACE_IN_PREFIX = "marker-replace-in-"
+_MARKER_REPLACE_OUT_PREFIX = "marker-replace-out-"
+_MARKER_ORDER_PREFIX = "marker-order-"
+_REMOVE_MARKER_PREFIX = "remove-marker-"
+
+MARKER_WIDGET_PREFIXES = [
+    _MARKER_TYPE_PREFIX,
+    _MARKER_VALUE_PREFIX,
+    _MARKER_REPLACE_IN_PREFIX,
+    _MARKER_REPLACE_OUT_PREFIX,
+    _MARKER_ORDER_PREFIX,
+    _REMOVE_MARKER_PREFIX,
+]
+
+MARKER_TYPES = ["suffix", "prefix", "replace", "rule", "suppletion", "principal_part"]
 
 
 class EditorBase(ABC):
@@ -45,8 +68,35 @@ class EditorBase(ABC):
 
     @property
     def stem(self) -> str:
-        """Filename stem of the loaded file, or '' for new files."""
+        """file_name stem of the loaded file, or '' for new files."""
         return Path(self.path).stem if self.path else ""
+    
+    @property
+    def scope(self) -> str:
+        """Scope string for widget keys, derived from kind and filename."""
+        stem = self.stem or "new"
+        return f"{to_snake(self.kind)}-{stem}"
+    
+    def get_widget_key(self, prefix: str, widget_id: str, suffix: str = "") -> str:
+        """
+        Build a Streamlit widget key with the format:
+        "editor-widget-{prefix}-{widget_id}-{suffix}"
+        The suffix is optional and can be used to distinguish related widgets.
+        """
+        key = f"{EDITOR_WIDGET_PREFIX}-{self.scope}-{prefix}-{widget_id}"
+        if suffix:
+            key += f"-{suffix}"
+        return key
+    
+    def get_node_widget(
+        self, prefix: str, node_id: str, suffix: str = ""
+    ) -> str | None:
+        """
+        Get the value of a widget for a given node_id and widget type, or None if not set.
+        """
+        key = self.get_widget_key(prefix, node_id, suffix)
+        widget_value = st.session_state.get(key)
+        return widget_value
 
     # ------------------------------------------------------------------
     # Abstract interface — subclasses must implement
@@ -78,12 +128,8 @@ class EditorBase(ABC):
         """
 
     @abstractmethod
-    def clear_widget_keys(self) -> None:
-        """
-        Remove all Streamlit widget keys owned by this editor from
-        st.session_state.  Called before loading a new file to prevent
-        stale key conflicts.
-        """
+    def get_default_data(self) -> dict:
+        """Return a dictionary matching the schema for an empty file of this kind."""
 
     # ------------------------------------------------------------------
     # Concrete lifecycle helpers
@@ -91,17 +137,22 @@ class EditorBase(ABC):
 
     def load_file(self, filepath: str, config_walker: "ConfigWalker") -> None:
         """Clear widget state, then load and parse the given file."""
-        self.clear_widget_keys()
+
+        logger.info(f"Loading {self.kind} file: {filepath}")
+
         self.config_dir = str(config_walker.config_dir)
         config_object = config_walker.config_data[self.config_key][filepath]
         self.data = self.build_state_from_config(config_object)
         self.path = filepath
 
+        # reset file name widget
+        st.session_state["file_name"] = self.stem
+
     def new_file(self) -> None:
-        """Reset to a blank state (no file loaded)."""
-        self.clear_widget_keys()
-        self.data = {}
+        """Reset to a blank state matching the expected schema."""
+        self.data = self.get_default_data()
         self.path = ""
+        st.session_state["file_name"] = ""
 
     def resolve_save_path(self, stem: str) -> Path:
         """Build the full save path: config_dir / subdir / stem.yaml."""
@@ -117,12 +168,84 @@ class EditorBase(ABC):
         Updates self.path to the written location.
         """
         dest = self.resolve_save_path(stem)
-        self.read_form_to_state()
         yaml_doc = self.to_yaml()
+        
+        # Clean the dictionary to remove illicit nulls/empty strings before saving
+        yaml_doc = prune_config_dict(yaml_doc, self.kind)
+        
         dest.parent.mkdir(parents=True, exist_ok=True)
         with dest.open("w", encoding="utf-8") as f:
             yaml.dump(yaml_doc, f, allow_unicode=True, sort_keys=False)
         self.path = str(dest)
+
+
+def prune_config_dict(data: Any, kind: str) -> Any:
+    """
+    Recursively remove None values and empty strings from a dictionary,
+    unless they are explicitly allowed ("licit nulls") by the schema.
+    """
+    # Define keys that are allowed to be null for specific kinds
+    # Format: {Kind: {ParentKey: {LicitNullKey}}} or just {Kind: {LicitNullKey}}
+    # We use a set of strings for simple path-based matching
+    LICIT_PATHS = {
+        "FeatureMarkers": {"markers"}, # markers is a dict, values can be null
+        "Paradigm": {"feature_markers"}, # feature_markers is a dict, values can be null
+        "Rules": {"input_pattern", "output_pattern"},
+    }
+
+    kind_licit = LICIT_PATHS.get(kind, set())
+
+    if isinstance(data, dict):
+        new_dict = {}
+        for k, v in data.items():
+            # If the value is a licit null, keep it
+            if v is None and k in kind_licit:
+                new_dict[k] = v
+                continue
+            
+            # Recurse
+            pruned_v = prune_config_dict(v, kind)
+            
+            # Pruning logic: 
+            # 1. Skip None or empty string
+            # 2. Skip empty dictionaries (unless they are a licit path root)
+            if pruned_v in (None, ""):
+                continue
+            
+            # Special case: don't prune empty lists if the schema expects them 
+            # (e.g. lexical_features: [])
+            if pruned_v == {} and k not in kind_licit:
+                continue
+                
+            new_dict[k] = pruned_v
+        return new_dict
+    
+    elif isinstance(data, list):
+        # Recursively prune items in list, but keep the list itself even if empty
+        # (Schemes often distinguish between a missing key and an empty array)
+        return [prune_config_dict(i, kind) for i in data]
+    
+    return data
+
+
+def clear_all_editor_widget_keys() -> None:
+    """
+    Clear all Streamlit widget keys that start with the editor prefix.
+    This is used to prevent stale keys from interfering when switching files.
+    """
+    keys_to_clear = [
+        key for key in st.session_state.keys() if key.startswith(EDITOR_WIDGET_PREFIX)
+    ]
+
+    if "file_name" in st.session_state:
+        keys_to_clear.append("file_name")
+
+    logger.debug(
+        f"Clearing {len(keys_to_clear)} editor widget keys from Streamlit state: {keys_to_clear}"
+    )
+
+    for key in keys_to_clear:
+        del st.session_state[key]
 
 
 def editor_guard(kind: ConfigKindType) -> EditorBase:
@@ -137,7 +260,30 @@ def editor_guard(kind: ConfigKindType) -> EditorBase:
         st.session_state.pop("editor", None)
         st.session_state["current_page"] = kind
 
-    editor = st.session_state.get("editor")
+    if "pending_load" in st.session_state:
+        logger.info(
+            f"Pending load detected in session state: {st.session_state['pending_load']}"
+        )
+        pending = st.session_state.pop("pending_load")
+        editor_class = pending["class"]
+        file_name = pending["file_name"]
+
+        editor = editor_class()
+        if file_name:
+            config_walker = st.session_state.get("config_walker")
+            if config_walker is None:
+                st.error("Config walker not found in session state.")
+                st.stop()
+            editor.load_file(file_name, config_walker=config_walker)
+        else:
+            editor.new_file()
+
+        st.session_state["editor"] = editor
+        st.session_state["file_name"] = editor.stem
+        st.rerun()
+
+    else:
+        editor = st.session_state.get("editor")
 
     if editor is None:
         st.info(
@@ -159,7 +305,7 @@ def editor_sidebar(
     Render sidebar for the inventory page, including file selector and about info.
     """
     with st.sidebar:
-        st.title("🔤 Inventory Editor")
+        st.title(f"🔤 {kind} Editor")
         st.caption(f"`CONFIG_DIR`: `{config_dir}`")
         st.divider()
 
@@ -185,17 +331,20 @@ def editor_sidebar(
         col_open, col_refresh = st.columns(2)
         with col_open:
             if st.button("Open", use_container_width=True, type="primary"):
-                editor = editor_class()
-                try:
-                    if selected_file is None:
-                        editor.new_file()
-                    else:
-                        editor.load_file(selected_file, config_walker)
-                except (KeyError, ValueError) as exc:
-                    st.error(str(exc))
-                else:
-                    st.session_state["editor"] = editor
+                # prepare state handover
+                logger.info(
+                    f"Open button clicked for file: {selected_file}, editor class: {editor_class} "
+                    "setting pending_load in session state and clearing existing editor state."
+                )
+                clear_all_editor_widget_keys()
+                st.session_state["pending_load"] = {
+                    "file_name": selected_file,
+                    "class": editor_class,
+                }
+                # clear any existing editor instance
+                st.session_state.pop("editor", None)
                 st.rerun()
+
         with col_refresh:
             if st.button(
                 "↺ Refresh",
@@ -214,6 +363,10 @@ def editor_header(kind: ConfigKindType, editor: type[EditorBase]) -> None:
     Render the page header, including the file name input field.
     The file name is stored in session state and used when saving the YAML file.
     """
+    logger.debug(
+        f"Rendering header for {kind} editor with file: {editor.path}, stem {editor.stem}"
+    )
+
     st.header(editor.stem or f"New {kind} file")
 
     col_name, _ = st.columns([3, 5])
@@ -221,7 +374,127 @@ def editor_header(kind: ConfigKindType, editor: type[EditorBase]) -> None:
         st.text_input(
             "File name",
             key="file_name",
-            value=editor.stem,
             placeholder="segments",
             help=f"Name for this {kind} file (no extension needed).",
         )
+
+
+def render_marker_row(
+    marker: "Marker",
+    scope: str,
+    editor: EditorBase,
+    available_rules: list[str],
+    available_principal_parts: list[str],
+) -> None:
+    """Reusable component for rendering a single Marker row."""
+    m_uid = marker.uuid
+    with st.container(border=True):
+        col_type, col_order, col_del = st.columns([1.5, 1.5, 0.4])
+        with col_type:
+            selected_type = st.selectbox(
+                "Type",
+                options=MARKER_TYPES,
+                index=MARKER_TYPES.index(marker.type)
+                if marker.type in MARKER_TYPES
+                else 0,
+                key=editor.get_widget_key(_MARKER_TYPE_PREFIX, scope, suffix=m_uid),
+                label_visibility="collapsed",
+            )
+            if selected_type != marker.type:
+                # Reset value fields when type changes to avoid confusion
+                st.rerun()
+        with col_order:
+            st.text_input(
+                "Order",
+                value=marker.order or "",
+                placeholder="Order stage",
+                key=editor.get_widget_key(_MARKER_ORDER_PREFIX, scope, suffix=m_uid),
+                label_visibility="collapsed",
+            )
+        with col_del:
+            if st.button(
+                "✕",
+                key=editor.get_widget_key(_REMOVE_MARKER_PREFIX, scope, suffix=m_uid),
+                help="Remove marker",
+            ):
+                st.session_state[f"pending_remove_marker_{scope}"] = m_uid
+                st.rerun()
+
+        if marker.type == "replace":
+            r_col1, r_col2 = st.columns(2)
+            val_in = marker.value[0] if isinstance(marker.value, tuple) else ""
+            val_out = marker.value[1] if isinstance(marker.value, tuple) else ""
+            with r_col1:
+                st.text_input(
+                    "Input",
+                    value=val_in,
+                    key=editor.get_widget_key(
+                        _MARKER_REPLACE_IN_PREFIX, scope, suffix=m_uid
+                    ),
+                )
+            with r_col2:
+                st.text_input(
+                    "Output",
+                    value=val_out,
+                    key=editor.get_widget_key(
+                        _MARKER_REPLACE_OUT_PREFIX, scope, suffix=m_uid
+                    ),
+                )
+        elif marker.type == "rule":
+            st.selectbox(
+                "Rule",
+                options=[""] + available_rules,
+                index=available_rules.index(marker.value.lstrip("$")) + 1
+                if isinstance(marker.value, str) and marker.value.lstrip("$") in available_rules
+                else 0,
+                key=editor.get_widget_key(_MARKER_VALUE_PREFIX, scope, suffix=m_uid),
+            )
+        elif marker.type == "principal_part":
+            st.selectbox(
+                "Principal Part",
+                options=[""] + available_principal_parts,
+                index=available_principal_parts.index(marker.value) + 1
+                if isinstance(marker.value, str) and marker.value in available_principal_parts
+                else 0,
+                key=editor.get_widget_key(_MARKER_VALUE_PREFIX, scope, suffix=m_uid),
+            )
+        else:
+            st.text_input(
+                "Value",
+                value=marker.value if isinstance(marker.value, str) else "",
+                key=editor.get_widget_key(_MARKER_VALUE_PREFIX, scope, suffix=m_uid),
+                placeholder="e.g. -o, ba-",
+            )
+
+
+def render_marker_list(
+    markers: list["Marker"],
+    scope: str,
+    editor: EditorBase,
+    available_rules: list[str],
+    available_principal_parts: list[str],
+    label: str = "Markers",
+) -> None:
+    """Reusable component for rendering a list of Markers."""
+    st.subheader(label)
+
+    # Check for pending removals
+    pending_rm = st.session_state.pop(f"pending_remove_marker_{scope}", None)
+    if pending_rm:
+        # Subclasses must implement remove_marker(markers, m_uuid)
+        if hasattr(editor, "remove_marker"):
+            editor.remove_marker(markers, pending_rm)
+        st.rerun()
+
+    if not markers:
+        st.info("Zero marking (no markers).")
+    else:
+        for m in markers:
+            render_marker_row(
+                m, scope, editor, available_rules, available_principal_parts
+            )
+
+    if st.button(f"➕ Add marker to {label.lower()}", key=f"add-m-{scope}"):
+        if hasattr(editor, "add_marker"):
+            editor.add_marker(markers)
+        st.rerun()

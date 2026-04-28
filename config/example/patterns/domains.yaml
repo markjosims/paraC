@@ -1,6 +1,6 @@
 kind: Patterns
 patterns:
-- name: Syllable
+- _ref: Syllable
   _ref: <Syll>
   pattern: <C>?<V><T><C>?<C>?
   test_includes:
@@ -14,7 +14,7 @@ patterns:
   - a
   - chərt
   - ɪg
-- name: Monosyllable word
+- _ref: Monosyllable word
   _ref: <MonoSyllWord>
   pattern: '#<Syll>#'
   test_includes:
@@ -27,7 +27,7 @@ patterns:
   - chə̀rtpáŋk
   - ìá
   - ɪ̀gə́
-- name: Disyllable word
+- _ref: Disyllable word
   _ref: <DiSyllWord>
   pattern: '#<Syll><Syll>#'
   test_includes:

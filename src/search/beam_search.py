@@ -435,6 +435,7 @@ def intersect_beam_forward_back(
     fuzzy_search: bool = False,
     unique_only: bool = False,
     use_jit: bool = False,
+    cost_matrix: np.ndarray | None = None,
 ) -> list[WfsaCsrBeam]:
     """
     Wrapper over `intersect_beam` that performs beam search in both forward
@@ -450,6 +451,7 @@ def intersect_beam_forward_back(
         fuzzy_search=fuzzy_search,
         unique_only=unique_only,
         use_jit=use_jit,
+        cost_matrix=cost_matrix,
     )
     backward_hypotheses = intersect_beam(
         left=left_backward,
@@ -458,6 +460,7 @@ def intersect_beam_forward_back(
         fuzzy_search=fuzzy_search,
         unique_only=unique_only,
         use_jit=use_jit,
+        cost_matrix=cost_matrix,
     )
     # reverse label sequences in backward hypotheses to match forward direction
     backward_hypotheses = [

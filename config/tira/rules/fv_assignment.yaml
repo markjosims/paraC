@@ -1,6 +1,6 @@
 kind: Rules
 rules:
-  ipfv_it_fv:
+  - _ref: ipfv_it_fv
     string_map:
     - - '{[aɔ][ao][ai]}'
       - -à
@@ -13,7 +13,7 @@ rules:
       - kɜc-ɔ̀
     - - ilɛð[ɔɔ]
       - ilɛð-ɔ̀
-  ipfv_pfv_vent_fv:
+  - _ref: ipfv_pfv_vent_fv
     string_map:
     - - '{[aɔ][ɔɔ]}'
       - -ɔ́
@@ -30,7 +30,7 @@ rules:
       - kɜc-í
     - - ilɛð[ɔɔ]
       - ilɛð-ɔ́
-  pfv_it_fv:
+  - _ref: pfv_it_fv
     string_map:
     - - '{[aɔ][ɔɔ]}'
       - -ɛ̀

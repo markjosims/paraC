@@ -12,6 +12,7 @@ from typing import Literal, Optional, Union
 from dataclasses import dataclass, field
 import os
 from loguru import logger
+from uuid import uuid4
 
 # TODO: update Fst registry and orchestrator family to expect
 # new InventoryItem/Class API
@@ -82,12 +83,16 @@ class InventoryClass(InventoryMember):
             InventoryRegistry class.
     """
 
+    _ref: str = field(init=False, default="")  # set _ref to value of `value` field on init
+    # for compatibility with Pattern class and parsing logic in InventoryRegistry
     name: str = ""
     type: Literal["phone_class", "flag_class", "nested_class"] = "phone_class"
     children: list["InventoryMember"] = field(default_factory=list)
+    uuid: str = field(default_factory=lambda: str(uuid4()), init=False)
 
     def __post_init__(self):
         super().__post_init__()
+        self._ref = self.value
 
         if self.value in ReservedSymbolMixin.reserved_symbols:
             error = f"Inventory item value '{self.value}' is a reserved symbol and cannot be used."

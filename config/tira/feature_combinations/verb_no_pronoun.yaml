@@ -5,15 +5,27 @@ features:
 - class_marker
 - subject
 - object
+- singular_class
 combinations:
 - tam: infinitive
+  deixis: unmarked
   class_marker: ð
+  subject: unmarked
+  object: unmarked
+  singular_class: unmarked
 - tam: imperative
   deixis:
   - itive
   - ventive
+  class_marker: unmarked
+  subject: unmarked
+  object: unmarked
+  singular_class: unmarked
 - tam:
   - imperfective
   - perfective
   deixis: '*'
   class_marker: '*'
+  subject: unmarked
+  object: unmarked
+  singular_class: unmarked

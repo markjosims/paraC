@@ -5,7 +5,14 @@ from src.grammar import Grammar
 from loguru import logger
 
 from src.pages.inventory import inventory_page
+from src.pages.feature_values import feature_values_page
+from src.pages.feature_combinations import feature_combinations_page
+from src.pages.feature_markers import feature_markers_page
+from src.pages.contingent_markers import contingent_markers_page
+from src.pages.lexicon import lexicon_page
+from src.pages.paradigm import paradigm_page
 from src.pages.patterns import patterns_page
+from src.pages.rules import rules_page
 
 _INVALIDATE_KEYS = ["grammar", "config_walker"]
 
@@ -23,6 +30,7 @@ def initialize_state():
     """
     # Check watcher flag first — must run every rerun from the main thread.
     if check_and_apply_invalidation(_INVALIDATE_KEYS):
+        logger.info("Config invalidation detected. Rerunning to reload config...")
         st.rerun()
 
     config_dir = st.session_state.get("config_dir", None)
@@ -47,13 +55,19 @@ def initialize_state():
         grammar = load_grammar(config_walker=config_walker)
         st.session_state["grammar"] = grammar
 
-
 def navbar():
     pages = {
         "Home": [st.Page(home_page, title="Home")],
         "Edit grammar": [
             st.Page(inventory_page, title="Inventory"),
+            st.Page(feature_values_page, title="Feature Values"),
+            st.Page(feature_combinations_page, title="Feature Combinations"),
+            st.Page(feature_markers_page, title="Feature Markers"),
+            st.Page(contingent_markers_page, title="Contingent Markers"),
+            st.Page(lexicon_page, title="Lexicon"),
+            st.Page(paradigm_page, title="Paradigm"),
             st.Page(patterns_page, title="Patterns"),
+            st.Page(rules_page, title="Rules"),
         ],
         "Inflect": [],
         "Parse": [],

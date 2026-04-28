@@ -13,14 +13,22 @@ DEFAULT_EDIT_BOUND = 5
 
 _edit_transducer = EditTransducer(alphabet=ascii_lowercase, bound=5)
 
+epsilon_symbol = "<eps>"
+
 ascii_table = pynini.SymbolTable()
-ascii_table.add_symbol("<eps>")
-alphabet = ["<eps>"] + list(ascii_lowercase)
+ascii_table.add_symbol(epsilon_symbol)
+alphabet = [epsilon_symbol]
 
 symbol_range = (1, 256)
 
 for i in range(*symbol_range):
-    ascii_table.add_symbol(chr(i))
+    ith_char = chr(i)
+    ascii_table.add_symbol(ith_char)
+
+    if ith_char in ascii_lowercase:
+        alphabet.append(ith_char)
+    else:
+        alphabet.append(None)
 
 
 def set_symbols(fst: pynini.Fst):
@@ -113,8 +121,13 @@ def prepare_cost_matrix_for_edit_graph(
     deletions: list[tuple[str, float]] = []
 
     for i, input_symbol in enumerate(alphabet):
+        # ignore edits involving the epsilon symbol or None (used for masking)
+        if input_symbol is None:
+            continue
         for j, output_symbol in enumerate(alphabet):
-            if input_symbol == output_symbol:
+            if output_symbol is None:
+                continue
+            elif input_symbol == output_symbol:
                 continue  # No edit operation for identical symbols
             elif input_symbol == "<eps>":
                 insertions.append((output_symbol, cost_matrix[i, j]))
@@ -350,6 +363,8 @@ def _get_substitution_graph(
     for i, intab in enumerate(intabs):
         if intab in used_intabs:
             continue
+        used_intabs.append(intab)
+
         intab_sub_symbol = f"[SUBSTITUTE{i}]"
         subs_w_intab = [sub for sub in substitutions if sub[0] == intab]
 

@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 import os
 from loguru import logger
 from graphlib import TopologicalSorter
+from uuid import uuid4
 
 @dataclass
 class Rule(TransducerList):
@@ -59,6 +60,8 @@ class Rule(TransducerList):
     source: os.PathLike | None = None
     description: str | None = None
     test_mappings: list[tuple[str, str]] = field(default_factory=list)
+
+    uuid: str = field(default_factory=lambda: str(uuid4()), init=False)
 
     def __post_init__(self):
         super().__post_init__()
@@ -133,14 +136,12 @@ class Rule(TransducerList):
     @classmethod
     def from_config(
         cls,
-        rule_name: str,
         config: dict,
     ) -> 'Rule':
         """
         Builds an Rule from a config dict, inferring the type
         from the attributes contained
         """
-        config["_ref"] = rule_name
 
         # infer rule type from attrs
         # and set pattern strings to Acceptors
@@ -234,8 +235,8 @@ class RuleRegistry(Registry, ReservedSymbolMixin):
             return
 
         rule_list = [
-            Rule.from_config(rule_name, rule_data)
-            for rule_name, rule_data in rules.items()
+            Rule.from_config(rule_data)
+            for rule_data in rules
         ]
 
         # make dict mapping ref to item

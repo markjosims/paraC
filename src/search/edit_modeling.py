@@ -12,17 +12,25 @@ Transition matrix over edit pairs.
 """
 
 
-def get_random_transition_matrix(n: int, alpha: float) -> np.ndarray:
+def get_random_transition_matrix(alphabet: list[str], alpha: float) -> np.ndarray:
     """
     Generate a random transition matrix of size n x n using a Dirichlet distribution.
-    Assume `n` is the size of the vocabulary including the null token.
     """
+    n = len(alphabet)
     mat = np.random.dirichlet([alpha] * n, size=n)
 
     # mask diagonal to prevent self-transitions (i.e., no edit)
     np.fill_diagonal(mat, 0)
-    
-    probs = mat / mat.sum(axis=1, keepdims=True)  # Ensure rows sum to 1
+
+    # mask any index which is None in alphabet
+    for i, token in enumerate(alphabet):
+        if token is None:
+            mat[:, i] = 0
+            mat[i, :] = 0
+
+    probs = np.divide(
+        mat, mat.sum(axis=1, keepdims=True), where=mat.sum(axis=1, keepdims=True) != 0
+    )  # Ensure rows sum to 1
 
     return probs
 

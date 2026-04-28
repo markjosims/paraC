@@ -1,49 +1,49 @@
 kind: Rules
 rules:
-  l_class_sing:
+  - _ref: l_class_sing
     input_pattern: '[BOW]'
     output_pattern: '[BOW]l-'
     left_context: '[singular_class=l].*'
     test_mappings:
     - - '[singular_class=l][BOW]ùmɔ̀n'
       - '[singular_class=l][BOW]l-ùmɔ̀n'
-  r_class_sing:
+  - _ref: r_class_sing
     input_pattern: '[BOW]'
     output_pattern: '[BOW]r-'
     left_context: '[singular_class=r].*'
-  ð_class_sing:
+  - _ref: ð_class_sing
     input_pattern: '[BOW]'
     output_pattern: '[BOW]ð-'
     left_context: '[singular_class=ð].*'
-  n_class_sing:
+  - _ref: n_class_sing
     input_pattern: '[BOW]'
     output_pattern: '[BOW]n-'
     left_context: '[singular_class=n].*'
-  ŋ_class_sing:
+  - _ref: ŋ_class_sing
     input_pattern: '[BOW]'
     output_pattern: '[BOW]ŋ-'
     left_context: '[singular_class=ŋ].*'
-  ɲ_class_sing:
+  - _ref: ɲ_class_sing
     input_pattern: '[BOW]'
     output_pattern: '[BOW]ɲ-'
     left_context: '[singular_class=ɲ].*'
-  j_class_sing:
+  - _ref: j_class_sing
     input_pattern: '[BOW]'
     output_pattern: '[BOW]j-'
     left_context: '[singular_class=j].*'
-  s_class_sing:
+  - _ref: s_class_sing
     input_pattern: '[BOW]'
     output_pattern: '[BOW]s-'
     left_context: '[singular_class=s].*'
-  t̪_class_sing:
+  - _ref: t̪_class_sing
     input_pattern: '[BOW]'
     output_pattern: '[BOW]t̪-'
     left_context: '[singular_class=t̪].*'
-  c_class_sing:
+  - _ref: c_class_sing
     input_pattern: '[BOW]'
     output_pattern: '[BOW]c-'
     left_context: '[singular_class=c].*'
-  add_class_prefix_sing:
+  - _ref: add_class_prefix_sing
     rule_sequence:
     - c_class_sing
     - j_class_sing
@@ -60,50 +60,50 @@ rules:
       - '[singular_class=l][BOW]l-ùmɔ̀n'
     - - '[singular_class=r][BOW]ɔ̀nd̪ɔ̀'
       - '[singular_class=r][BOW]r-ɔ̀nd̪ɔ̀'
-  l_class_pl:
+  - _ref: l_class_pl
     input_pattern: '[BOW]'
     output_pattern: '[BOW]l-'
     left_context: '[plural_class=l].*'
     test_mappings:
     - - '[plural_class=l][BOW]ùmɔ̀n'
       - '[plural_class=l][BOW]l-ùmɔ̀n'
-  r_class_pl:
+  - _ref: r_class_pl
     input_pattern: '[BOW]'
     output_pattern: '[BOW]r-'
     left_context: '[plural_class=r].*'
-  ð_class_pl:
+  - _ref: ð_class_pl
     input_pattern: '[BOW]'
     output_pattern: '[BOW]ð-'
     left_context: '[plural_class=ð].*'
-  n_class_pl:
+  - _ref: n_class_pl
     input_pattern: '[BOW]'
     output_pattern: '[BOW]n-'
     left_context: '[plural_class=n].*'
-  ŋ_class_pl:
+  - _ref: ŋ_class_pl
     input_pattern: '[BOW]'
     output_pattern: '[BOW]ŋ-'
     left_context: '[plural_class=ŋ].*'
-  ɲ_class_pl:
+  - _ref: ɲ_class_pl
     input_pattern: '[BOW]'
     output_pattern: '[BOW]ɲ-'
     left_context: '[plural_class=ɲ].*'
-  j_class_pl:
+  - _ref: j_class_pl
     input_pattern: '[BOW]'
     output_pattern: '[BOW]j-'
     left_context: '[plural_class=j].*'
-  s_class_pl:
+  - _ref: s_class_pl
     input_pattern: '[BOW]'
     output_pattern: '[BOW]s-'
     left_context: '[plural_class=s].*'
-  t̪_class_pl:
+  - _ref: t̪_class_pl
     input_pattern: '[BOW]'
     output_pattern: '[BOW]t̪-'
     left_context: '[plural_class=t̪].*'
-  c_class_pl:
+  - _ref: c_class_pl
     input_pattern: '[BOW]'
     output_pattern: '[BOW]c-'
     left_context: '[plural_class=c].*'
-  add_class_prefix_pl:
+  - _ref: add_class_prefix_pl
     rule_sequence:
     - c_class_pl
     - j_class_pl

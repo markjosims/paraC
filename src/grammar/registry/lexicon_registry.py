@@ -32,9 +32,9 @@ class PartOfSpeech:
             raise ValueError("PartOfSpeech must have a name.")
 
         for feature in self.features + self.lexical_features:
-            if not isinstance(feature, Feature):
+            if type(feature).__name__ != "Feature":
                 raise ValueError(
-                    f"Feature '{feature}' is not an instance of the Feature class."
+                    f"Feature '{feature}' of type {type(feature)} is not an instance of the Feature class."
                 )
 
         for feature in self.lexical_features:

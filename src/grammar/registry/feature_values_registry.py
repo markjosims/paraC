@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from loguru import logger
 from dataclasses import dataclass, field
 import os
@@ -18,6 +20,7 @@ class Feature:
     name: str
     values: list[str]
     source: os.PathLike | None = None
+    uuid: str = field(default_factory=lambda: str(uuid4()), init=False)
 
     def __post_init__(self):
         if not self.name:
