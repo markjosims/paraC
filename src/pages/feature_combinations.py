@@ -169,41 +169,7 @@ def _render_combination(combo: dict, features: list[str], editor: FeatureCombina
             st.rerun()
 
 
-def feature_combinations_toolbar(editor: FeatureCombinationsEditor) -> None:
-    col_add, col_save, col_preview_toggle, _ = st.columns([1.4, 1.2, 1.6, 5])
-
-    with col_add:
-        if st.button("➕ Add combination", use_container_width=True):
-            editor.insert_combination()
-            st.rerun()
-
-    with col_save:
-        if st.button("💾 Save YAML", use_container_width=True, type="primary"):
-            stem = st.session_state.get("file_name", "").strip()
-            if not stem:
-                st.error("Enter a file name before saving.")
-            else:
-                try:
-                    editor.save(stem)
-                    st.toast(f"✅ Saved as `{stem}`", icon="✅")
-                except (ValueError, OSError) as exc:
-                    st.error(str(exc))
-
-    with col_preview_toggle:
-        show_preview = st.toggle("Show YAML preview", value=False)
-
-    if show_preview:
-        with st.container(border=True):
-            st.caption("YAML preview — reflects unsaved edits")
-            st.code(yaml.dump(editor.to_yaml(), allow_unicode=True, sort_keys=False))
-
-
 def feature_combinations_page() -> None:
-    st.set_page_config(
-        page_title="Feature Combinations Editor",
-        page_icon="🧩",
-        layout="wide",
-    )
 
     config_dir: str = st.session_state["config_dir"]
     config_walker: ConfigWalker = st.session_state["config_walker"]
@@ -264,7 +230,7 @@ def feature_combinations_page() -> None:
                 _render_combination(combo, features, editor)
 
     with toolbar_placeholder.container():
-        feature_combinations_toolbar(editor)
+        render_editor_toolbar(editor, add_label="Add combination", add_callback=editor.insert_combination)
 
 
 if __name__ == "__main__":

@@ -21,12 +21,8 @@ from src.pages.editor_utils import (
     editor_header,
     editor_sidebar,
     render_marker_list,
+    render_editor_toolbar,
     MARKER_WIDGET_PREFIXES,
-    _MARKER_TYPE_PREFIX,
-    _MARKER_VALUE_PREFIX,
-    _MARKER_REPLACE_IN_PREFIX,
-    _MARKER_REPLACE_OUT_PREFIX,
-    _MARKER_ORDER_PREFIX,
 )
 
 _config_kind = "ContingentFeatureMarkers"
@@ -34,27 +30,21 @@ _config_key = "contingent_feature_marker_configs"
 
 # Prefix constants
 _GLOBAL_ORDER_PREFIX = "global-order-"
-_OUTER_FEATURE_PREFIX = "outer-feature-"
-_INNER_FEATURE_PREFIX = "inner-feature-"
-_OUTER_VAL_PREFIX = "outer-val-"
-_INNER_VAL_PREFIX = "inner-val-"
-_REMOVE_OUTER_PREFIX = "remove-outer-"
-_REMOVE_INNER_PREFIX = "remove-inner-"
+_FEATURE_LIST_PREFIX = "features-list-"
+_ENTRY_VAL_PREFIX = "entry-val-"
+_REMOVE_ENTRY_PREFIX = "remove-entry-"
 
 _WIDGET_PREFIXES: list[str] = [
     _GLOBAL_ORDER_PREFIX,
-    _OUTER_FEATURE_PREFIX,
-    _INNER_FEATURE_PREFIX,
-    _OUTER_VAL_PREFIX,
-    _INNER_VAL_PREFIX,
-    _REMOVE_OUTER_PREFIX,
-    _REMOVE_INNER_PREFIX,
+    _FEATURE_LIST_PREFIX,
+    _ENTRY_VAL_PREFIX,
+    _REMOVE_ENTRY_PREFIX,
 ] + MARKER_WIDGET_PREFIXES
 
 _help_str = """
-Contingent marker files define how realizations depend on two features.
-- **Outer feature**: Partitions the markers into groups.
-- **Inner feature**: Defines the specific values marked within each group.
+Contingent marker files define realizations contingent on feature vectors.
+- **Features**: Select the features that participate in these contingencies.
+- **Markers**: Map specific combinations of feature values to realizations.
 """
 
 
@@ -63,20 +53,16 @@ class ContingentMarkersEditor(EditorBase):
     Editor for ContingentFeatureMarkers YAML configs.
 
     self.data keys:
-        outer_feature  — str
-        inner_feature  — str
+        features       — list[str] (participating features)
         global_order   — str
         global_markers — list[Marker]
-        outer_entries  — list[dict] (uuid, outer_value, inner_entries: list[dict])
-            inner_entry: (uuid, inner_value, markers: list[Marker])
+        entries        — list[dict] (uuid, features: dict[str, str], realization: list[Marker])
     """
 
     def __init__(self) -> None:
         super().__init__(kind=_config_kind, config_key=_config_key)
 
     def build_state_from_config(self, config_object: dict) -> dict:
-        outer_feature = config_object.get("outer_feature", "")
-        inner_feature = config_object.get("inner_feature", "")
         global_order = config_object.get("global_order", "")
 
         def load_markers(raw: Any) -> list[Marker]:
@@ -89,44 +75,34 @@ class ContingentMarkersEditor(EditorBase):
         global_markers = load_markers(config_object.get("global_markers", []))
 
         markers_raw = config_object.get("markers", [])
-        outer_entries = []
-        for o_config in markers_raw:
-            o_val = o_config.get("outer_feature_value", "")
-            inner_entries = []
-            for i_val, m_list_raw in (o_config.get("inner_feature_values", {})).items():
-                inner_entries.append(
-                    {
-                        "uuid": str(uuid.uuid4()),
-                        "inner_feature_value": i_val,
-                        "markers": load_markers(m_list_raw),
-                    }
-                )
-            outer_entries.append(
+        features_set = set()
+        entries = []
+        for entry_config in markers_raw:
+            f_vec = entry_config.get("features", {})
+            features_set.update(f_vec.keys())
+            entries.append(
                 {
                     "uuid": str(uuid.uuid4()),
-                    "outer_feature_value": o_val,
-                    "inner_entries": inner_entries,
+                    "features": f_vec,
+                    "realization": load_markers(entry_config.get("realization", [])),
                 }
             )
 
         return {
-            "outer_feature": outer_feature,
-            "inner_feature": inner_feature,
+            "features": sorted(list(features_set)),
             "global_order": global_order,
             "global_markers": global_markers,
-            "outer_entries": outer_entries,
+            "entries": entries,
         }
 
     def read_form_to_state(self) -> None:
         """Sync widget values back to self.data."""
         # 1. Top-level fields
-        o_feat = st.session_state.get(self.get_widget_key(_OUTER_FEATURE_PREFIX, "main"))
-        if o_feat is not None:
-            self.data["outer_feature"] = o_feat
-        
-        i_feat = st.session_state.get(self.get_widget_key(_INNER_FEATURE_PREFIX, "main"))
-        if i_feat is not None:
-            self.data["inner_feature"] = i_feat
+        selected_features = st.session_state.get(
+            self.get_widget_key(_FEATURE_LIST_PREFIX, "main"), []
+        )
+        if selected_features:
+            self.data["features"] = selected_features
 
         g_order = st.session_state.get(self.get_widget_key(_GLOBAL_ORDER_PREFIX, "main"))
         if g_order is not None:
@@ -135,42 +111,15 @@ class ContingentMarkersEditor(EditorBase):
         # 2. Global markers
         self._sync_marker_list(self.data["global_markers"], "global")
 
-        # 3. Outer/Inner entries
-        for outer in self.data["outer_entries"]:
-            o_uid = outer["uuid"]
-            o_val = self.get_node_widget(_OUTER_VAL_PREFIX, o_uid)
-            if o_val is not None:
-                outer["outer_feature_value"] = o_val
-            
-            for inner in outer["inner_entries"]:
-                i_uid = inner["uuid"]
-                i_val = self.get_node_widget(_INNER_VAL_PREFIX, i_uid)
-                if i_val is not None:
-                    inner["inner_feature_value"] = i_val
-                
-                self._sync_marker_list(inner["markers"], f"inner-{i_uid}")
-
-    def _sync_marker_list(self, markers: list[Marker], scope: str) -> None:
-        """Helper to sync a list of Marker objects from widgets."""
-        for marker in markers:
-            m_uid = marker.uuid
-            m_type = self.get_node_widget(_MARKER_TYPE_PREFIX, scope, suffix=m_uid)
-            m_order = self.get_node_widget(_MARKER_ORDER_PREFIX, scope, suffix=m_uid)
-
-            if m_type is not None:
-                marker.type = m_type
-            if m_order is not None:
-                marker.order = m_order if m_order.strip() else None
-
-            if marker.type == "replace":
-                r_in = self.get_node_widget(_MARKER_REPLACE_IN_PREFIX, scope, suffix=m_uid)
-                r_out = self.get_node_widget(_MARKER_REPLACE_OUT_PREFIX, scope, suffix=m_uid)
-                if r_in is not None and r_out is not None:
-                    marker.value = (r_in, r_out)
-            else:
-                val = self.get_node_widget(_MARKER_VALUE_PREFIX, scope, suffix=m_uid)
+        # 3. Entries
+        for entry in self.data["entries"]:
+            uid = entry["uuid"]
+            for f in self.data["features"]:
+                val = self.get_node_widget(_ENTRY_VAL_PREFIX, uid, suffix=f)
                 if val is not None:
-                    marker.value = val
+                    entry["features"][f] = val.strip()
+
+            self._sync_marker_list(entry["realization"], f"entry-{uid}")
 
     def to_yaml(self) -> dict:
         def serialize_markers(markers: list[Marker]) -> list[dict] | None:
@@ -186,8 +135,6 @@ class ContingentMarkersEditor(EditorBase):
 
         doc = {
             "kind": self.kind,
-            "outer_feature": self.data["outer_feature"],
-            "inner_feature": self.data["inner_feature"],
         }
         if self.data["global_order"]:
             doc["global_order"] = self.data["global_order"]
@@ -197,53 +144,37 @@ class ContingentMarkersEditor(EditorBase):
             doc["global_markers"] = global_markers
 
         markers_list = []
-        for outer in self.data["outer_entries"]:
-            o_val = outer["outer_feature_value"]
-            if not o_val:
+        for entry in self.data["entries"]:
+            # Only include participating features
+            clean_vec = {
+                k: v
+                for k, v in entry["features"].items()
+                if k in self.data["features"] and v
+            }
+            if not clean_vec:
                 continue
-            
-            i_dict = {}
-            for inner in outer["inner_entries"]:
-                i_val = inner["inner_feature_value"]
-                if i_val:
-                    i_dict[i_val] = serialize_markers(inner["markers"])
-            
-            markers_list.append({
-                "outer_feature_value": o_val,
-                "inner_feature_values": i_dict
-            })
-        
+
+            realization = serialize_markers(entry["realization"])
+            markers_list.append({"features": clean_vec, "realization": realization})
+
         doc["markers"] = markers_list
         return doc
 
     def get_default_data(self) -> dict:
         return {
-            "outer_feature": "",
-            "inner_feature": "",
+            "features": [],
             "global_order": "",
             "global_markers": [],
-            "outer_entries": [],
+            "entries": [],
         }
 
-    def insert_outer(self) -> None:
-        self.data["outer_entries"].append({
-            "uuid": str(uuid.uuid4()),
-            "outer_feature_value": "",
-            "inner_entries": []
-        })
+    def insert_entry(self) -> None:
+        self.data["entries"].append(
+            {"uuid": str(uuid.uuid4()), "features": {}, "realization": []}
+        )
 
-    def remove_outer(self, o_uid: str) -> None:
-        self.data["outer_entries"] = [o for o in self.data["outer_entries"] if o["uuid"] != o_uid]
-
-    def insert_inner(self, outer: dict) -> None:
-        outer["inner_entries"].append({
-            "uuid": str(uuid.uuid4()),
-            "inner_feature_value": "",
-            "markers": []
-        })
-
-    def remove_inner(self, outer: dict, i_uid: str) -> None:
-        outer["inner_entries"] = [i for i in outer["inner_entries"] if i["uuid"] != i_uid]
+    def remove_entry(self, uid: str) -> None:
+        self.data["entries"] = [e for e in self.data["entries"] if e["uuid"] != uid]
 
     def add_marker(self, markers: list[Marker]) -> None:
         markers.append(Marker(value="", type="suffix"))
@@ -252,33 +183,41 @@ class ContingentMarkersEditor(EditorBase):
         markers[:] = [m for m in markers if m.uuid != m_uuid]
 
 
-def contingent_markers_toolbar(editor: ContingentMarkersEditor) -> None:
-    col_add, col_save, col_preview_toggle, _ = st.columns([1.4, 1.2, 1.6, 5])
+def _render_entry(
+    entry: dict,
+    features: list[str],
+    editor: ContingentMarkersEditor,
+    available_rules: list[str],
+    available_principal_parts: list[str],
+) -> None:
+    uid = entry["uuid"]
+    with st.container(border=True):
+        cols = st.columns([1] * len(features) + [0.4])
+        for i, f in enumerate(features):
+            with cols[i]:
+                st.text_input(
+                    f,
+                    key=editor.get_widget_key(_ENTRY_VAL_PREFIX, uid, suffix=f),
+                    value=entry["features"].get(f, "unmarked"),
+                    label_visibility="collapsed" if len(features) > 1 else "visible",
+                )
+        with cols[-1]:
+            if st.button(
+                "✕",
+                key=editor.get_widget_key(_REMOVE_ENTRY_PREFIX, uid),
+                help="Delete entry",
+            ):
+                editor.remove_entry(uid)
+                st.rerun()
 
-    with col_add:
-        if st.button("➕ Add outer value", use_container_width=True):
-            editor.insert_outer()
-            st.rerun()
-
-    with col_save:
-        if st.button("💾 Save YAML", use_container_width=True, type="primary"):
-            stem = st.session_state.get("file_name", "").strip()
-            if not stem:
-                st.error("Enter a file name before saving.")
-            else:
-                try:
-                    editor.save(stem)
-                    st.toast(f"✅ Saved as `{stem}`", icon="✅")
-                except (ValueError, OSError) as exc:
-                    st.error(str(exc))
-
-    with col_preview_toggle:
-        show_preview = st.toggle("Show YAML preview", value=False)
-
-    if show_preview:
-        with st.container(border=True):
-            st.caption("YAML preview — reflects unsaved edits")
-            st.code(yaml.dump(editor.to_yaml(), allow_unicode=True, sort_keys=False))
+        render_marker_list(
+            entry["realization"],
+            f"entry-{uid}",
+            editor,
+            available_rules,
+            available_principal_parts,
+            label="Realization",
+        )
 
 
 def contingent_markers_page() -> None:
@@ -310,7 +249,9 @@ def contingent_markers_page() -> None:
     available_rules = []
     available_principal_parts = []
     if grammar:
-        available_features = list(grammar.feature_orchestrator.feature_values_registry.features_to_values.keys())
+        available_features = list(
+            grammar.feature_orchestrator.feature_values_registry.features_to_values.keys()
+        )
         available_rules = list(grammar.fst_orchestrator.rule_registry.data.keys())
         pp_sets = set()
         for pos_config in grammar.lexicon_registry.config_objects.values():
@@ -319,105 +260,54 @@ def contingent_markers_page() -> None:
         available_principal_parts = sorted(list(pp_sets))
 
     # 1. Config section
-    with st.expander("Configuration", expanded=not bool(editor.data["outer_entries"])):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.selectbox(
-                "Outer Feature",
-                options=[""] + available_features,
-                index=available_features.index(editor.data["outer_feature"]) + 1 if editor.data["outer_feature"] in available_features else 0,
-                key=editor.get_widget_key(_OUTER_FEATURE_PREFIX, "main")
-            )
-        with col2:
-            st.selectbox(
-                "Inner Feature",
-                options=[""] + available_features,
-                index=available_features.index(editor.data["inner_feature"]) + 1 if editor.data["inner_feature"] in available_features else 0,
-                key=editor.get_widget_key(_INNER_FEATURE_PREFIX, "main")
-            )
-        with col3:
-            st.text_input(
-                "Global Order Stage",
-                value=editor.data["global_order"],
-                key=editor.get_widget_key(_GLOBAL_ORDER_PREFIX, "main"),
-                placeholder="argument_marker"
-            )
-        
+    current_features = editor.data.get("features", [])
+    with st.expander("Configuration", expanded=not bool(current_features)):
+        st.multiselect(
+            "Participating Features",
+            options=available_features or current_features,
+            default=current_features,
+            key=editor.get_widget_key(_FEATURE_LIST_PREFIX, "main"),
+            help="Features that define the contingencies.",
+        )
+
+        st.text_input(
+            "Global Order Stage",
+            value=editor.data["global_order"],
+            key=editor.get_widget_key(_GLOBAL_ORDER_PREFIX, "main"),
+            placeholder="argument_marking",
+        )
+
         render_marker_list(
             editor.data["global_markers"],
             "global",
             editor,
             available_rules,
             available_principal_parts,
-            label="Global Markers"
+            label="Global Markers",
         )
 
     toolbar_placeholder = st.empty()
     st.divider()
 
     # 2. Entries section
-    o_feat = editor.data["outer_feature"]
-    i_feat = editor.data["inner_feature"]
-    o_vals = grammar.feature_orchestrator.feature_values_registry.features_to_values.get(o_feat, []) if grammar else []
-    i_vals = grammar.feature_orchestrator.feature_values_registry.features_to_values.get(i_feat, []) if grammar else []
+    features = editor.data.get("features", [])
+    if not features:
+        st.warning("Please select at least one participating feature above.")
+    else:
+        # Table Header
+        cols = st.columns([1] * len(features) + [0.4])
+        for i, f in enumerate(features):
+            cols[i].markdown(f"**{f}**")
 
-    for outer in editor.data["outer_entries"]:
-        o_uid = outer["uuid"]
-        with st.container(border=True):
-            o_col, o_btn_add, o_btn_del = st.columns([4, 1, 1])
-            with o_col:
-                if o_vals:
-                    st.selectbox(
-                        f"Outer Value ({o_feat})",
-                        options=[""] + o_vals,
-                        index=o_vals.index(outer["outer_feature_value"]) + 1 if outer["outer_feature_value"] in o_vals else 0,
-                        key=editor.get_widget_key(_OUTER_VAL_PREFIX, o_uid)
-                    )
-                else:
-                    st.text_input("Outer Value", value=outer["outer_feature_value"], key=editor.get_widget_key(_OUTER_VAL_PREFIX, o_uid))
-            
-            with o_btn_add:
-                st.write("##")
-                if st.button("➕ Inner", key=f"add-i-{o_uid}", use_container_width=True):
-                    editor.insert_inner(outer)
-                    st.rerun()
-            with o_btn_del:
-                st.write("##")
-                if st.button("✕ Outer", key=editor.get_widget_key(_REMOVE_OUTER_PREFIX, o_uid), use_container_width=True):
-                    editor.remove_outer(o_uid)
-                    st.rerun()
-            
-            for inner in outer["inner_entries"]:
-                i_uid = inner["uuid"]
-                with st.container(border=True):
-                    i_col, i_btn_del = st.columns([5, 1])
-                    with i_col:
-                        if i_vals:
-                            st.selectbox(
-                                f"Inner Value ({i_feat})",
-                                options=[""] + i_vals,
-                                index=i_vals.index(inner["inner_feature_value"]) + 1 if inner["inner_feature_value"] in i_vals else 0,
-                                key=editor.get_widget_key(_INNER_VAL_PREFIX, i_uid)
-                            )
-                        else:
-                            st.text_input("Inner Value", value=inner["inner_feature_value"], key=editor.get_widget_key(_INNER_VAL_PREFIX, i_uid))
-                    
-                    with i_btn_del:
-                        st.write("##")
-                        if st.button("✕ Inner", key=editor.get_widget_key(_REMOVE_INNER_PREFIX, i_uid), use_container_width=True):
-                            editor.remove_inner(outer, i_uid)
-                            st.rerun()
-                    
-                    render_marker_list(
-                        inner["markers"],
-                        f"inner-{i_uid}",
-                        editor,
-                        available_rules,
-                        available_principal_parts
-                    )
+        for entry in editor.data["entries"]:
+            _render_entry(
+                entry, features, editor, available_rules, available_principal_parts
+            )
 
     with toolbar_placeholder.container():
-        contingent_markers_toolbar(editor)
+        render_editor_toolbar(
+            editor, add_label="Add entry", add_callback=editor.insert_entry
+        )
 
 
 if __name__ == "__main__":

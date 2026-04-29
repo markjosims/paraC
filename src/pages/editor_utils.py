@@ -178,6 +178,62 @@ class EditorBase(ABC):
             yaml.dump(yaml_doc, f, allow_unicode=True, sort_keys=False)
         self.path = str(dest)
 
+    def _sync_marker_list(self, markers: list[Marker], scope: str) -> None:
+        """Helper to sync a list of Marker objects from widgets."""
+        for marker in markers:
+            m_uid = marker.uuid
+            m_type = self.get_node_widget(_MARKER_TYPE_PREFIX, scope, suffix=m_uid)
+            m_order = self.get_node_widget(_MARKER_ORDER_PREFIX, scope, suffix=m_uid)
+
+            if m_type is not None:
+                marker.type = m_type
+            if m_order is not None:
+                marker.order = m_order if m_order.strip() else None
+
+            if marker.type == "replace":
+                r_in = self.get_node_widget(_MARKER_REPLACE_IN_PREFIX, scope, suffix=m_uid)
+                r_out = self.get_node_widget(_MARKER_REPLACE_OUT_PREFIX, scope, suffix=m_uid)
+                if r_in is not None and r_out is not None:
+                    marker.value = (r_in, r_out)
+            else:
+                val = self.get_node_widget(_MARKER_VALUE_PREFIX, scope, suffix=m_uid)
+                if val is not None:
+                    marker.value = val
+
+
+def render_editor_toolbar(
+    editor: EditorBase, 
+    add_label: str = "Add entry", 
+    add_callback: callable = None
+) -> None:
+    """Generic toolbar for Save, Preview, and Add actions."""
+    col_add, col_save, col_preview_toggle, _ = st.columns([1.4, 1.2, 1.6, 5])
+
+    with col_add:
+        if add_callback and st.button(f"➕ {add_label}", use_container_width=True):
+            add_callback()
+            st.rerun()
+
+    with col_save:
+        if st.button("💾 Save YAML", use_container_width=True, type="primary"):
+            stem = st.session_state.get("file_name", "").strip()
+            if not stem:
+                st.error("Enter a file name before saving.")
+            else:
+                try:
+                    editor.save(stem)
+                    st.toast(f"✅ Saved as `{stem}`", icon="✅")
+                except (ValueError, OSError) as exc:
+                    st.error(str(exc))
+
+    with col_preview_toggle:
+        show_preview = st.toggle("Show YAML preview", value=False, key=f"preview-toggle-{editor.scope}")
+
+    if show_preview:
+        with st.container(border=True):
+            st.caption("YAML preview — reflects unsaved edits")
+            st.code(yaml.dump(editor.to_yaml(), allow_unicode=True, sort_keys=False))
+
 
 def prune_config_dict(data: Any, kind: str) -> Any:
     """

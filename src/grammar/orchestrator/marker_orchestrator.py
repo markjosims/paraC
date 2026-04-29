@@ -91,26 +91,18 @@ class MarkerOrchestrator:
         are supported by `self.feature_orchestrator`
         """
         for markers_name, markers in self.contingent_markers.items():
-            for feature in (markers.outer_feature, markers.inner_feature):
-                if feature.name not in self.features:
-                    raise KeyError(
-                        f"{markers_name} has unsupported feature {feature.name} "
-                        f"expected one of {list(self.features.keys())}"
-                    )
-
-            outer_feature = self.features[markers.outer_feature.name]
-            for outer_val, inner_fm in markers.inner_maps.items():
-                if outer_val not in outer_feature.values:
-                    raise KeyError(
-                        f"Unsupported value {outer_val} for feature {markers.outer_feature} "
-                        f"in marker set {markers_name}. Expected values are {outer_feature.values}"
-                    )
-                inner_feature = self.features[markers.inner_feature.name]
-                for inner_val in inner_fm.data:
-                    if inner_val not in inner_feature.values:
+            for vector in markers.feature_mappings.keys():
+                for f_name, f_val in vector:
+                    if f_name not in self.features:
                         raise KeyError(
-                            f"Unsupported value {inner_val} for feature {markers.inner_feature} "
-                            f"in marker set {markers_name}. Expected values are {inner_feature.values}"
+                            f"{markers_name} has unsupported feature {f_name} "
+                            f"expected one of {list(self.features.keys())}"
+                        )
+                    feature = self.features[f_name]
+                    if f_val not in feature.values:
+                        raise KeyError(
+                            f"Unsupported value {f_val} for feature {f_name} "
+                            f"in marker set {markers_name}. Expected values are {feature.values}"
                         )
 
     def initialize(self):

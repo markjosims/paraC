@@ -21,12 +21,8 @@ from src.pages.editor_utils import (
     editor_header,
     editor_sidebar,
     render_marker_list,
+    render_editor_toolbar,
     MARKER_WIDGET_PREFIXES,
-    _MARKER_TYPE_PREFIX,
-    _MARKER_VALUE_PREFIX,
-    _MARKER_REPLACE_IN_PREFIX,
-    _MARKER_REPLACE_OUT_PREFIX,
-    _MARKER_ORDER_PREFIX,
 )
 
 _config_kind = "FeatureMarkers"
@@ -130,28 +126,6 @@ class FeatureMarkersEditor(EditorBase):
                 entry["feature_value"] = val
             self._sync_marker_list(entry["markers"], f"entry-{e_uid}")
 
-    def _sync_marker_list(self, markers: list[Marker], scope: str) -> None:
-        """Helper to sync a list of Marker objects from widgets."""
-        for marker in markers:
-            m_uid = marker.uuid
-            m_type = self.get_node_widget(_MARKER_TYPE_PREFIX, scope, suffix=m_uid)
-            m_order = self.get_node_widget(_MARKER_ORDER_PREFIX, scope, suffix=m_uid)
-
-            if m_type is not None:
-                marker.type = m_type
-            if m_order is not None:
-                marker.order = m_order if m_order.strip() else None
-
-            if marker.type == "replace":
-                r_in = self.get_node_widget(_MARKER_REPLACE_IN_PREFIX, scope, suffix=m_uid)
-                r_out = self.get_node_widget(_MARKER_REPLACE_OUT_PREFIX, scope, suffix=m_uid)
-                if r_in is not None and r_out is not None:
-                    marker.value = (r_in, r_out)
-            else:
-                val = self.get_node_widget(_MARKER_VALUE_PREFIX, scope, suffix=m_uid)
-                if val is not None:
-                    marker.value = val
-
     def to_yaml(self) -> dict:
         def serialize_markers(markers: list[Marker]) -> list[dict] | None:
             if not markers:
@@ -208,35 +182,6 @@ class FeatureMarkersEditor(EditorBase):
 
     def remove_marker(self, markers: list[Marker], m_uuid: str) -> None:
         markers[:] = [m for m in markers if m.uuid != m_uuid]
-
-
-def feature_markers_toolbar(editor: FeatureMarkersEditor) -> None:
-    col_add, col_save, col_preview_toggle, _ = st.columns([1.4, 1.2, 1.6, 5])
-
-    with col_add:
-        if st.button("➕ Add value entry", use_container_width=True):
-            editor.insert_entry()
-            st.rerun()
-
-    with col_save:
-        if st.button("💾 Save YAML", use_container_width=True, type="primary"):
-            stem = st.session_state.get("file_name", "").strip()
-            if not stem:
-                st.error("Enter a file name before saving.")
-            else:
-                try:
-                    editor.save(stem)
-                    st.toast(f"✅ Saved as `{stem}`", icon="✅")
-                except (ValueError, OSError) as exc:
-                    st.error(str(exc))
-
-    with col_preview_toggle:
-        show_preview = st.toggle("Show YAML preview", value=False)
-
-    if show_preview:
-        with st.container(border=True):
-            st.caption("YAML preview — reflects unsaved edits")
-            st.code(yaml.dump(editor.to_yaml(), allow_unicode=True, sort_keys=False))
 
 
 def feature_markers_page() -> None:
@@ -370,7 +315,7 @@ def feature_markers_page() -> None:
             )
 
     with toolbar_placeholder.container():
-        feature_markers_toolbar(editor)
+        render_editor_toolbar(editor, add_label="Add value entry", add_callback=editor.insert_entry)
 
 
 if __name__ == "__main__":
