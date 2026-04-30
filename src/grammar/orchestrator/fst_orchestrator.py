@@ -1080,9 +1080,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         Applies the rule specified by `rule_ref` to the input string or FST
         and returns the output FST.
         """
-        if rule_ref not in self.rules:
-            raise KeyError(f"Rule ref '{rule_ref}' not found in registry.")
-        rule = self.rules[rule_ref]
+        rule = self.get_rule(rule_ref)
 
         if not rule.transducer_built:
             raise ValueError(
