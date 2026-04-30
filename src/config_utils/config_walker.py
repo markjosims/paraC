@@ -121,34 +121,35 @@ class ConfigWalker:
             f"Config file '{name}.yaml' not found in '{to_snake(kind)}/' subdirectory."
         )
 
-    def resolve_ref(self, name: str) -> dict:
+    def resolve_ref(self, name: str, kind: str) -> dict:
         """
         Resolve a $name cross-file reference.
 
         Strips the leading '$', searches all config subdirectories for
         <name>.yaml, and returns the raw (un-resolved) YAML dict.
         """
-        if name.startswith("$"):
-            name = name[1:]
-        path = self.find_config_file(name)
+        name = name.removeprefix("$")
+        path = self.find_config_file(name, kind)
         with path.open(encoding="utf-8") as f:
             return yaml.safe_load(f)
 
-    def _resolve_values(self, obj) -> dict:
+    def _resolve_values(self, obj, kind: str | None = None) -> dict:
         """
         Recursively walk a deserialized YAML structure.
         Any string value starting with '$' is replaced by the fully-resolved
         content of the referenced config file.
         """
         if isinstance(obj, str):
-            if obj.startswith("$"):
-                ref_dict = self.resolve_ref(obj)
-                return self._resolve_values(ref_dict)
+            if obj.startswith("$") and kind:
+                ref_dict = self.resolve_ref(obj, kind)
+                return self._resolve_values(ref_dict, kind)
             return obj
         elif isinstance(obj, list):
-            return [self._resolve_values(item) for item in obj]
+            return [self._resolve_values(item, kind) for item in obj]
         elif isinstance(obj, dict):
-            return {key: self._resolve_values(value) for key, value in obj.items()}
+            return {
+                key: self._resolve_values(value, kind) for key, value in obj.items()
+            }
         else:
             return obj
 
@@ -164,7 +165,9 @@ class ConfigWalker:
         path = Path(path)
         with path.open(encoding="utf-8") as f:
             raw = yaml.safe_load(f)
-        return self._resolve_values(raw)
+
+        kind = raw.get("kind")
+        return self._resolve_values(raw, kind)
 
 
 def get_config_dir() -> str | None:

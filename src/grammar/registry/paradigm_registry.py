@@ -126,9 +126,9 @@ class Paradigm:
         feature_value_combinations = None
         feature_value_combination_name = config.get("feature_value_combinations")
         if feature_value_combination_name:
-            feature_value_combinations = marker_orchestrator.feature_combinations[
+            feature_value_combinations = marker_orchestrator.get_feature_combinations(
                 feature_value_combination_name
-            ]
+            )
 
         # load filters
         filter_config = config.get("filter", {})
@@ -154,24 +154,18 @@ class Paradigm:
                 # where 'marker_str' indicates the value
                 fixed_features[feature_name] = marker_str
             else:
-                marker_set_name = marker_str.removeprefix("$")
-                marker_set = marker_orchestrator.feature_markers[marker_set_name]
+                marker_set = marker_orchestrator.get_feature_markers(marker_str)
                 if marker_set.feature.name != feature_name:
                     raise ValueError(
-                        f"Feature '{feature_name}' in paradigm config does not match feature '{marker_set.feature}' in marker config '{marker_set_name}'."
+                        f"Feature '{feature_name}' in paradigm config does not match feature '{marker_set.feature}' in marker config '{marker_str}'."
                     )
                 markers.append(marker_set)
 
         contingent_markers = []
         for contingent_marker_str in config.get("contingent_markers", []):
-            if not contingent_marker_str.startswith("$"):
-                raise ValueError(
-                    f"Contingent marker '{contingent_marker_str}' in paradigm config must start with '$' to indicate a marker set."
-                )
-            contingent_marker_set_name = contingent_marker_str.removeprefix("$")
-            contingent_marker_set = marker_orchestrator.contingent_markers[
-                contingent_marker_set_name
-            ]
+            contingent_marker_set = marker_orchestrator.get_contingent_markers(
+                contingent_marker_str
+            )
             contingent_markers.append(contingent_marker_set)
 
         global_marker_config = config.get("global_markers", None)
@@ -1016,6 +1010,12 @@ class ParadigmRegistry(Registry):
         self.lexicon_registry = lexicon_registry
         self.fst_orchestrator = fst_orchestrator
         super().__init__(kind="Paradigm", data=data, config_objects=config_objects)
+
+    def get_paradigm(self, name: str) -> Paradigm:
+        name = name.removeprefix("$")
+        if name not in self.data:
+            raise KeyError(f"Paradigm '{name}' not found in registry.")
+        return self.data[name]
 
     def load_all_configs(self) -> dict[str, Paradigm]:
         config_items: dict[str, Paradigm] = {}

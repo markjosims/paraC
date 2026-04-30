@@ -8,6 +8,7 @@ Implements `MarkerOrchestrator` which manages following registries:
 from __future__ import annotations
 from src.grammar.orchestrator.feature_orchestrator import FeatureOrchestrator
 from src.grammar.registry.feature_marker_registry import FeatureMarkersRegistry
+from src.grammar.registry.feature_combination_registry import FeatureValueCombinations
 from src.grammar.registry.contingent_marker_registry import (
     ContingentMarkers,
     ContingentMarkersRegistry,
@@ -112,13 +113,23 @@ class MarkerOrchestrator:
             self._validate_contingent_features()
         self.is_initialized = True
 
-    def get_config(self, name: str) -> FeatureMarkers | ContingentMarkers:
-        """Look up a marker config by filename stem."""
-        if name in self.feature_markers:
-            return self.feature_markers[name]
-        if name in self.contingent_markers:
-            return self.contingent_markers[name]
-        raise KeyError(f"No marker config found with name '{name}'.")
+    def get_feature_markers(self, name: str) -> FeatureMarkers:
+        """Look up a feature marker config by filename stem."""
+        name = name.removeprefix("$")
+        if name not in self.feature_markers:
+            raise KeyError(f"No FeatureMarkers found with name '{name}'.")
+        return self.feature_markers[name]
+
+    def get_contingent_markers(self, name: str) -> ContingentMarkers:
+        """Look up a contingent marker config by filename stem."""
+        name = name.removeprefix("$")
+        if name not in self.contingent_markers:
+            raise KeyError(f"No ContingentMarkers found with name '{name}'.")
+        return self.contingent_markers[name]
+
+    def get_feature_combinations(self, name: str) -> FeatureValueCombinations:
+        """Look up a feature combinations config via feature_orchestrator."""
+        return self.feature_orchestrator.get_feature_combinations(name)
 
 
 if __name__ == "__main__":

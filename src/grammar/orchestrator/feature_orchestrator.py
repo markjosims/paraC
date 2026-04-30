@@ -48,6 +48,7 @@ class FeatureOrchestrator(Orchestrator):
         return self.features[name]
 
     def get_feature_combinations(self, name: str) -> FeatureValueCombinations:
+        name = name.removeprefix("$")
         if name not in self.feature_combinations:
             raise KeyError(f"No feature-combinations config found with name '{name}'.")
         return self.feature_combinations[name]

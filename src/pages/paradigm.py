@@ -22,6 +22,7 @@ from src.pages.editor_utils import (
     editor_sidebar,
     render_marker_list,
     render_editor_toolbar,
+    validate_file_reference_str,
     MARKER_WIDGET_PREFIXES,
 )
 
@@ -150,7 +151,7 @@ class ParadigmEditor(EditorBase):
 
         combo = st.session_state.get(self.get_widget_key(_COMBO_REF_PREFIX, "main"))
         if combo is not None:
-            self.data["feature_value_combinations"] = combo
+            self.data["feature_value_combinations"] = validate_file_reference_str(combo)
 
         pattern = st.session_state.get(
             self.get_widget_key(_PATTERN_FILTER_PREFIX, "main")
@@ -178,6 +179,8 @@ class ParadigmEditor(EditorBase):
             if mode is not None:
                 fm["mode"] = mode
             if val is not None:
+                if mode == "ref":
+                    val = validate_file_reference_str(val)
                 fm["value"] = val
 
         # Contingent refs
@@ -186,7 +189,7 @@ class ParadigmEditor(EditorBase):
                 self.get_widget_key(_CONTINGENT_REF_PREFIX, cm["uuid"])
             )
             if ref is not None:
-                cm["ref"] = ref
+                cm["ref"] = validate_file_reference_str(ref)
 
         # LF Filters
         for lf in self.data["lexical_feature_filters"]:
@@ -230,16 +233,18 @@ class ParadigmEditor(EditorBase):
             "part_of_speech": self.data["part_of_speech"],
             "order": [s["name"] for s in self.data["order_stages"] if s["name"]],
             "feature_markers": fm_dict,
-            "feature_value_combinations": self.data["feature_value_combinations"]
-            if self.data["feature_value_combinations"]
-            else None,
+            "feature_value_combinations": (
+                self.data["feature_value_combinations"]
+                if self.data["feature_value_combinations"]
+                else None
+            ),
             "contingent_markers": [
                 cm["ref"] for cm in self.data["contingent_markers"] if cm["ref"]
             ],
             "filter": {
-                "pattern": self.data["pattern_filter"]
-                if self.data["pattern_filter"]
-                else None,
+                "pattern": (
+                    self.data["pattern_filter"] if self.data["pattern_filter"] else None
+                ),
                 "lexical_features": lf_list,
             },
         }
@@ -352,17 +357,22 @@ def paradigm_page() -> None:
                 pp_sets.add(col)
         available_principal_parts = sorted(list(pp_sets))
         available_fm = sorted(
-            [Path(f).stem for f in config_walker.config_filemap["feature_marker_configs"]]
+            [
+                validate_file_reference_str(Path(f).stem)
+                for f in config_walker.config_filemap["feature_marker_configs"]
+            ]
         )
         available_cm = sorted(
             [
-                Path(f).stem
-                for f in config_walker.config_filemap["contingent_feature_marker_configs"]
+                validate_file_reference_str(Path(f).stem)
+                for f in config_walker.config_filemap[
+                    "contingent_feature_marker_configs"
+                ]
             ]
         )
         available_combos = sorted(
             [
-                Path(f).stem
+                validate_file_reference_str(Path(f).stem)
                 for f in config_walker.config_filemap["feature_combination_configs"]
             ]
         )
@@ -377,32 +387,34 @@ def paradigm_page() -> None:
             st.selectbox(
                 "Part of Speech",
                 options=[""] + available_pos,
-                index=available_pos.index(editor.data["part_of_speech"]) + 1
-                if editor.data["part_of_speech"] in available_pos
-                else 0,
+                index=(
+                    available_pos.index(editor.data["part_of_speech"]) + 1
+                    if editor.data["part_of_speech"] in available_pos
+                    else 0
+                ),
                 key=editor.get_widget_key(_POS_PREFIX, "main"),
             )
         with c2:
             st.selectbox(
                 "Feature Combinations",
                 options=[""] + available_combos,
-                index=available_combos.index(
-                    editor.data["feature_value_combinations"].lstrip("$")
-                )
-                + 1
-                if editor.data["feature_value_combinations"].lstrip("$")
-                in available_combos
-                else 0,
+                index=(
+                    available_combos.index(editor.data["feature_value_combinations"])
+                    + 1
+                    if editor.data["feature_value_combinations"] in available_combos
+                    else 0
+                ),
                 key=editor.get_widget_key(_COMBO_REF_PREFIX, "main"),
-                format_func=lambda x: f"${x}" if x else "",
             )
         with c3:
             st.selectbox(
                 "Pattern Filter",
                 options=[""] + available_patterns,
-                index=available_patterns.index(editor.data["pattern_filter"]) + 1
-                if editor.data["pattern_filter"] in available_patterns
-                else 0,
+                index=(
+                    available_patterns.index(editor.data["pattern_filter"]) + 1
+                    if editor.data["pattern_filter"] in available_patterns
+                    else 0
+                ),
                 key=editor.get_widget_key(_PATTERN_FILTER_PREFIX, "main"),
             )
 
@@ -434,7 +446,9 @@ def paradigm_page() -> None:
                     editor.move_order_stage(stage["uuid"], "down")
                     st.rerun()
             with sc4:
-                if st.button("✕", key=f"del-stage-{stage['uuid']}", help="Remove stage"):
+                if st.button(
+                    "✕", key=f"del-stage-{stage['uuid']}", help="Remove stage"
+                ):
                     editor.remove_order_stage(stage["uuid"])
                     st.rerun()
         if st.button("➕ Add order stage"):
@@ -463,9 +477,11 @@ def paradigm_page() -> None:
                     st.selectbox(
                         "Feature",
                         options=[""] + available_features,
-                        index=available_features.index(fm["feature_name"]) + 1
-                        if fm["feature_name"] in available_features
-                        else 0,
+                        index=(
+                            available_features.index(fm["feature_name"]) + 1
+                            if fm["feature_name"] in available_features
+                            else 0
+                        ),
                         key=editor.get_widget_key(_FEATURE_MAPPING_NAME_PREFIX, uid),
                     )
                 with mc2:
@@ -485,19 +501,22 @@ def paradigm_page() -> None:
                         st.selectbox(
                             "Value",
                             options=[""] + available_fm,
-                            index=available_fm.index(fm["value"].lstrip("$")) + 1
-                            if fm["value"].lstrip("$") in available_fm
-                            else 0,
+                            index=(
+                                available_fm.index(fm["value"]) + 1
+                                if fm["value"] in available_fm
+                                else 0
+                            ),
                             key=editor.get_widget_key(
                                 _FEATURE_MAPPING_VALUE_PREFIX, uid
                             ),
-                            format_func=lambda x: f"${x}" if x else "",
                         )
                     elif mode == "fixed":
                         st.text_input(
                             "Value",
                             value=fm["value"],
-                            key=editor.get_widget_key(_FEATURE_MAPPING_VALUE_PREFIX, uid),
+                            key=editor.get_widget_key(
+                                _FEATURE_MAPPING_VALUE_PREFIX, uid
+                            ),
                         )
                     else:
                         st.write("Marked via Contingent Markers only.")
@@ -517,11 +536,12 @@ def paradigm_page() -> None:
                 st.selectbox(
                     "Ref",
                     options=[""] + available_cm,
-                    index=available_cm.index(cm["ref"].lstrip("$")) + 1
-                    if cm["ref"].lstrip("$") in available_cm
-                    else 0,
+                    index=(
+                        available_cm.index(cm["ref"]) + 1
+                        if cm["ref"] in available_cm
+                        else 0
+                    ),
                     key=editor.get_widget_key(_CONTINGENT_REF_PREFIX, cm["uuid"]),
-                    format_func=lambda x: f"${x}" if x else "",
                     label_visibility="collapsed",
                 )
             with cc2:
@@ -541,9 +561,11 @@ def paradigm_page() -> None:
                 st.selectbox(
                     "Lexical Feature",
                     options=[""] + available_features,
-                    index=available_features.index(lf["feature_name"]) + 1
-                    if lf["feature_name"] in available_features
-                    else 0,
+                    index=(
+                        available_features.index(lf["feature_name"]) + 1
+                        if lf["feature_name"] in available_features
+                        else 0
+                    ),
                     key=editor.get_widget_key(_LF_FILTER_NAME_PREFIX, uid),
                     label_visibility="collapsed",
                 )
@@ -559,9 +581,11 @@ def paradigm_page() -> None:
                 st.selectbox(
                     "Value",
                     options=[""] + l_vals,
-                    index=l_vals.index(lf["feature_value"]) + 1
-                    if lf["feature_value"] in l_vals
-                    else 0,
+                    index=(
+                        l_vals.index(lf["feature_value"]) + 1
+                        if lf["feature_value"] in l_vals
+                        else 0
+                    ),
                     key=editor.get_widget_key(_LF_FILTER_VAL_PREFIX, uid),
                     label_visibility="collapsed",
                 )

@@ -235,6 +235,13 @@ def render_editor_toolbar(
             st.code(yaml.dump(editor.to_yaml(), allow_unicode=True, sort_keys=False))
 
 
+def validate_file_reference_str(val: str) -> str:
+    """Ensure string starts with $ prefix if not empty."""
+    if val and not val.startswith("$"):
+        return f"${val}"
+    return val
+
+
 def prune_config_dict(data: Any, kind: str) -> Any:
     """
     Recursively remove None values and empty strings from a dictionary,
@@ -500,8 +507,8 @@ def render_marker_row(
             st.selectbox(
                 "Rule",
                 options=[""] + available_rules,
-                index=available_rules.index(marker.value.lstrip("$")) + 1
-                if isinstance(marker.value, str) and marker.value.lstrip("$") in available_rules
+                index=available_rules.index(marker.value) + 1
+                if isinstance(marker.value, str) and marker.value in available_rules
                 else 0,
                 key=editor.get_widget_key(_MARKER_VALUE_PREFIX, scope, suffix=m_uid),
             )

@@ -182,6 +182,12 @@ class LexiconRegistry(Registry):
         self.feature_orchestrator = feature_orchestrator
         super().__init__(kind="PartOfSpeech", data=data, config_objects=config_objects)
 
+    def get_lexicon(self, name: str) -> Lexicon:
+        name = name.removeprefix("$")
+        if name not in self.data:
+            raise KeyError(f"Lexicon '{name}' not found in registry.")
+        return self.data[name]
+
     def load_all_configs(self) -> dict[str, Lexicon]:
         config_items: dict[str, Lexicon] = {}
         for config in self.config_objects.values():
