@@ -42,15 +42,16 @@ class Grammar(Orchestrator):
             feature_configs=feature_definition_configs,
             feature_combination_configs=feature_combination_configs,
         )
-        self.lexicon_registry = LexiconRegistry(
-            config_objects=part_of_speech_configs,
-            feature_orchestrator=self.feature_orchestrator,
-        )
         self.fst_orchestrator = FstOrchestrator(
             inventory_configs=inventory_configs,
             pattern_configs=pattern_configs,
             rule_configs=rule_configs,
             feature_orchestrator=self.feature_orchestrator,
+        )
+        self.lexicon_registry = LexiconRegistry(
+            config_objects=part_of_speech_configs,
+            feature_orchestrator=self.feature_orchestrator,
+            fst_orchestrator=self.fst_orchestrator,
         )
         self.marker_orchestrator = MarkerOrchestrator(
             contingent_marker_configs=contingent_feature_marker_configs,

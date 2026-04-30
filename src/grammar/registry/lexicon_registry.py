@@ -14,8 +14,10 @@ from src.grammar.orchestrator.feature_orchestrator import (
     FeatureOrchestrator,
     stringify_features,
 )
+from src.grammar.orchestrator.fst_orchestrator import FstOrchestrator
 import pandas as pd
 import numpy as np
+from typing import Literal
 
 
 @dataclass
@@ -94,6 +96,7 @@ class Lexicon:
 
     part_of_speech: PartOfSpeech
     entries: pd.DataFrame
+    fst_orchestrator: FstOrchestrator
     source: str | None = None
     principal_parts: list[str] = field(init=False)
     lexical_features: list[Feature] = field(init=False)
@@ -122,7 +125,10 @@ class Lexicon:
 
     @classmethod
     def from_config(
-        cls, config, feature_orchestrator: FeatureOrchestrator
+        cls,
+        config,
+        feature_orchestrator: FeatureOrchestrator,
+        fst_orchestrator: FstOrchestrator,
     ) -> "Lexicon":
         """
         Get the lexicon entries dataframe for a given part of speech name.
@@ -149,6 +155,7 @@ class Lexicon:
             part_of_speech=part_of_speech,
             entries=entries_df,
             source=lexicon_path,
+            fst_orchestrator=fst_orchestrator,
         )
 
     def get_roots(self) -> list[str]:
@@ -168,7 +175,13 @@ class Lexicon:
             )
         return self.entries[column].tolist()
 
-    def roots_to_analyses(self, features: dict[str, str] | None = None) -> pynini.Fst:
+    def _root_analysis_fst(
+        self,
+        features: dict[str, str] | None = None,
+        direction: Literal[
+            "roots_to_analyses", "analyses_to_roots"
+        ] = "roots_to_analyses",
+    ) -> pynini.Fst:
         """
         Transduces a root to a root with a stringified vector of all of the
         root's lexical feature specifications.
@@ -197,13 +210,34 @@ class Lexicon:
                 row_feats[fn] = val
 
             analysis_suffix = stringify_features(row_feats)
-            # root -> root[analysis]
-            fsts.append(pynini.cross(root, root + analysis_suffix))
+
+            root_fsa = self.fst_orchestrator.fsa(root)
+            analysis_fsa = self.fst_orchestrator.fsa(root + analysis_suffix)
+
+            if direction == "roots_to_analyses":
+                fsts.append(pynini.cross(root_fsa, analysis_fsa))
+            else:
+                # direction == "analyses_to_roots"
+                fsts.append(pynini.cross(analysis_fsa, root_fsa))
 
         if not fsts:
             return pynini.Fst()
 
         return pynini.union(*fsts).optimize()
+
+    def roots_to_analyses(self, features: dict[str, str] | None = None) -> pynini.Fst:
+        """
+        Transduces a root to a root with a stringified vector of all of the
+        root's lexical feature specifications.
+        """
+        return self._root_analysis_fst(features=features, direction="roots_to_analyses")
+
+    def analyses_to_roots(self, features: dict[str, str] | None = None) -> pynini.Fst:
+        """
+        Transduces a root with a stringified vector of all of the
+        root's lexical feature specifications to just the root.
+        """
+        return self._root_analysis_fst(features=features, direction="analyses_to_roots")
 
 
 @dataclass
@@ -216,10 +250,12 @@ class LexiconRegistry(Registry):
     def __init__(
         self,
         feature_orchestrator: FeatureOrchestrator,
+        fst_orchestrator: FstOrchestrator,
         data: dict[str, Lexicon] | None = None,
         config_objects: dict[str, dict] | None = None,
     ):
         self.feature_orchestrator = feature_orchestrator
+        self.fst_orchestrator = fst_orchestrator
         super().__init__(kind="PartOfSpeech", data=data, config_objects=config_objects)
 
     def get_lexicon(self, name: str) -> Lexicon:
@@ -247,5 +283,9 @@ class LexiconRegistry(Registry):
             if source_path
             else config.get("name", "")
         )
-        lexicon = Lexicon.from_config(config, self.feature_orchestrator)
+        lexicon = Lexicon.from_config(
+            config=config,
+            feature_orchestrator=self.feature_orchestrator,
+            fst_orchestrator=self.fst_orchestrator,
+        )
         return {name: lexicon}
