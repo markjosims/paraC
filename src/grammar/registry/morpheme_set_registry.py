@@ -129,10 +129,12 @@ class MorphemeSetRegistry(Registry):
     def __init__(
         self,
         feature_orchestrator: FeatureOrchestrator,
+        fst_orchestrator: FstOrchestrator,
         data: dict[str, MorphemeSet | None] = None,
         config_objects: dict[str, dict | None] = None,
     ):
         self.feature_orchestrator = feature_orchestrator
+        self.fst_orchestrator = fst_orchestrator
         super().__init__(
             kind="MorphemeSet",
             data=data,
@@ -163,5 +165,7 @@ class MorphemeSetRegistry(Registry):
     def load_data_from_config(self, config: dict) -> dict[str, MorphemeSet]:
         source_path = config.get("source_path", "")
         name = os.path.splitext(os.path.basename(source_path))[0] if source_path else ""
-        contingent_markers = MorphemeSet.from_config(config, self.feature_orchestrator)
+        contingent_markers = MorphemeSet.from_config(
+            config, self.feature_orchestrator, self.fst_orchestrator
+        )
         return {name: contingent_markers}

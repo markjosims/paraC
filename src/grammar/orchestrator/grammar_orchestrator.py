@@ -61,6 +61,7 @@ class Grammar(Orchestrator):
         self.morpheme_set_registry = MorphemeSetRegistry(
             config_objects=morpheme_set_configs,
             feature_orchestrator=self.feature_orchestrator,
+            fst_orchestrator=self.fst_orchestrator,
         )
         self.paradigm_registry = ParadigmRegistry(
             config_objects=paradigm_configs,
