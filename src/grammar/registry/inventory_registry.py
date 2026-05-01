@@ -56,10 +56,10 @@ class InventoryItem(InventoryMember):
                 "Flag items must have values that start with '[' and end with ']'"
             )
         if (self.type == "phone") and (
-            self.value.startswith("<") or self.value.startswith("[")
+            "[" in self.value or "]" in self.value or "<" in self.value or ">" in self.value
         ):
             raise ValueError(
-                "Phone items cannot have values that start with '<' or '['"
+                "Phone items cannot contain '[', ']', '<', or '>'"
             )
 
     def __str__(self):
