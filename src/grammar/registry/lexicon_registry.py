@@ -172,6 +172,20 @@ class Lexicon:
 
     def get_roots(self) -> list[str]:
         return self.entries["root"].tolist()
+    
+    def get_features_for_root(self, root: str) -> dict[str, str]:
+        row = self.entries[self.entries["root"] == root]
+        if row.empty:
+            raise ValueError(f"Root '{root}' not found in lexicon entries.")
+        row = row.iloc[0]
+        features = {}
+        for feature in self.lexical_features:
+            feat_name = feature.name
+            feat_val = str(row.get(feat_name, "unmarked"))
+            if not feat_val or feat_val == "nan":
+                feat_val = "unmarked"
+            features[feat_name] = feat_val
+        return features
 
     def get_column_data(self, column: str, fill_w_root: bool = False) -> list[str]:
         if column not in self.entries.columns:
