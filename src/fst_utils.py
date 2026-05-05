@@ -62,24 +62,29 @@ class ReservedSymbolMixin:
         + (word_edge,)
     )
 
+
 def is_acceptor(fsa: pynini.Fst) -> bool:
     if not isinstance(fsa, pynini.Fst):
         raise ValueError(f"Expected pynini.Fst but got {fsa} for fsa arg.")
     return fsa.properties(pynini.ACCEPTOR, True)
+
 
 @dataclass
 class Acceptor:
     """
     Wrapper for FSAs with an optional string representation.
     """
+
     value: str | None = None
     fsa: pynini.Fst | None = None
 
     def __post_init__(self):
         self.acceptor_built = False
-        
+
         if self.value is not None and type(self.value) is not str:
-            raise ValueError(f"Value must be a string or None, but got {self.value} of type {type(self.value)}")
+            raise ValueError(
+                f"Value must be a string or None, but got {self.value} of type {type(self.value)}"
+            )
 
         if self.fsa is not None:
             raise ValueError(
@@ -97,11 +102,13 @@ class Acceptor:
         self.fsa = fsa
         self.acceptor_built = True
 
+
 @dataclass
 class Transducer:
     """
     Wrapper for FSTs with an optional string representation.
     """
+
     value: str | None = None
     fst: pynini.Fst | None = None
 
@@ -123,6 +130,7 @@ class Transducer:
         self.fst = fst
         self.transducer_built = True
 
+
 class TransducerList(Transducer):
     """
     Wrapper for FSTs allowing for the actual FST object to
@@ -134,17 +142,20 @@ class TransducerList(Transducer):
     def set_transducer(self, fst: pynini.Fst | list[pynini.Fst]):
         if self.fst is not None:
             raise ValueError(f"Transducer (value={self.value}) cannot be overridden.")
-        
+
         if isinstance(fst, list):
             for f in fst:
                 if is_acceptor(f):
-                    logger.warning(f"Transducer (value={self.value}) contains a vacuous FST")
+                    logger.warning(
+                        f"Transducer (value={self.value}) contains a vacuous FST"
+                    )
         elif isinstance(fst, pynini.Fst):
             if is_acceptor(fst):
                 logger.warning(f"Transducer (value={self.value}) is a vacuous FST")
-        
+
         self.fst = fst
         self.transducer_built = True
+
 
 @dataclass
 class Prefix(Transducer):
@@ -153,46 +164,44 @@ class Prefix(Transducer):
     passed to the `value` field where the first character is a
     boundary symbol ('-' or '=')
     """
+
     stem: pynini.Fst = field(default_factory=pynini.Fst)
 
     def __post_init__(self):
         super().__post_init__()
 
-        if (
-            (not self.value) or
-            not any(self.value.strip("()").endswith(boundary) for boundary in ReservedSymbolMixin.boundary_symbols)
+        if not self.value:
+            logger.warning("Prefix with no value.")
+        elif not any(
+            self.value.strip("()").endswith(boundary)
+            for boundary in ReservedSymbolMixin.boundary_symbols
         ):
-            raise ValueError(
-                "Prefixes require the `value` attribute to be specified " +\
-                "with a string that ends with a boundary symbol " +\
-                str(ReservedSymbolMixin.boundary_symbols) +\
-                f"but got {self.value}"
-            )
-        
+            logger.warning(f"Prefix with no boundary symbol at end: {self.value}")
+
     def set_transducer(
-            self,
-            prefix_fsa: pynini.Fst,
-            bow_fsa: pynini.Fst,
-            stem: pynini.Fst | None=None,
-            left_context: Acceptor | None=None,
-        ):
+        self,
+        prefix_fsa: pynini.Fst,
+        bow_fsa: pynini.Fst,
+        stem: pynini.Fst | None = None,
+        left_context: Acceptor | None = None,
+    ):
         if stem is None:
             stem = self.stem
 
         # need to write a context-dependent rewrite function rather
         # than using paradigms.prefix because we use a special [BOW]
         # symbol to mark the beginning of the word
-        
 
         fst = pynini.cdrewrite(
-            tau=pynini.cross(bow_fsa, bow_fsa+prefix_fsa),
-            l=left_context or '',
-            r='',
+            tau=pynini.cross(bow_fsa, bow_fsa + prefix_fsa),
+            l=left_context or "",
+            r="",
             sigma_star=stem,
         )
 
         return super().set_transducer(fst)
-        
+
+
 @dataclass
 class Suffix(Transducer):
     """
@@ -200,29 +209,27 @@ class Suffix(Transducer):
     passed to the `value` field where the last character is a
     boundary symbol ('-' or '=')
     """
+
     stem: pynini.Fst = field(default_factory=pynini.Fst)
 
     def __post_init__(self):
         super().__post_init__()
 
-        if (
-            (not self.value) or
-            not any(self.value.strip("()").startswith(boundary) for boundary in ReservedSymbolMixin.boundary_symbols)
+        if not self.value:
+            logger.warning("Suffix with no value.")
+        elif not any(
+            self.value.strip("()").startswith(boundary)
+            for boundary in ReservedSymbolMixin.boundary_symbols
         ):
-            raise ValueError(
-                "Suffixes require the `value` attribute to be specified " +\
-                "with a string that begins with a boundary symbol " +\
-                str(ReservedSymbolMixin.boundary_symbols) +\
-                f"but got {self.value}"
-            )
-        
+            logger.warning(f"Suffix with no boundary symbol at beginning: {self.value}")
+
     def set_transducer(
-            self,
-            suffix_fsa: pynini.Fst,
-            eow_fsa: pynini.Fst,
-            stem: pynini.Fst | None=None,
-            left_context: Acceptor | None=None,
-        ):
+        self,
+        suffix_fsa: pynini.Fst,
+        eow_fsa: pynini.Fst,
+        stem: pynini.Fst | None = None,
+        left_context: Acceptor | None = None,
+    ):
         if stem is None:
             stem = self.stem
 
@@ -230,11 +237,12 @@ class Suffix(Transducer):
         # than using paradigms.prefix because we use a special [EOW]
         # symbol to mark the end of the word
         fst = pynini.cdrewrite(
-            tau=pynini.cross(eow_fsa, suffix_fsa+eow_fsa),
-            l=left_context or '',
-            r='',
+            tau=pynini.cross(eow_fsa, suffix_fsa + eow_fsa),
+            l=left_context or "",
+            r="",
             sigma_star=stem,
         )
         return super().set_transducer(fst)
+
 
 FsaLike = str | pynini.Fst | Acceptor
