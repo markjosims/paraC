@@ -5,3 +5,4 @@ markers:
   accusative:
   - type: rule
     value: set_acc_suffix
+    order: acc_suffix

@@ -1,0 +1,12 @@
+kind: Rules
+rules:
+- _ref: mark_sg
+  description: Delete pl marker and following prefix
+  input_pattern: '[pl].*-'
+  output_pattern: <Empty>
+  right_context: .*[sg]
+- _ref: mark_pl
+  description: Delete sg marker and following prefix
+  input_pattern: '[sg].*-'
+  output_pattern: <Empty>
+  right_context: .*[pl]

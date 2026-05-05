@@ -1,0 +1,10 @@
+kind: MorphemeSet
+features:
+- singular_class
+data:
+- features:
+    singular_class: g
+  morpheme: "[sg]-"
+- features:
+    singular_class: ð
+  morpheme: "[sg]ð-"

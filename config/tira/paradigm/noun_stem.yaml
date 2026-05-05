@@ -1,0 +1,11 @@
+kind: Paradigm
+part_of_speech: noun
+order:
+  - acc_suffix
+  - number_flag
+feature_markers:
+  number: $noun_number
+  case: $case
+contingent_markers: []
+filter:
+  lexical_features: []

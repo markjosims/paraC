@@ -1,23 +1,25 @@
 kind: Inventory
 data:
-  - _ref: slot_flags
-    _ref: <Slot>
-    _flags:
-    - '[CL]'
-  - _ref: fv_classes
-    _ref: <FV>
-    _flags:
-    - '[aɔ]'
-    - '[ao]'
-    - '[ai]'
-    - '[ɔɔ]'
-    - '[ɔu]'
-    - '[ɔi]'
-  - _ref: accusative_markers
-    _ref: <ACC>
-    _flags:
-    - '[-a]'
-    - '[-ɛ]'
-    - '[-ɔ]'
-    - '[-ŋù]'
-    - '[-ɲa]'
+- _ref: <Slot>
+  _flags:
+  - '[CL]'
+- _ref: <FV>
+  _flags:
+  - '[aɔ]'
+  - '[ao]'
+  - '[ai]'
+  - '[ɔɔ]'
+  - '[ɔu]'
+  - '[ɔi]'
+- _ref: <ACC>
+  _flags:
+  - '[-a]'
+  - '[-ɛ]'
+  - '[-ɔ]'
+  - '[-ŋù]'
+  - '[-ɲa]'
+- _ref: <noun_number>
+  name: number flags
+  _flags:
+  - '[sg]'
+  - '[pl]'

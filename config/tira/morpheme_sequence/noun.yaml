@@ -1,6 +1,12 @@
 kind: MorphemeSequence
 data:
 - type: MorphemeSet
-  value: $noun_prefix
-- type: Lexicon
-  value: $noun
+  value: $noun_prefix_sg
+- type: MorphemeSet
+  value: $noun_prefix_pl
+- type: Paradigm
+  value: $noun_stem
+- type: Rule
+  value: $mark_sg
+- type: Rule
+  value: $mark_pl
