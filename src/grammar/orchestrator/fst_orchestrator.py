@@ -450,9 +450,6 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         rule and returns the rule transducer or list of transducers (for a rule
         sequence)
         """
-        left_context = None
-        if lexical_features:
-            left_context = self.lexical_feature_left_context(lexical_features)
         if rule.type == "rule_sequence":
             # return list of FSTs
             # sub-rules may themselves be rule sequences, so need to flatten
@@ -466,12 +463,20 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
                 else:
                     rules_flat.extend(subrule.rule_sequence)
             else:
-                rule_fsts_flat = [subrule.fst for subrule in rules_flat]
+                rule_fsts_flat = [
+                    self.compile_rule(subrule, lexical_features)
+                    if lexical_features
+                    else subrule.fst
+                    for subrule in rules_flat
+                ]
 
             return rule_fsts_flat
         # tau = main transducer, the rational relation effected by the rule
         tau = self._parse_rule_tau(rule)
         left_context, right_context = self._parse_rule_context(rule)
+        if lexical_features:
+            lexical_context = self.lexical_feature_left_context(lexical_features)
+            left_context = lexical_context.fsa + left_context
         direction = rule.direction
         sigma_star = self.sigma_star
         rule_fst = pynini.cdrewrite(
@@ -965,11 +970,40 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         lexical_feature_str = stringify_features(lexical_features)
 
         feature_sequence_acceptor_str = ""
-        for feature_str in re.findall(r"(\[[^\]]\])", lexical_feature_str):
-            feature_sequence_acceptor_str += feature_str
+        feature_strs = re.findall(r"(\[[^\]]+\])", lexical_feature_str)
+        if feature_strs:
+            feature_sequence_acceptor_str = (
+                f"{self.sigma_ref}{self.star}"
+                + f"{self.sigma_ref}{self.star}".join(feature_strs)
+                + f"{self.sigma_ref}{self.star}"
+            )
 
         left_context_str = (
-            f"{self.bow}{self.sigma_ref}{self.star}{feature_sequence_acceptor_str}"
+            f"{feature_sequence_acceptor_str}{self.bow}{self.sigma_ref}{self.star}"
+        )
+        try:
+            left_context = self.acceptor(left_context_str)
+        except Exception as e:
+            raise Exception(
+                f"Error when parsing acceptor for {left_context_str}, check if paradigm successfully added lexical features to symbol table. "
+                f"Original exception: {e}"
+            )
+
+        return left_context
+
+    def lexical_feature_prefix_left_context(
+        self, lexical_features: dict[str, str]
+    ) -> Acceptor:
+        """
+        Creates an FSA accepting lexical feature flags before the [BOW] flag.
+        This is used when rewriting [BOW] itself to add a prefix.
+        """
+        lexical_feature_str = stringify_features(lexical_features)
+        feature_strs = re.findall(r"(\[[^\]]+\])", lexical_feature_str)
+        left_context_str = (
+            f"{self.sigma_ref}{self.star}"
+            + f"{self.sigma_ref}{self.star}".join(feature_strs)
+            + f"{self.sigma_ref}{self.star}"
         )
         try:
             left_context = self.acceptor(left_context_str)
@@ -995,7 +1029,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
 
         kwargs = {}
         if lexical_features:
-            left_context = self.lexical_feature_left_context(lexical_features)
+            left_context = self.lexical_feature_prefix_left_context(lexical_features)
             kwargs["left_context"] = left_context
         prefix.set_transducer(prefix_fsa, self.bow_fsa, **kwargs)
         return prefix
@@ -1015,11 +1049,14 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         if lexical_features:
             left_context = self.lexical_feature_left_context(lexical_features)
             kwargs["left_context"] = left_context
-        suffix.set_transducer(suffix_fsa, self.eow_fsa)
+        suffix.set_transducer(suffix_fsa, self.eow_fsa, **kwargs)
         return suffix
 
     def replace_transducer(
-        self, input_pattern: str, output_pattern: str
+        self,
+        input_pattern: str,
+        output_pattern: str,
+        lexical_features: dict[str, str] | None = None,
     ) -> AnonymousRule:
         """
         Returns a context-free anonymous Rule that replaces
@@ -1031,7 +1068,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
             input_pattern=input_acceptor,
             output_pattern=output_acceptor,
         )
-        rule_fst = self.compile_rule(replace_rule)
+        rule_fst = self.compile_rule(replace_rule, lexical_features)
         replace_rule.set_transducer(rule_fst)
         return replace_rule
 

@@ -487,19 +487,31 @@ class Paradigm:
                 "Cannot build marker without FstRegistry but `self.FstRegistry` is None"
             )
 
-        elif marker.type == "rule":
+        lexical_features = marker.lexical_features or None
+        if marker.type == "rule":
             assert isinstance(marker.value, str)
             marker_rule = self.fst_orchestrator.get_rule(marker.value)
+            if lexical_features:
+                marker.set_transducer(
+                    self.fst_orchestrator.compile_rule(marker_rule, lexical_features)
+                )
+                return
         elif marker.type == "prefix":
             assert isinstance(marker.value, str)
-            marker_rule = self.fst_orchestrator.prefix(marker.value)
+            marker_rule = self.fst_orchestrator.prefix(
+                marker.value, lexical_features=lexical_features
+            )
         elif marker.type == "suffix":
             assert isinstance(marker.value, str)
-            marker_rule = self.fst_orchestrator.suffix(marker.value)
+            marker_rule = self.fst_orchestrator.suffix(
+                marker.value, lexical_features=lexical_features
+            )
         elif marker.type == "replace":
             assert isinstance(marker.value, tuple)
             marker_rule = self.fst_orchestrator.replace_transducer(
-                marker.value[0], marker.value[1]
+                marker.value[0],
+                marker.value[1],
+                lexical_features=lexical_features,
             )
         elif marker.type == "suppletion":
             sigma_star = self.fst_orchestrator.sigma_star

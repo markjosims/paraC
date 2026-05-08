@@ -186,7 +186,7 @@ class Prefix(Transducer):
 
         fst = pynini.cdrewrite(
             tau=pynini.cross(bow_fsa, bow_fsa+prefix_fsa),
-            l=left_context or '',
+            l=left_context.fsa if left_context else '',
             r='',
             sigma_star=stem,
         )
@@ -231,7 +231,7 @@ class Suffix(Transducer):
         # symbol to mark the end of the word
         fst = pynini.cdrewrite(
             tau=pynini.cross(eow_fsa, suffix_fsa+eow_fsa),
-            l=left_context or '',
+            l=left_context.fsa if left_context else '',
             r='',
             sigma_star=stem,
         )

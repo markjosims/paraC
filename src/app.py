@@ -8,8 +8,10 @@ if str(PROJECT_ROOT) not in sys.path:
 import streamlit as st
 from src.config_utils.watcher import start_watcher, check_and_apply_invalidation
 from src.config_utils.config_walker import get_config_dir, ConfigWalker
+from src.config_utils.schema_validation import CONFIG_KINDS
 from src.grammar import Grammar
 from loguru import logger
+from camel_converter import to_snake
 
 from src.pages.inventory import inventory_page
 from src.pages.feature_values import feature_values_page
@@ -25,6 +27,46 @@ from src.pages.rules import rules_page
 from src.pages.inflector import inflector_page
 
 _INVALIDATE_KEYS = ["grammar", "config_walker"]
+
+_HOME_NAV_GROUPS = {
+    "Phonology": ["Inventory", "Patterns", "Rules"],
+    "Exponence": [
+        "Feature Values",
+        "Feature Combinations",
+        "Morpheme Set",
+        "Feature Markers",
+        "Contingent Markers",
+    ],
+    "Morphotactics": ["Morpheme Sequence", "Paradigm"],
+    "Lexicon": ["Lexical Roots"],
+    "Inflect": ["Inflector"],
+}
+
+
+def _config_key_for_kind(kind: str) -> str:
+    return f"{to_snake(kind).removesuffix('s')}_configs"
+
+
+def _kind_label(kind: str) -> str:
+    label = to_snake(kind).replace("_", " ").title()
+    return label.replace(" Of ", " of ")
+
+
+def _recent_config_files(config_walker: ConfigWalker, limit: int = 6) -> list[Path]:
+    paths = [
+        Path(path)
+        for files in config_walker.config_filemap.values()
+        for path in files
+    ]
+
+    def modified_time(path: Path) -> float:
+        try:
+            return path.stat().st_mtime
+        except OSError:
+            return 0
+
+    paths.sort(key=modified_time, reverse=True)
+    return paths[:limit]
 
 
 def load_grammar(config_walker: ConfigWalker) -> Grammar:
@@ -98,7 +140,68 @@ def navbar():
 
 
 def home_page():
-    st.header("Home page")
+    config_walker = st.session_state.get("config_walker")
+    grammar = st.session_state.get("grammar")
+    config_dir = st.session_state.get("config_dir", "")
+
+    st.header("Tira Config Dashboard")
+
+    if config_walker is None:
+        st.error("Config walker not found in session state.")
+        st.stop()
+
+    total_files = sum(len(files) for files in config_walker.config_filemap.values())
+    loaded_groups = sum(
+        1 for files in config_walker.config_filemap.values() if len(files) > 0
+    )
+    grammar_status = (
+        "Loaded"
+        if grammar is not None and getattr(grammar, "is_initialized", False)
+        else "Not loaded"
+    )
+
+    status_col, group_col, file_col = st.columns(3)
+    status_col.metric("Grammar", grammar_status)
+    group_col.metric("Config groups", f"{loaded_groups}/{len(CONFIG_KINDS)}")
+    file_col.metric("YAML files", total_files)
+
+    st.caption(f"`CONFIG_DIR`: `{config_dir}`")
+    st.divider()
+
+    count_rows = []
+    for kind in CONFIG_KINDS:
+        key = _config_key_for_kind(kind)
+        files = config_walker.config_filemap.get(key, [])
+        count_rows.append(
+            {
+                "Config type": _kind_label(kind),
+                "Files": len(files),
+            }
+        )
+
+    left_col, right_col = st.columns([2, 1.2])
+    with left_col:
+        st.subheader("Config Coverage")
+        st.dataframe(count_rows, hide_index=True, use_container_width=True)
+
+    with right_col:
+        st.subheader("Recent Files")
+        recent_files = _recent_config_files(config_walker)
+        if not recent_files:
+            st.info("No YAML files found.")
+        else:
+            for path in recent_files:
+                try:
+                    label = path.relative_to(config_walker.config_dir)
+                except ValueError:
+                    label = path
+                st.markdown(f"`{label}`")
+
+    st.subheader("Editor Areas")
+    for group, pages in _HOME_NAV_GROUPS.items():
+        with st.container(border=True):
+            st.markdown(f"**{group}**")
+            st.caption(", ".join(pages))
 
 
 def main():

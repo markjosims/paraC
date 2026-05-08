@@ -25,7 +25,7 @@ Support conditioning morphological operations on the presence of lexical feature
     - [ ] Order of application: `input_str -> (principal part transducer ->) lexical feature insertion -> other marker rules` 
 - [x] `Marker` class supports an attr `Rule.lexical_features: Dict[str,str]`.
     - [x] If present, `FstRegistry` will pass `l=f"{feature_string}[BOW]<Sigma>*` to respective rule builder
-    - ![ ] Use `fst_utils.stringify_feature_dict` to ensure consistent `Dict<-->str` mapping
+    - [x] Use `stringify_features` to ensure consistent `Dict<-->str` mapping
     - [x] Extract function `feature_context_acceptor` in `FstRegistry`
     - [x] Inject logic to `FstRegistry._parse_rule`, `FstRegistry.prefix` and `FstRegistry.suffix`
         - [x] `Suffix` and `Prefix` objects take options `**_rule_kwargs`, that way we can pass `left_context=f"{feature_str}<Sigma>*"`
@@ -40,5 +40,4 @@ Support conditioning morphological operations on the presence of lexical feature
 - [ ] Inflect interface:
   - [ ] Display lexical features for each root in dropdown
   - [ ] Allow user to input lexical features when typing in root to text field
-
 
