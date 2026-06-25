@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
+import pandas as pd
 
 from src.grammar.registry.feature_combination_registry import (
     FeatureValueCombinations,
@@ -38,25 +39,33 @@ class FeatureOrchestrator(Orchestrator):
         )
 
         self.features: dict[str, Feature] = self.feature_values_registry.data
+        self.get_feature = self.feature_values_registry.get_feature
         self.feature_combinations: dict[str, FeatureValueCombinations] = (
             self.feature_combinations_registry.data
         )
 
-    def get_feature(self, name: str) -> Feature:
-        if name not in self.features:
-            raise KeyError(f"No feature found with name '{name}'.")
-        return self.features[name]
-
     def get_feature_combinations(self, name: str) -> FeatureValueCombinations:
+        name = name.removeprefix("$")
         if name not in self.feature_combinations:
             raise KeyError(f"No feature-combinations config found with name '{name}'.")
         return self.feature_combinations[name]
 
 
-def stringify_features(features: dict[str, str]) -> str:
+def stringify_features(
+    features: dict[str, str] | pd.Series | frozenset[tuple[str, str]],
+) -> str:
+    if len(features) == 0:
+        return ""
+    if isinstance(features, dict) or isinstance(features, pd.Series):
+        feature_iterator = features.items()
+    else:
+        # check features is frozenset of tuples, then iterate directly
+        assert type(features) is frozenset, type(features)
+        feature_iterator = tuple(features)
+        assert len(feature_iterator[0]) == 2, feature_iterator[0]
     feature_strings = [
         f"[{feature_name}={feature_value or 'unmarked'}]"
-        for feature_name, feature_value in features.items()
+        for feature_name, feature_value in feature_iterator
     ]
     feature_strings.sort()
     result_str = "".join(feature_strings)

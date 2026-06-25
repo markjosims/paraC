@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from loguru import logger
 from dataclasses import dataclass, field
 import os
@@ -18,6 +20,7 @@ class Feature:
     name: str
     values: list[str]
     source: os.PathLike | None = None
+    uuid: str = field(default_factory=lambda: str(uuid4()), init=False)
 
     def __post_init__(self):
         if not self.name:
@@ -54,6 +57,15 @@ class Feature:
             return NotImplemented
         return self.name == other.name and set(self.values) == set(other.values)
 
+    def __lt__(self, other):
+        if not isinstance(other, Feature):
+            return NotImplemented
+        return self.name < other.name
+
+    def to_dict(self) -> list[str]:
+        """Return the list of values excluding 'unmarked'."""
+        return [v for v in self.values if v != "unmarked"]
+
 
 class FeatureValuesRegistry(Registry):
     """
@@ -68,11 +80,18 @@ class FeatureValuesRegistry(Registry):
         config_objects: dict[str, dict] | None = None,
     ):
         super().__init__(kind="FeatureDefinitions", data=data, config_objects=config_objects)
-        self._populate_features_to_values()
+    
+    def get_feature(self, name: str) -> Feature:
+        if name not in self.data:
+            raise KeyError(f"No feature found with name '{name}'.")
+        return self.data[name]
 
-    def _populate_features_to_values(self):
-        self.features_to_values = {
-            feature.name: feature.values for feature in self.data.values()
+    def to_dict(self) -> dict:
+        return {
+            "kind": self.kind,
+            "features": {
+                feature.name: feature.to_dict() for feature in self.data.values()
+            },
         }
 
     def load_all_configs(self) -> dict[str, Feature]:

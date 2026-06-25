@@ -3,7 +3,75 @@ import pandas as pd
 from loguru import logger
 from copy import deepcopy
 from src.grammar.classes import Registry
-from src.grammar.registry.feature_values_registry import FeatureValuesRegistry
+from src.grammar.registry.feature_values_registry import FeatureValuesRegistry, Feature
+from dataclasses import dataclass, field
+
+
+@dataclass
+class Combination:
+    """
+    A single combination from a FeatureValueCombinations file,
+    stored as a dataframe with each column being a feature
+    and each row being a valid set of feature values.
+    Track original data as well for later YAML serialization
+    (since the seed data -> interpreted data transformation
+    is lossy).
+    """
+
+    combination_data: pd.DataFrame = field(default_factory=pd.DataFrame)
+    seed_data: frozenset[tuple[str, str | tuple[str, ...]]] = field(
+        default_factory=frozenset
+    )
+
+    @classmethod
+    def from_config(
+        cls,
+        config: dict,
+        name2feature: dict[str, Feature],
+    ) -> "Combination":
+        """Expand one combination dict into concrete combinations."""
+        row = {}
+        for feature_name, values in config.items():
+            if values == "*":
+                if feature_name not in name2feature:
+                    raise KeyError(
+                        f"Feature '{feature_name}' not found in provided features {name2feature.values()}."
+                    )
+                values = name2feature[feature_name].values
+
+                # wildcard should not match 'unmarked'
+                values = [v for v in values if v != "unmarked"]
+            row[feature_name] = values
+
+        for feature_name in name2feature.keys():
+            if feature_name not in row:
+                row[feature_name] = "unmarked"
+
+        df = pd.DataFrame([row])
+        for feature_name in config.keys():
+            df = df.explode(feature_name).reset_index(drop=True)
+
+        # prepare config data for freezing
+        seed_data = config.copy()
+        for k, v in config.items():
+            # cast list[str] to tuple[str] for hashing
+            if type(v) is list:
+                seed_data[k] = tuple(v)
+
+        seed_data = frozenset(seed_data.items())
+
+        return cls(combination_data=df, seed_data=seed_data)
+
+    def to_dict(self) -> dict:
+        """
+        Unfreeze seed data and convert tuples to lists for YAML serialization.
+        """
+        unfrozen = dict(self.seed_data)
+        for k, v in self.seed_data:
+            if type(v) is tuple:
+                unfrozen[k] = list(v)
+
+        return unfrozen
 
 
 class FeatureValueCombinations:
@@ -13,7 +81,7 @@ class FeatureValueCombinations:
     Each combination dict maps feature names to:
     - A single value string
     - A list of values
-    - '*' (wildcard, expanded from ``features_to_values``)
+    - '*' (wildcard, expanded from ``feature.values``)
 
     Features omitted in queries are treated as ``unmarked``.
     """
@@ -21,43 +89,53 @@ class FeatureValueCombinations:
     def __init__(
         self,
         combinations: list[dict[str, str | list[str]]],
-        features_to_values: dict[str, list[str]],
+        features: list[Feature],
         source: os.PathLike | None = None,
     ):
+
+        self.features = features
+        self.feature_names = [feature.name for feature in self.features]
+
         if not combinations:
             raise ValueError(
                 "FeatureValueCombinations requires at least one combination."
             )
 
-        self.features_to_values = features_to_values
         self.source = source
 
-        first_combination = combinations[0]
-        expected_features = set(first_combination.keys())
-        self.feature_names = list(sorted(expected_features))
+        name2feature = {feature.name: feature for feature in features}
+        combination_objs: list[Combination] = [
+            Combination.from_config(config=combo, name2feature=name2feature)
+            for combo in combinations
+        ]
+        combination_df = pd.concat(
+            [combo.combination_data for combo in combination_objs]
+        )
 
-        all_combinations = pd.DataFrame()
-        for combination in combinations:
-            combination_features = set(combination.keys())
-            if combination_features != expected_features:
-                raise ValueError(
-                    f"All combination dictionaries must have the same feature names. "
-                    f"Expected {expected_features}, got {combination_features}."
-                )
-            expanded_df = self._expand_combination_dict(combination)
-            all_combinations = pd.concat(
-                [all_combinations, expanded_df], ignore_index=True
-            )
-        self.valid_combinations = all_combinations.drop_duplicates().reset_index(
+        self.combinations = combination_objs
+        self.valid_combinations = combination_df.drop_duplicates().reset_index(
             drop=True
         )
         self.feature_masks = self._cache_feature_masks()
 
+    @classmethod
+    def from_config(
+        cls, config: dict, feature_values_registry: FeatureValuesRegistry
+    ) -> "FeatureValueCombinations":
+        feature_names = config["features"]
+        features = [
+            feature_values_registry.get_feature(feature_name)
+            for feature_name in feature_names
+        ]
+        combinations = config.get("combinations", [])
+        source = config.get("source", None)
+        return cls(combinations=combinations, features=features, source=source)
+
     def combination_is_valid(self, combination: dict[str, str]) -> bool:
         """Check if a given combination of feature values is licit."""
         combination = deepcopy(combination)
-        for expected_feature in self.feature_names:
-            if expected_feature not in combination:
+        for expected_feature in self.features:
+            if expected_feature.name not in combination:
                 combination[expected_feature] = "unmarked"
 
         for provided_feature in combination.keys():
@@ -75,35 +153,13 @@ class FeatureValueCombinations:
     def _cache_feature_masks(self):
         """Precompute boolean masks for each feature-value pair to speed up validity checks."""
         feature_value_masks = {}
-        for feature in self.feature_names:
-            for value in self.features_to_values.get(feature, []):
-                mask = self.valid_combinations[feature] == value
-                feature_value_masks[(feature, value)] = mask
-            unmarked_mask = self.valid_combinations[feature] == "unmarked"
-            feature_value_masks[(feature, "unmarked")] = unmarked_mask
+        for feature in self.features:
+            for value in feature.values:
+                mask = self.valid_combinations[feature.name] == value
+                feature_value_masks[(feature.name, value)] = mask
+            unmarked_mask = self.valid_combinations[feature.name] == "unmarked"
+            feature_value_masks[(feature.name, "unmarked")] = unmarked_mask
         return feature_value_masks
-
-    def _expand_combination_dict(
-        self,
-        combination: dict[str, list[str] | str],
-    ) -> pd.DataFrame:
-        """Expand one combination dict into concrete combinations."""
-        row = {}
-        for feature, values in combination.items():
-            if values == "*":
-                if feature not in self.features_to_values:
-                    raise KeyError(
-                        f"Feature '{feature}' not found in features_to_values."
-                    )
-                values = self.features_to_values[feature]
-
-                # wildcard should not match 'unmarked'
-                values = [v for v in values if v != "unmarked"]
-            row[feature] = values
-        df = pd.DataFrame([row])
-        for feature in combination.keys():
-            df = df.explode(feature).reset_index(drop=True)
-        return df
 
     def is_licit_combination(self, **feature_values: str) -> bool:
         """Check if a given combination of feature values is licit."""
@@ -119,8 +175,8 @@ class FeatureValueCombinations:
                 )
 
         feature_mask = pd.Series([True] * len(self.valid_combinations))
-        for feature, value in feature_values.items():
-            feature_mask &= self.valid_combinations[feature] == value
+        for feature_name, value in feature_values.items():
+            feature_mask &= self.valid_combinations[feature_name] == value
         return bool(feature_mask.any())
 
     def get_all_combinations(
@@ -143,6 +199,14 @@ class FeatureValueCombinations:
             valid_combinations = valid_combinations[valid_combination_mask]
 
         return valid_combinations.to_dict(orient="records")
+
+    def to_dict(self) -> dict:
+        """Serialize to FeatureCombinations YAML format."""
+        return {
+            "kind": "FeatureCombinations",
+            "features": [feature.name for feature in self.features],
+            "combinations": [combo.to_dict() for combo in self.combinations],
+        }
 
     def __str__(self):
         return (
@@ -192,31 +256,17 @@ class FeatureCombinationsRegistry(Registry):
         source_path = config.get("source_path", "")
         name = os.path.splitext(os.path.basename(source_path))[0] if source_path else ""
 
-        config_features = config.get("features", [])
-        features_to_values = {}
-        for feature_name in config_features:
-            if feature_name not in self.feature_values_registry.features_to_values:
-                raise KeyError(
-                    f"Feature '{feature_name}' referenced in FeatureCombinations "
-                    "but not defined in FeatureValuesRegistry."
-                )
-            features_to_values[feature_name] = (
-                # self.feature_values_registry.features_to_values[feature_name] + ["unmarked"]
-                # "unmarked" now added directly within `Feature` class
-                self.feature_values_registry.features_to_values[feature_name]
-            )
+        feature_names = config.get("features", [])
+        features = [
+            self.feature_values_registry.get_feature(feature_name)
+            for feature_name in feature_names
+        ]
 
         combinations = config.get("combinations", [])
-        normalized_combinations = []
-        for combination in combinations:
-            normalized = {}
-            for feature_name in config_features:
-                normalized[feature_name] = combination.get(feature_name, "unmarked")
-            normalized_combinations.append(normalized)
 
         feature_combinations = FeatureValueCombinations(
-            combinations=normalized_combinations,
-            features_to_values=features_to_values,
+            combinations=combinations,
+            features=features,
             source=source_path,
         )
         return {name: feature_combinations}

@@ -63,6 +63,12 @@
         "order": { "type": "string" },
         "comment": { "type": "string" }
       },
+      "if": {
+        "properties": { "type": { "const": "rule" } }
+      },
+      "then": {
+        "properties": { "value": { "pattern": "^\\$.*" } }
+      },
       "additionalProperties": false
     }
   }

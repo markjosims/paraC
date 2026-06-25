@@ -1,23 +1,28 @@
 kind: Inventory
 data:
-  - name: slot_flags
-    _ref: <Slot>
-    _flags:
-    - '[CL]'
-  - name: fv_classes
-    _ref: <FV>
-    _flags:
-    - '[aɔ]'
-    - '[ao]'
-    - '[ai]'
-    - '[ɔɔ]'
-    - '[ɔu]'
-    - '[ɔi]'
-  - name: accusative_markers
-    _ref: <ACC>
-    _flags:
-    - '[-a]'
-    - '[-ɛ]'
-    - '[-ɔ]'
-    - '[-ŋù]'
-    - '[-ɲa]'
+- _ref: <Slot>
+  name: Morphological slot
+  _flags:
+  - '[CL]'
+- _ref: <FV>
+  name: Final vowel class
+  _flags:
+  - '[aɔ]'
+  - '[ao]'
+  - '[ai]'
+  - '[ɔɔ]'
+  - '[ɔu]'
+  - '[ɔi]'
+- _ref: <ACC>
+  name: Accusative flag
+  _flags:
+  - '[-a]'
+  - '[-ɛ]'
+  - '[-ɔ]'
+  - '[-ŋù]'
+  - '[-ɲa]'
+- _ref: <noun_number>
+  name: number flags
+  _flags:
+  - '[sg]'
+  - '[pl]'

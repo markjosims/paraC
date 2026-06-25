@@ -13,6 +13,8 @@ from src.grammar.orchestrator.fst_orchestrator import FstOrchestrator
 from src.grammar.orchestrator.feature_orchestrator import FeatureOrchestrator
 from src.grammar.registry.lexicon_registry import LexiconRegistry
 from src.grammar.registry.paradigm_registry import ParadigmRegistry
+from src.grammar.registry.morpheme_sequence_registry import MorphemeSequenceRegistry
+from src.grammar.registry.morpheme_set_registry import MorphemeSetRegistry
 
 
 class Grammar(Orchestrator):
@@ -31,6 +33,8 @@ class Grammar(Orchestrator):
         feature_definition_configs: dict[str, dict],
         feature_combination_configs: dict[str, dict],
         paradigm_configs: dict[str, dict],
+        morpheme_sequence_configs: dict[str, dict],
+        morpheme_set_configs: dict[str, dict],
     ):
         self.is_initialized = False
 
@@ -38,26 +42,39 @@ class Grammar(Orchestrator):
             feature_configs=feature_definition_configs,
             feature_combination_configs=feature_combination_configs,
         )
-        self.lexicon_registry = LexiconRegistry(
-            config_objects=part_of_speech_configs,
-            feature_orchestrator=self.feature_orchestrator,
-        )
         self.fst_orchestrator = FstOrchestrator(
             inventory_configs=inventory_configs,
             pattern_configs=pattern_configs,
             rule_configs=rule_configs,
             feature_orchestrator=self.feature_orchestrator,
         )
+        self.lexicon_registry = LexiconRegistry(
+            config_objects=part_of_speech_configs,
+            feature_orchestrator=self.feature_orchestrator,
+            fst_orchestrator=self.fst_orchestrator,
+        )
         self.marker_orchestrator = MarkerOrchestrator(
             contingent_marker_configs=contingent_feature_marker_configs,
             feature_marker_configs=feature_marker_configs,
             feature_orchestrator=self.feature_orchestrator,
+        )
+        self.morpheme_set_registry = MorphemeSetRegistry(
+            config_objects=morpheme_set_configs,
+            feature_orchestrator=self.feature_orchestrator,
+            fst_orchestrator=self.fst_orchestrator,
         )
         self.paradigm_registry = ParadigmRegistry(
             config_objects=paradigm_configs,
             marker_orchestrator=self.marker_orchestrator,
             lexicon_registry=self.lexicon_registry,
             fst_orchestrator=self.fst_orchestrator,
+        )
+        self.morpheme_sequence_registry = MorphemeSequenceRegistry(
+            config_objects=morpheme_sequence_configs or {},
+            lexicon_registry=self.lexicon_registry,
+            paradigm_registry=self.paradigm_registry,
+            fst_orchestrator=self.fst_orchestrator,
+            morpheme_set_registry=self.morpheme_set_registry,
         )
 
         self.initialize()
@@ -70,8 +87,11 @@ class Grammar(Orchestrator):
                 self.lexicon_registry,
                 self.fst_orchestrator,
                 self.feature_orchestrator,
+                self.paradigm_registry,
             ]
         ):
+            # initialize morpheme sequences after all other registries are loaded
+            self.morpheme_sequence_registry.initialize_sequences()
             self.is_initialized = True
             logger.info("All child registries detected, Grammar loaded successfully.")
         else:

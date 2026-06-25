@@ -8,6 +8,7 @@ Implements `MarkerOrchestrator` which manages following registries:
 from __future__ import annotations
 from src.grammar.orchestrator.feature_orchestrator import FeatureOrchestrator
 from src.grammar.registry.feature_marker_registry import FeatureMarkersRegistry
+from src.grammar.registry.feature_combination_registry import FeatureValueCombinations
 from src.grammar.registry.contingent_marker_registry import (
     ContingentMarkers,
     ContingentMarkersRegistry,
@@ -91,26 +92,18 @@ class MarkerOrchestrator:
         are supported by `self.feature_orchestrator`
         """
         for markers_name, markers in self.contingent_markers.items():
-            for feature in (markers.outer_feature, markers.inner_feature):
-                if feature.name not in self.features:
-                    raise KeyError(
-                        f"{markers_name} has unsupported feature {feature.name} "
-                        f"expected one of {list(self.features.keys())}"
-                    )
-
-            outer_feature = self.features[markers.outer_feature.name]
-            for outer_val, inner_fm in markers.inner_maps.items():
-                if outer_val not in outer_feature.values:
-                    raise KeyError(
-                        f"Unsupported value {outer_val} for feature {markers.outer_feature} "
-                        f"in marker set {markers_name}. Expected values are {outer_feature.values}"
-                    )
-                inner_feature = self.features[markers.inner_feature.name]
-                for inner_val in inner_fm.data:
-                    if inner_val not in inner_feature.values:
+            for vector in markers.feature_mappings.keys():
+                for f_name, f_val in vector:
+                    if f_name not in self.features:
                         raise KeyError(
-                            f"Unsupported value {inner_val} for feature {markers.inner_feature} "
-                            f"in marker set {markers_name}. Expected values are {inner_feature.values}"
+                            f"{markers_name} has unsupported feature {f_name} "
+                            f"expected one of {list(self.features.keys())}"
+                        )
+                    feature = self.features[f_name]
+                    if f_val not in feature.values:
+                        raise KeyError(
+                            f"Unsupported value {f_val} for feature {f_name} "
+                            f"in marker set {markers_name}. Expected values are {feature.values}"
                         )
 
     def initialize(self):
@@ -120,13 +113,23 @@ class MarkerOrchestrator:
             self._validate_contingent_features()
         self.is_initialized = True
 
-    def get_config(self, name: str) -> FeatureMarkers | ContingentMarkers:
-        """Look up a marker config by filename stem."""
-        if name in self.feature_markers:
-            return self.feature_markers[name]
-        if name in self.contingent_markers:
-            return self.contingent_markers[name]
-        raise KeyError(f"No marker config found with name '{name}'.")
+    def get_feature_markers(self, name: str) -> FeatureMarkers:
+        """Look up a feature marker config by filename stem."""
+        name = name.removeprefix("$")
+        if name not in self.feature_markers:
+            raise KeyError(f"No FeatureMarkers found with name '{name}'.")
+        return self.feature_markers[name]
+
+    def get_contingent_markers(self, name: str) -> ContingentMarkers:
+        """Look up a contingent marker config by filename stem."""
+        name = name.removeprefix("$")
+        if name not in self.contingent_markers:
+            raise KeyError(f"No ContingentMarkers found with name '{name}'.")
+        return self.contingent_markers[name]
+
+    def get_feature_combinations(self, name: str) -> FeatureValueCombinations:
+        """Look up a feature combinations config via feature_orchestrator."""
+        return self.feature_orchestrator.get_feature_combinations(name)
 
 
 if __name__ == "__main__":

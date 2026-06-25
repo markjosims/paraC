@@ -12,6 +12,7 @@ from typing import Literal, Optional, Union
 from dataclasses import dataclass, field
 import os
 from loguru import logger
+from uuid import uuid4
 
 # TODO: update Fst registry and orchestrator family to expect
 # new InventoryItem/Class API
@@ -43,6 +44,11 @@ class InventoryItem(InventoryMember):
     def __post_init__(self):
         super().__post_init__()
 
+        if self.value in ReservedSymbolMixin.reserved_symbols:
+            raise ValueError(
+                f"Inventory item value '{self.value}' is a reserved symbol and cannot be used."
+            )
+
         if (self.type == "flag") and (
             not self.value.startswith("[") or not self.value.endswith("]")
         ):
@@ -50,10 +56,10 @@ class InventoryItem(InventoryMember):
                 "Flag items must have values that start with '[' and end with ']'"
             )
         if (self.type == "phone") and (
-            self.value.startswith("<") or self.value.startswith("[")
+            "[" in self.value or "]" in self.value or "<" in self.value or ">" in self.value
         ):
             raise ValueError(
-                "Phone items cannot have values that start with '<' or '['"
+                "Phone items cannot contain '[', ']', '<', or '>'"
             )
 
     def __str__(self):
@@ -82,12 +88,16 @@ class InventoryClass(InventoryMember):
             InventoryRegistry class.
     """
 
+    _ref: str = field(init=False, default="")  # set _ref to value of `value` field on init
+    # for compatibility with Pattern class and parsing logic in InventoryRegistry
     name: str = ""
     type: Literal["phone_class", "flag_class", "nested_class"] = "phone_class"
     children: list["InventoryMember"] = field(default_factory=list)
+    uuid: str = field(default_factory=lambda: str(uuid4()), init=False)
 
     def __post_init__(self):
         super().__post_init__()
+        self._ref = self.value
 
         if self.value in ReservedSymbolMixin.reserved_symbols:
             error = f"Inventory item value '{self.value}' is a reserved symbol and cannot be used."
@@ -218,9 +228,7 @@ class InventoryClass(InventoryMember):
             json["_flags"] = [item.value for item in self.children]
         else:
             # self.type == "nested_class"
-            json["_children"] = {
-                child.value: child.to_dict() for child in self.children
-            }
+            json["_children"] = [child.to_dict() for child in self.children]
         return json
 
     def flatten(self) -> list[Union["InventoryItem", "InventoryClass"]]:
@@ -232,7 +240,7 @@ class InventoryClass(InventoryMember):
         else:
             items.extend(self.children)
         return items
-    
+
     def item_strs(self):
         return [child.value for child in self.children]
 

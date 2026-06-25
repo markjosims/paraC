@@ -1,6 +1,6 @@
 from src.grammar.classes import Registry
 from src.grammar.registry.feature_values_registry import Feature
-from src.grammar.registry.feature_marker_registry import MarkerList, FeatureMarkers
+from src.grammar.registry.feature_marker_registry import MarkerList
 from src.grammar.orchestrator.feature_orchestrator import FeatureOrchestrator
 from dataclasses import dataclass, field
 import os
@@ -10,44 +10,29 @@ from loguru import logger
 @dataclass
 class ContingentMarkers:
     """
-    Maps combinations of exactly two feature values to Marker lists.
+    Maps arbitrary feature vectors to Marker lists.
     Corresponds to a ``kind: ContingentFeatureMarkers`` YAML config.
 
-    The outer feature partitions the markers into groups, each stored as
-    a :class:`FeatureMarkers` keyed on the inner feature.  Lookup is
-    two-step: outer value → FeatureMarkers → inner value → MarkerList.
-
     Attributes:
-        outer_feature: Name of the feature that partitions the marker groups
-        inner_feature: Name of the feature whose values are marked within each group
-        inner_maps: Dict mapping outer feature values to FeatureMarkers objects
+        feature_mappings: Dict mapping feature vector (frozenset of items) to MarkerList
         global_order: Order applied to every marker
         global_markers: Markers applied to all feature values
         source: Filepath this config was loaded from
     """
 
-    outer_feature: Feature
-    inner_feature: Feature
-    inner_maps: dict[str, FeatureMarkers] = field(default_factory=dict)
+    features: list[Feature]
+    feature_mappings: dict[frozenset[tuple[str, str]], MarkerList] = field(
+        default_factory=dict
+    )
     global_order: str | None = None
     global_markers: MarkerList = field(default_factory=MarkerList)
     source: os.PathLike | None = None
-
-    def __post_init__(self):
-        if not self.outer_feature:
-            raise ValueError("ContingentMarkers must have an outer_feature.")
-        if not self.inner_feature:
-            raise ValueError("ContingentMarkers must have an inner_feature.")
 
     @classmethod
     def from_config(
         cls, config: dict, feature_orchestrator: FeatureOrchestrator
     ) -> "ContingentMarkers":
         """Build a ContingentMarkers from a full YAML config dict."""
-        outer_feature_name = config.get("outer_feature", "")
-        inner_feature_name = config.get("inner_feature", "")
-        outer_feature = feature_orchestrator.get_feature(outer_feature_name)
-        inner_feature = feature_orchestrator.get_feature(inner_feature_name)
         source = config.get("source_path")
         global_order = config.get("global_order", None)
         global_markers_config = config.get("global_markers", [])
@@ -57,65 +42,78 @@ class ContingentMarkers:
             global_markers_config, global_order=global_order
         )
 
-        inner_maps: dict[str, FeatureMarkers] = {}
-        for entry in markers_config:
-            outer_value = entry["outer_feature_value"]
-            inner_feature_values = entry.get("inner_feature_values", {})
+        feature_list = config.get("features", [])
+        feature_list = [
+            feature_orchestrator.get_feature(feature_name)
+            for feature_name in feature_list
+        ]
 
-            # Build a FeatureMarkers config dict and delegate
-            fm_config = {
-                "feature": inner_feature.name,
-                "markers": inner_feature_values,
-                "global_order": global_order,
-                "global_markers": global_markers_config,
-            }
-            inner_maps[outer_value] = FeatureMarkers.from_config(
-                fm_config,
-                feature_orchestrator=feature_orchestrator,
+        feature_mappings: dict[frozenset[tuple[str, str]], MarkerList] = {}
+        for entry in markers_config:
+            features_dict = entry.get("features", {})
+            realization_config = entry.get("realization", [])
+
+            # Validate features
+            for f_name, f_val in features_dict.items():
+                feature = feature_orchestrator.get_feature(f_name)
+                if f_val not in feature.values:
+                    raise ValueError(
+                        f"Invalid value '{f_val}' for feature '{f_name}' in {source}"
+                    )
+
+            vector = frozenset(features_dict.items())
+            realization = MarkerList.from_config(
+                realization_config, global_order=global_order
             )
+            feature_mappings[vector] = realization
 
         return cls(
-            outer_feature=outer_feature,
-            inner_feature=inner_feature,
-            inner_maps=inner_maps,
+            features=feature_list,
+            feature_mappings=feature_mappings,
             global_order=global_order,
             global_markers=global_markers,
             source=source,
         )
 
+    def to_dict(self) -> dict:
+        """Serialize to ContingentFeatureMarkers YAML format."""
+        doc = {
+            "kind": "ContingentFeatureMarkers",
+        }
+        if self.global_order:
+            doc["global_order"] = self.global_order
+
+        global_markers = self.global_markers.to_dict()
+        if global_markers:
+            doc["global_markers"] = global_markers
+
+        feature_names = [feature.name for feature in self.features]
+        doc["features"] = feature_names
+
+        markers_list = []
+        for vector, m_list in self.feature_mappings.items():
+            entry = {
+                "features": dict(vector),
+                "realization": m_list.to_dict(),
+            }
+            markers_list.append(entry)
+        doc["markers"] = markers_list
+        return doc
+
     def get_marker(self, **feature_dict: str) -> MarkerList:
-        """Retrieve markers for a given outer/inner feature value pair."""
-        outer_val = feature_dict.get(self.outer_feature.name)
-        inner_val = feature_dict.get(self.inner_feature.name)
-        if outer_val is None:
-            raise KeyError(
-                f"Missing outer feature '{self.outer_feature}' in query. "
-                f"Got: {feature_dict}"
-            )
-        if inner_val is None:
-            raise KeyError(
-                f"Missing inner feature '{self.inner_feature}' in query. "
-                f"Got: {feature_dict}"
-            )
-        if outer_val not in self.inner_maps:
-            raise KeyError(
-                f"No markers for outer feature value '{outer_val}' "
-                f"(outer_feature='{self.outer_feature}')"
-            )
-        fm = self.inner_maps[outer_val]
-        if inner_val not in fm.data:
-            raise KeyError(
-                f"No markers for inner feature value '{inner_val}' "
-                f"(inner_feature='{self.inner_feature}') "
-                f"under outer value '{outer_val}'"
-            )
-        return fm.data[inner_val]
+        """Retrieve markers matching the feature vector."""
+        for vector, markers in self.feature_mappings.items():
+            if vector.issubset(feature_dict.items()):
+                return markers
+
+        raise KeyError(
+            f"No matching feature vector in {self.source} for {feature_dict}"
+        )
 
     def __str__(self):
         return (
-            f"ContingentMarkers(outer='{self.outer_feature}', "
-            f"inner='{self.inner_feature}', "
-            f"outer_values={list(self.inner_maps.keys())})"
+            f"ContingentMarkers(source='{self.source}', "
+            f"vectors={len(self.feature_mappings)})"
         )
 
     def __repr__(self):

@@ -6,13 +6,18 @@ storing and managing the lexicon for a given language.
 
 from dataclasses import dataclass, field
 import os
-
+import pynini
 from loguru import logger
 from src.grammar.classes import Registry
 from src.grammar.registry.feature_values_registry import Feature
-from src.grammar.orchestrator.feature_orchestrator import FeatureOrchestrator
+from src.grammar.orchestrator.feature_orchestrator import (
+    FeatureOrchestrator,
+    stringify_features,
+)
+from src.grammar.orchestrator.fst_orchestrator import FstOrchestrator
 import pandas as pd
 import numpy as np
+from typing import Literal
 
 
 @dataclass
@@ -32,9 +37,9 @@ class PartOfSpeech:
             raise ValueError("PartOfSpeech must have a name.")
 
         for feature in self.features + self.lexical_features:
-            if not isinstance(feature, Feature):
+            if type(feature).__name__ != "Feature":
                 raise ValueError(
-                    f"Feature '{feature}' is not an instance of the Feature class."
+                    f"Feature '{feature}' of type {type(feature)} is not an instance of the Feature class."
                 )
 
         for feature in self.lexical_features:
@@ -42,6 +47,16 @@ class PartOfSpeech:
                 raise ValueError(
                     f"Invariant feature '{feature}' also listed as a inflected feature."
                 )
+
+    def to_dict(self) -> dict:
+        """Serialize to PartOfSpeech YAML format."""
+        return {
+            "kind": "PartOfSpeech",
+            "name": self.name,
+            "features": [f.name for f in self.features],
+            "lexical_features": [f.name for f in self.lexical_features],
+            "principal_parts": self.principal_parts,
+        }
 
     @classmethod
     def from_config(
@@ -91,12 +106,15 @@ class Lexicon:
 
     part_of_speech: PartOfSpeech
     entries: pd.DataFrame
+    fst_orchestrator: FstOrchestrator
     source: str | None = None
     principal_parts: list[str] = field(init=False)
     lexical_features: list[Feature] = field(init=False)
     features: list[Feature] = field(init=False)
+    name: str = field(init=False)
 
     def __post_init__(self):
+        self.name = self.part_of_speech.name
         if "root" not in self.entries.columns:
             raise ValueError("Entries dataframe must contain a 'root' column")
         if "gloss" not in self.entries.columns:
@@ -119,7 +137,10 @@ class Lexicon:
 
     @classmethod
     def from_config(
-        cls, config, feature_orchestrator: FeatureOrchestrator
+        cls,
+        config,
+        feature_orchestrator: FeatureOrchestrator,
+        fst_orchestrator: FstOrchestrator,
     ) -> "Lexicon":
         """
         Get the lexicon entries dataframe for a given part of speech name.
@@ -146,10 +167,25 @@ class Lexicon:
             part_of_speech=part_of_speech,
             entries=entries_df,
             source=lexicon_path,
+            fst_orchestrator=fst_orchestrator,
         )
 
     def get_roots(self) -> list[str]:
         return self.entries["root"].tolist()
+    
+    def get_features_for_root(self, root: str) -> dict[str, str]:
+        row = self.entries[self.entries["root"] == root]
+        if row.empty:
+            raise ValueError(f"Root '{root}' not found in lexicon entries.")
+        row = row.iloc[0]
+        features = {}
+        for feature in self.lexical_features:
+            feat_name = feature.name
+            feat_val = str(row.get(feat_name, "unmarked"))
+            if not feat_val or feat_val == "nan":
+                feat_val = "unmarked"
+            features[feat_name] = feat_val
+        return features
 
     def get_column_data(self, column: str, fill_w_root: bool = False) -> list[str]:
         if column not in self.entries.columns:
@@ -165,6 +201,70 @@ class Lexicon:
             )
         return self.entries[column].tolist()
 
+    def _root_analysis_fst(
+        self,
+        features: dict[str, str] | None = None,
+        direction: Literal[
+            "roots_to_analyses", "analyses_to_roots"
+        ] = "roots_to_analyses",
+    ) -> pynini.Fst:
+        """
+        Transduces a root to a root with a stringified vector of all of the
+        root's lexical feature specifications.
+        """
+        filtered_df = self.entries
+        if features:
+            for feat_name, feat_val in features.items():
+                if feat_name in filtered_df.columns:
+                    mask = (
+                        (filtered_df[feat_name] == feat_val)
+                        | (filtered_df[feat_name] == "")
+                        | (filtered_df[feat_name].isna())
+                    )
+                    filtered_df = filtered_df[mask]
+
+        fsts = []
+        lexical_feat_names = [f.name for f in self.lexical_features]
+
+        for _, row in filtered_df.iterrows():
+            root = str(row["root"])
+            row_feats = {}
+            for fn in lexical_feat_names:
+                val = str(row.get(fn, "unmarked"))
+                if not val or val == "nan":
+                    val = "unmarked"
+                row_feats[fn] = val
+
+            analysis_suffix = stringify_features(row_feats)
+
+            root_fsa = self.fst_orchestrator.fsa(root)
+            analysis_fsa = self.fst_orchestrator.fsa(root + analysis_suffix)
+
+            if direction == "roots_to_analyses":
+                fsts.append(pynini.cross(root_fsa, analysis_fsa))
+            else:
+                # direction == "analyses_to_roots"
+                fsts.append(pynini.cross(analysis_fsa, root_fsa))
+
+        if not fsts:
+            return pynini.Fst()
+
+        return pynini.union(*fsts).optimize()
+
+    def roots_to_analyses(self, features: dict[str, str] | None = None) -> pynini.Fst:
+        """
+        Transduces a root to a root with a stringified vector of all of the
+        root's lexical feature specifications.
+        """
+        return self._root_analysis_fst(features=features, direction="roots_to_analyses")
+
+    def analyses_to_roots(self, features: dict[str, str] | None = None) -> pynini.Fst:
+        """
+        Transduces a root with a stringified vector of all of the
+        root's lexical feature specifications to just the root.
+        """
+        return self._root_analysis_fst(features=features, direction="analyses_to_roots")
+
 
 @dataclass
 class LexiconRegistry(Registry):
@@ -176,11 +276,19 @@ class LexiconRegistry(Registry):
     def __init__(
         self,
         feature_orchestrator: FeatureOrchestrator,
+        fst_orchestrator: FstOrchestrator,
         data: dict[str, Lexicon] | None = None,
         config_objects: dict[str, dict] | None = None,
     ):
         self.feature_orchestrator = feature_orchestrator
+        self.fst_orchestrator = fst_orchestrator
         super().__init__(kind="PartOfSpeech", data=data, config_objects=config_objects)
+
+    def get_lexicon(self, name: str) -> Lexicon:
+        name = name.removeprefix("$")
+        if name not in self.data:
+            raise KeyError(f"Lexicon '{name}' not found in registry.")
+        return self.data[name]
 
     def load_all_configs(self) -> dict[str, Lexicon]:
         config_items: dict[str, Lexicon] = {}
@@ -201,5 +309,9 @@ class LexiconRegistry(Registry):
             if source_path
             else config.get("name", "")
         )
-        lexicon = Lexicon.from_config(config, self.feature_orchestrator)
+        lexicon = Lexicon.from_config(
+            config=config,
+            feature_orchestrator=self.feature_orchestrator,
+            fst_orchestrator=self.fst_orchestrator,
+        )
         return {name: lexicon}

@@ -1,0 +1,15 @@
+kind: ContingentFeatureMarkers
+features: ["tam", "deixis"]
+markers:
+- features: {tam: imperfective, deixis: itive}
+  realization:
+  - {type: rule, value: $set_hl_melody, order: tone_melody}
+- features: {tam: imperfective, deixis: ventive}
+  realization:
+  - {type: rule, value: $set_all_low_tone, order: tone_melody}
+- features: {tam: perfective, deixis: itive}
+  realization:
+  - {type: rule, value: $set_hl_melody, order: tone_melody}
+- features: {tam: perfective, deixis: ventive}
+  realization:
+  - {type: rule, value: $set_all_low_tone, order: tone_melody}

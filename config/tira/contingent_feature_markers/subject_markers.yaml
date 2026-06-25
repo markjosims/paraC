@@ -1,0 +1,22 @@
+kind: ContingentFeatureMarkers
+global_order: argument_marking
+features: ["tam", "subject"]
+markers:
+- features: {tam: perfective, subject: 1sg}
+  realization:
+  - {type: suffix, value: -íŋí}
+- features: {tam: perfective, subject: 2sg}
+  realization:
+  - {type: suffix, value: -áŋá}
+- features: {tam: perfective, subject: 1dual.incl}
+  realization:
+  - {type: suffix, value: -ɜ́llí}
+- features: {tam: perfective, subject: 1pl.incl}
+  realization:
+  - {type: suffix, value: -ɜ́llí-r}
+- features: {tam: perfective, subject: 1pl.excl}
+  realization:
+  - {type: suffix, value: -áɲà}
+- features: {tam: perfective, subject: 2pl}
+  realization:
+  - {type: suffix, value: -áɲá}

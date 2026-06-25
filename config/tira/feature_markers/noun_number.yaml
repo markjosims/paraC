@@ -1,0 +1,13 @@
+kind: FeatureMarkers
+feature: number
+markers:
+  singular:
+    type: suffix
+    value: '[sg]'
+    order: number_flag
+  plural:
+  - type: principal_part
+    value: plural_stem
+  - type: suffix
+    value: '[pl]'
+    order: number_flag

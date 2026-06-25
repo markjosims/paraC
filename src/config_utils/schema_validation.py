@@ -12,6 +12,8 @@ ConfigKindType = Literal[
     "FeatureDefinitions",
     "FeatureMarkers",
     "Inventory",
+    "MorphemeSequence",
+    "MorphemeSet",
     "Paradigm",
     "PartOfSpeech",
     "Patterns",

@@ -1,0 +1,22 @@
+kind: Rules
+rules:
+- _ref: mark_sg
+  description: Delete pl marker and following prefix
+  input_pattern: '[pl]{^-}*-'
+  output_pattern: <Empty>
+  right_context: .*[sg][EOW]
+  test_mappings:
+  - - '[pl]r-[sg]ð-ɔ̀mɔ̀cɔ̀[sg]'
+    - '[sg]ð-ɔ̀mɔ̀cɔ̀[sg]'
+  - - '[pl]r-[sg]ð-ɔ̀mɔ̀cɔ̀[pl]'
+    - '[pl]r-[sg]ð-ɔ̀mɔ̀cɔ̀[pl]'
+- _ref: mark_pl
+  description: Delete sg marker and following prefix
+  input_pattern: '[sg]{^-}*-'
+  output_pattern: <Empty>
+  right_context: .*[pl][EOW]
+  test_mappings:
+  - - '[pl]r-[sg]ð-ɔ̀mɔ̀cɔ̀[sg]'
+    - '[pl]r-[sg]ð-ɔ̀mɔ̀cɔ̀[sg]'
+  - - '[pl]r-[sg]ð-ɔ̀mɔ̀cɔ̀[pl]'
+    - '[pl]r-ɔ̀mɔ̀cɔ̀[pl]'

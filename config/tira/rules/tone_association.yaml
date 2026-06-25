@@ -1,6 +1,6 @@
 kind: Rules
 rules:
-  add_all_tbus:
+  - _ref: add_all_tbus
     description: Assign TBUs after any consonant or vowel that can bear tone (i.e.
       vowels and sonorant consonants)
     input_pattern: <Empty>
@@ -13,7 +13,7 @@ rules:
       - n[TBU]a[TBU]m[TBU]a[TBU]l[TBU]
     - - r
       - r[TBU]
-  remove_tbu_before_onset_c:
+  - _ref: remove_tbu_before_onset_c
     description: Remove any [TBU] flags from a consoant preceding a vowel. Assuming
       that the following vowel will bear any tones.
     input_pattern: '[TBU]'
@@ -27,7 +27,7 @@ rules:
       - na[TBU]ma[TBU]l[TBU]
     - - r[TBU]
       - r[TBU]
-  remove_tbu_before_coda_c:
+  - _ref: remove_tbu_before_coda_c
     description: Remove any [TBU] flags from a consonant following a vowel. Assuming
       that the preceding vowel will bear any tones.
     input_pattern: '[TBU]'
@@ -40,12 +40,12 @@ rules:
       - n[TBU]a[TBU]ma[TBU]l
     - - r[TBU]
       - r[TBU]
-  add_tbus_clean:
+  - _ref: add_tbus_clean
     description: Add TBUs to syllable nuclei (only)
     rule_sequence:
-    - add_all_tbus
-    - remove_tbu_before_coda_c
-    - remove_tbu_before_onset_c
+    - $add_all_tbus
+    - $remove_tbu_before_coda_c
+    - $remove_tbu_before_onset_c
     test_mappings:
     - - vəlɛð
       - və[TBU]lɛ[TBU]ð
@@ -53,7 +53,7 @@ rules:
       - na[TBU]ma[TBU]l
     - - r
       - r[TBU]
-  all_low_tone:
+  - _ref: all_low_tone
     description: Assign L to all TBUs
     input_pattern: '[TBU]'
     output_pattern: <L>
@@ -64,10 +64,10 @@ rules:
       - nàmàl
     - - r[TBU]
       - r̀
-  set_all_low_tone:
+  - _ref: set_all_low_tone
     rule_sequence:
-    - add_tbus_clean
-    - all_low_tone
+    - $add_tbus_clean
+    - $all_low_tone
     test_mappings:
     - - vəlɛð
       - və̀lɛ̀ð
@@ -75,7 +75,7 @@ rules:
       - nàmàl
     - - r
       - r̀
-  first_high:
+  - _ref: first_high
     description: Assigns <H> to the first TBU
     input_pattern: '[TBU]'
     output_pattern: <H>
@@ -87,11 +87,11 @@ rules:
       - náma[TBU]l
     - - r[TBU]
       - ŕ
-  set_hl_melody:
+  - _ref: set_hl_melody
     rule_sequence:
-    - add_tbus_clean
-    - first_high
-    - all_low_tone
+    - $add_tbus_clean
+    - $first_high
+    - $all_low_tone
     test_mappings:
     - - vəlɛð
       - və́lɛ̀ð
@@ -99,13 +99,13 @@ rules:
       - námàl
     - - r
       - ŕ
-  all_high_tone:
+  - _ref: all_high_tone
     input_pattern: '[TBU]'
     output_pattern: <H>
-  set_all_high_tone:
+  - _ref: set_all_high_tone
     rule_sequence:
-    - add_tbus_clean
-    - all_high_tone
+    - $add_tbus_clean
+    - $all_high_tone
     test_mappings:
     - - vəlɛð
       - və́lɛ́ð

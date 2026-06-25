@@ -1,6 +1,6 @@
 kind: Rules
 rules:
-  coalesce_before_i:
+  - _ref: coalesce_before_i
     string_map:
     - - '{<V_Mid><V_Low>}{[TBU]<T>}?i'
       - ɛ
@@ -17,7 +17,7 @@ rules:
       - k-ɛ́
     - - pu-ì
       - pu-ì
-  delete_vowel_before_vowel:
+  - _ref: delete_vowel_before_vowel
     input_pattern: <Boundary>?<V>{[TBU]<T>}?
     output_pattern: <Empty>
     right_context: <Boundary>?<V>
@@ -28,10 +28,10 @@ rules:
       - =ǔ
     - - ɔ̀í
       - í
-  resolve_hiatus:
+  - _ref: resolve_hiatus
     rule_sequence:
-    - coalesce_before_i
-    - delete_vowel_before_vowel
+    - $coalesce_before_i
+    - $delete_vowel_before_vowel
     test_mappings:
     - - áɛ̀
       - ɛ̀

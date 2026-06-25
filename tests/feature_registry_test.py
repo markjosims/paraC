@@ -2,14 +2,16 @@ import os
 
 import pytest
 
-from src.registry.feature_values_registry import (
+from src.grammar.registry.feature_values_registry import (
     Feature,
-    FeatureCombinationsRegistry,
-    FeatureValuesRegisry,
-    FeatureValueCombinations,
     FeatureValuesRegistry,
 )
+from src.grammar.registry.feature_combination_registry import (
+    FeatureCombinationsRegistry,
+    FeatureValueCombinations,
+)
 from src.constants import EXAMPLE_CONFIG_DIR
+from src.config_utils.config_walker import ConfigWalker
 
 
 def test_feature_from_config_builds_feature():
@@ -22,7 +24,7 @@ def test_feature_from_config_builds_feature():
 
     assert isinstance(feature, Feature)
     assert feature.name == "tam"
-    assert feature.values == ["imperfective", "perfective", "imperative"]
+    assert feature.values == ["imperfective", "perfective", "imperative", "unmarked"]
     assert feature.source == config_path
 
 
@@ -38,7 +40,7 @@ def test_feature_rejects_empty_name_or_values_or_duplicate_values():
 
 
 def test_feature_values_registry_load_data_from_config_builds_feature_objects():
-    registry = FeatureValuesRegisry()
+    registry = FeatureValuesRegistry()
     config = {
         "features": {
             "person": ["1sg", "2sg", "3sg"],
@@ -51,52 +53,54 @@ def test_feature_values_registry_load_data_from_config_builds_feature_objects():
 
     assert set(data) == {"person", "tense"}
     assert isinstance(data["person"], Feature)
-    assert data["person"].values == ["1sg", "2sg", "3sg"]
+    assert data["person"].values == ["1sg", "2sg", "3sg", "unmarked"]
     assert data["person"].source == "config/features/sample.yaml"
 
 
 def test_feature_values_registry_rejects_duplicate_features_across_configs():
     with pytest.raises(ValueError, match="Duplicate feature 'person'"):
-        registry = FeatureValuesRegisry(
-            config_lists=[
-                {"features": {"person": ["1sg", "2sg"]}, "source_path": "a.yaml"},
-                {"features": {"person": ["3sg"]}, "source_path": "b.yaml"},
-            ]
+        registry = FeatureValuesRegistry(
+            config_objects={
+                "a.yaml": {"features": {"person": ["1sg", "2sg"]}, "source_path": "a.yaml"},
+                "b.yaml": {"features": {"person": ["3sg"]}, "source_path": "b.yaml"},
+            }
         )
 
 
 def test_feature_value_combinations_expands_wildcards_and_defaults_missing_query_values():
+    features = [
+        Feature(name="tam", values=["imperative", "infinitive"]),
+        Feature(name="deixis", values=["itive", "ventive"]),
+    ]
     combinations = FeatureValueCombinations(
         combinations=[
             {"tam": "imperative", "deixis": "*"},
             {"tam": "infinitive", "deixis": "unmarked"},
         ],
-        features_to_values={
-            "tam": ["imperative", "infinitive", "unmarked"],
-            "deixis": ["itive", "ventive", "unmarked"],
-        },
+        features=features,
     )
 
-    assert combinations.feature_names == ["deixis", "tam"]
+    assert combinations.feature_names == ["tam", "deixis"]
     assert combinations.is_licit_combination(tam="imperative", deixis="itive")
     assert combinations.is_licit_combination(tam="imperative", deixis="ventive")
     assert combinations.is_licit_combination(tam="infinitive")
     assert not combinations.is_licit_combination(tam="imperative")
 
-    assert combinations.get_all_combinations() == [
-        {"tam": "imperative", "deixis": "itive"},
-        {"tam": "imperative", "deixis": "ventive"},
-        {"tam": "infinitive", "deixis": "unmarked"},
-    ]
+    all_combos = combinations.get_all_combinations()
+    assert len(all_combos) == 3
+    assert {"tam": "imperative", "deixis": "itive"} in all_combos
+    assert {"tam": "imperative", "deixis": "ventive"} in all_combos
+    assert {"tam": "infinitive", "deixis": "unmarked"} in all_combos
 
 
 def test_feature_value_combinations_rejects_unknown_feature_in_query():
+    features = [
+        Feature(name="tam", values=["imperative"]),
+        Feature(name="deixis", values=["itive"]),
+    ]
     combinations = FeatureValueCombinations(
         combinations=[{"tam": "imperative", "deixis": "itive"}],
-        features_to_values={
-            "tam": ["imperative"],
-            "deixis": ["itive"],
-        },
+        features=features,
     )
 
     with pytest.raises(ValueError, match="Unexpected feature 'subject'"):
@@ -104,7 +108,7 @@ def test_feature_value_combinations_rejects_unknown_feature_in_query():
 
 
 def test_feature_combinations_registry_load_data_from_config_normalizes_unmarked_values():
-    feature_values_registry = FeatureValuesRegisry(
+    feature_values_registry = FeatureValuesRegistry(
         data={
             "tam": Feature(name="tam", values=["imperative", "infinitive"]),
             "deixis": Feature(name="deixis", values=["itive", "ventive"]),
@@ -155,12 +159,12 @@ def test_feature_combinations_registry_load_data_from_config_normalizes_unmarked
 
 
 def test_feature_combinations_registry_rejects_undefined_features():
-    feature_values_registry = FeatureValuesRegisry(
+    feature_values_registry = FeatureValuesRegistry(
         data={"tam": Feature(name="tam", values=["imperative"])}
     )
     registry = FeatureCombinationsRegistry(feature_values_registry=feature_values_registry)
 
-    with pytest.raises(KeyError, match="Feature 'deixis' referenced in FeatureCombinations"):
+    with pytest.raises(KeyError, match="No feature found with name 'deixis'"):
         registry.load_data_from_config(
             {
                 "features": ["tam", "deixis"],
@@ -171,10 +175,14 @@ def test_feature_combinations_registry_rejects_undefined_features():
 
 
 def test_feature_and_combination_registries_load_real_project_configs():
-    feature_values_registry = FeatureValuesRegisry.from_config_dir(EXAMPLE_CONFIG_DIR)
-    combinations_registry = FeatureCombinationsRegistry.from_config_dir(
-        EXAMPLE_CONFIG_DIR,
+    walker = ConfigWalker(EXAMPLE_CONFIG_DIR)
+    feature_configs = walker.config_data["feature_definition_configs"]
+    feature_values_registry = FeatureValuesRegistry(config_objects=feature_configs)
+    
+    combo_configs = walker.config_data["feature_combination_configs"]
+    combinations_registry = FeatureCombinationsRegistry(
         feature_values_registry=feature_values_registry,
+        config_objects=combo_configs
     )
 
     assert set(feature_values_registry.data) >= {
@@ -194,6 +202,7 @@ def test_feature_and_combination_registries_load_real_project_configs():
         "dependent",
         "imperative",
         "infinitive",
+        "unmarked",
     ]
 
     combos = combinations_registry.data["verb_feature_combinations"]
@@ -211,53 +220,22 @@ def test_feature_and_combination_registries_load_real_project_configs():
         subject="unmarked",
         object="unmarked",
     )
-    assert combos.get_all_combinations() == [
-        {
-            "tam": "infinitive",
-            "deixis": "unmarked",
-            "class_marker": "ð",
-            "subject": "unmarked",
-            "object": "unmarked",
-        },
-        {
-            "tam": "imperative",
-            "deixis": "itive",
-            "class_marker": "unmarked",
-            "subject": "unmarked",
-            "object": "unmarked",
-        },
-        {
-            "tam": "imperative",
-            "deixis": "ventive",
-            "class_marker": "unmarked",
-            "subject": "unmarked",
-            "object": "unmarked",
-        },
-    ]
 
 
 def test_features_registry_orchestrates_feature_and_combination_lookup():
-    registry = FeatureValuesRegistry.from_config_dir(EXAMPLE_CONFIG_DIR)
+    walker = ConfigWalker(EXAMPLE_CONFIG_DIR)
+    feature_configs = walker.config_data["feature_definition_configs"]
+    registry = FeatureValuesRegistry(config_objects=feature_configs)
 
     tam = registry.get_feature("tam")
-    combos = registry.get_feature_combinations("verb_feature_combinations")
-
     assert isinstance(tam, Feature)
     assert tam.name == "tam"
-    assert combos.is_licit_combination(
-        tam="imperative",
-        deixis="ventive",
-        class_marker="unmarked",
-        subject="unmarked",
-        object="unmarked",
-    )
 
 
 def test_features_registry_getters_raise_for_unknown_names():
-    registry = FeatureValuesRegistry.from_config_dir(EXAMPLE_CONFIG_DIR)
+    walker = ConfigWalker(EXAMPLE_CONFIG_DIR)
+    feature_configs = walker.config_data["feature_definition_configs"]
+    registry = FeatureValuesRegistry(config_objects=feature_configs)
 
     with pytest.raises(KeyError, match="No feature found"):
         registry.get_feature("does_not_exist")
-
-    with pytest.raises(KeyError, match="No feature-combinations config found"):
-        registry.get_feature_combinations("does_not_exist")

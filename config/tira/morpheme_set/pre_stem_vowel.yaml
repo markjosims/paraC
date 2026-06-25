@@ -1,0 +1,17 @@
+kind: MorphemeSet
+features:
+- deixis
+- tam
+data:
+- features:
+    deixis: ventive
+    tam: perfective
+  morpheme: à-
+- features:
+    deixis: itive
+    tam: imperfective
+  morpheme: á-
+- features:
+    deixis: ventive
+    tam: imperfective
+  morpheme: á-

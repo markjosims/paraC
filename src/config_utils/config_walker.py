@@ -80,12 +80,12 @@ class ConfigWalker:
 
     def read_config_files(self, kind: str) -> dict[str, str]:
         """
-        Load all `config` files for the specified kind within `config_dir`
+        Load all config files for the specified kind from its subdirectory
         into a dict mapping filename to data.
         """
         schema = load_schema(kind)
         config_objects = {}
-        for filename in self.glob_config_files():
+        for filename in self.glob_config_files(kind):
             with open(filename, "r") as f:
                 content = f.read()
                 content_norm = unicodedata.normalize("NFKD", content)
@@ -93,55 +93,63 @@ class ConfigWalker:
 
                 # store filepath for config
                 config_data["source_path"] = str(filename)
-                if config_data.get("kind") == kind:
-                    try:
-                        validate(instance=config_data, schema=schema)
-                        config_objects[str(filename)] = config_data
-                    except ValidationError as e:
-                        logger.exception(f"Invalid config file {filename}: {e}")
-                        raise ValidationError(f"Invalid config file {filename}: {e}")
+                if config_data.get("kind") != kind:
+                    logger.warning(
+                        f"File {filename} in '{to_snake(kind)}/' has kind "
+                        f"'{config_data.get('kind')}', expected '{kind}' — skipping."
+                    )
+                    continue
+                try:
+                    validate(instance=config_data, schema=schema)
+                    config_objects[str(filename)] = config_data
+                except ValidationError as e:
+                    logger.exception(f"Invalid config file {filename}: {e}")
+                    raise ValidationError(f"Invalid config file {filename}: {e}")
         return config_objects
 
-    def glob_config_files(self):
-        return self.config_dir.glob("**/*.yaml")
+    def glob_config_files(self, kind: str):
+        """Glob YAML files in the subdirectory for the given kind."""
+        subdir = to_snake(kind)
+        return (self.config_dir / subdir).glob("*.yaml")
 
-    def find_config_file(self, name: str) -> Path:
-        """Search all config subdirectories for <name>.yaml."""
-        for filename in self.glob_config_files(name):
+    def find_config_file(self, name: str, kind: str) -> Path:
+        """Search the kind's subdirectory for <name>.yaml."""
+        for filename in self.glob_config_files(kind):
             if Path(filename).stem == name:
                 return Path(filename)
         raise FileNotFoundError(
-            f"Config file '{name}.yaml' not found in any config subdirectory."
+            f"Config file '{name}.yaml' not found in '{to_snake(kind)}/' subdirectory."
         )
 
-    def resolve_ref(self, name: str) -> dict:
+    def resolve_ref(self, name: str, kind: str) -> dict:
         """
         Resolve a $name cross-file reference.
 
         Strips the leading '$', searches all config subdirectories for
         <name>.yaml, and returns the raw (un-resolved) YAML dict.
         """
-        if name.startswith("$"):
-            name = name[1:]
-        path = self.find_config_file(name)
+        name = name.removeprefix("$")
+        path = self.find_config_file(name, kind)
         with path.open(encoding="utf-8") as f:
             return yaml.safe_load(f)
 
-    def _resolve_values(self, obj) -> dict:
+    def _resolve_values(self, obj, kind: str | None = None) -> dict:
         """
         Recursively walk a deserialized YAML structure.
         Any string value starting with '$' is replaced by the fully-resolved
         content of the referenced config file.
         """
         if isinstance(obj, str):
-            if obj.startswith("$"):
-                ref_dict = self.resolve_ref(obj)
-                return self._resolve_values(ref_dict)
+            if obj.startswith("$") and kind:
+                ref_dict = self.resolve_ref(obj, kind)
+                return self._resolve_values(ref_dict, kind)
             return obj
         elif isinstance(obj, list):
-            return [self._resolve_values(item) for item in obj]
+            return [self._resolve_values(item, kind) for item in obj]
         elif isinstance(obj, dict):
-            return {key: self._resolve_values(value) for key, value in obj.items()}
+            return {
+                key: self._resolve_values(value, kind) for key, value in obj.items()
+            }
         else:
             return obj
 
@@ -157,7 +165,9 @@ class ConfigWalker:
         path = Path(path)
         with path.open(encoding="utf-8") as f:
             raw = yaml.safe_load(f)
-        return self._resolve_values(raw)
+
+        kind = raw.get("kind")
+        return self._resolve_values(raw, kind)
 
 
 def get_config_dir() -> str | None:

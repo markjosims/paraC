@@ -3,11 +3,13 @@ from src.fst_utils import TransducerList
 from src.grammar.classes import Registry
 from src.grammar.registry.feature_values_registry import Feature
 from src.grammar.orchestrator.feature_orchestrator import FeatureOrchestrator
+from src.validation import validate_file_reference_str
 from typing import Literal, Union
 from collections import UserList
 from loguru import logger
 from graphlib import TopologicalSorter
 import os
+from uuid import uuid4
 
 
 @dataclass
@@ -46,12 +48,10 @@ class Marker(TransducerList):
     order: str | None = None
     comment: str | None = None
     lexical_features: dict[str, str] = field(default_factory=dict)
+    uuid: str = field(default_factory=lambda: str(uuid4()), init=False)
 
     def __post_init__(self):
         super().__post_init__()
-
-        if not self.value:
-            raise ValueError("Marker must have value")
 
         if self.type == "replace":
             if type(self.value) is not tuple:
@@ -80,13 +80,24 @@ class Marker(TransducerList):
         ):
             raise ValueError(f"Unrecognized marker type {self.type}")
 
+    def to_dict(self) -> dict:
+        """Serialize a Marker to a dict."""
+        d = {"type": self.type, "value": self.value}
+        if self.order:
+            d["order"] = self.order
+        if self.comment:
+            d["comment"] = self.comment
+        if self.lexical_features:
+            d["lexical_features"] = self.lexical_features
+        return d
+
     @classmethod
     def from_config(
         cls,
         config: dict | None = None,
         global_order: str | None = None,
         feature_value: str | None = None,
-    ) -> Union['Marker', None]:
+    ) -> Union["Marker", None]:
         """
         Build a Marker from a YAML marker dict. Returns None for null (zero-marking).
         """
@@ -250,6 +261,15 @@ class MarkerList(UserList):
         for marker in self:
             if marker.order is None and global_order is not None:
                 marker.order = global_order
+
+    def to_dict(self) -> list[dict] | dict | None:
+        """Serialize a MarkerList to a dict, list of dicts, or None."""
+        if not self:
+            return None
+        dicts = [m.to_dict() for m in self]
+        if len(dicts) == 1:
+            return dicts[0]
+        return dicts
 
     def __str__(self):
         return str(self.data)
@@ -432,6 +452,27 @@ class FeatureMarkers:
                     order_values.add(marker.order)
         return list(order_values)
 
+    def to_dict(self) -> dict:
+        doc = {
+            "kind": "FeatureMarkers",
+            "feature": self.feature.name,
+        }
+        if self.inherits:
+            doc["inherits"] = validate_file_reference_str(self.inherits)
+        if self.global_order:
+            doc["global_order"] = self.global_order
+
+        global_markers = self.global_markers.to_dict()
+        if global_markers:
+            doc["global_markers"] = global_markers
+
+        markers_dict = {}
+        for val, m_list in self.data.items():
+            markers_dict[val] = m_list.to_dict()
+        doc["markers"] = markers_dict
+
+        return doc
+
     def __str__(self):
         return (
             f"FeatureMarkers(feature='{self.feature}', values={list(self.data.keys())})"
@@ -481,6 +522,12 @@ class FeatureMarkersRegistry(Registry):
                     raise ValueError(error)
             config_items.update(config_data)
         return config_items
+
+    def to_dict(self) -> dict:
+        return {
+            "kind": self.kind,
+            "markers": [m.to_dict() for m in self.data.values()],
+        }
 
     def load_data_from_config(self, config: dict) -> dict[str, FeatureMarkers]:
         source_path = config.get("source_path", "")

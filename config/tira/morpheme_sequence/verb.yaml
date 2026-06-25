@@ -1,0 +1,12 @@
+kind: MorphemeSequence
+data:
+- type: MorphemeSet
+  value: $class_prefixes
+- type: MorphemeSet
+  value: $pre_stem_vowel
+- type: Paradigm
+  value: $verb_stem
+- type: MorphemeSet
+  value: $fv_class
+- type: Rule
+  value: $resolve_hiatus

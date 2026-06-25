@@ -1,8 +1,0 @@
-kind: PartOfSpeech
-name: verb
-features:
-- class_marker
-- deixis
-- object
-- subject
-- tam

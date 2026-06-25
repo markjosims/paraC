@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from loguru import logger
 import os
 from graphlib import TopologicalSorter
+from uuid import uuid4
 
 @dataclass
 class Pattern(Acceptor):
@@ -33,6 +34,7 @@ class Pattern(Acceptor):
     source: os.PathLike | None = None
     test_includes: list[str] = field(default_factory=list)
     test_excludes: list[str] = field(default_factory=list)
+    uuid: str = field(default_factory=lambda: str(uuid4()), init=False)
 
     def __post_init__(self):
         super().__post_init__()
@@ -75,8 +77,18 @@ class Pattern(Acceptor):
             value=item_dict["pattern"],
             _ref=item_dict["_ref"],
             source=item_dict.get("source", None),
+            test_includes=item_dict.get("test_includes", []),
+            test_excludes=item_dict.get("test_excludes", []),
         )
         return pattern
+
+    def to_dict(self) -> dict:
+        d: dict = {"_ref": self._ref, "name": self.name, "pattern": self.value}
+        if self.test_includes:
+            d["test_includes"] = self.test_includes
+        if self.test_excludes:
+            d["test_excludes"] = self.test_excludes
+        return d
 
     def __str__(self):
         return f"Pattern(_ref={self._ref}, value={self.value})"

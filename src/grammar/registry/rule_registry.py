@@ -8,12 +8,14 @@ objects.
 """
 
 from src.grammar.classes import Registry
-from src.fst_utils import Acceptor, ReservedSymbolMixin, TransducerList
-from typing import Literal
+from src.fst_utils import Acceptor, AcceptorLike, ReservedSymbolMixin, TransducerList
+from typing import Literal, Protocol, runtime_checkable
 from dataclasses import dataclass, field
 import os
 from loguru import logger
 from graphlib import TopologicalSorter
+from uuid import uuid4
+
 
 @dataclass
 class Rule(TransducerList):
@@ -43,7 +45,7 @@ class Rule(TransducerList):
     string_map: list[tuple[Acceptor, Acceptor]] = field(default_factory=list)
 
     # attributes for chain of rules
-    rule_sequence: list['Rule'] = field(default_factory=list)
+    rule_sequence: list["Rule"] = field(default_factory=list)
 
     # attributes for simple and string map rules with contexts
     left_context: Acceptor = field(default_factory=Acceptor)
@@ -53,12 +55,14 @@ class Rule(TransducerList):
     direction: Literal["ltr", "rtl", "sim"] = "ltr"
 
     # references to other objects
-    used_by: list['Rule'] = field(default_factory=list)
+    used_by: list["Rule"] = field(default_factory=list)
 
     # metadata
     source: os.PathLike | None = None
     description: str | None = None
     test_mappings: list[tuple[str, str]] = field(default_factory=list)
+
+    uuid: str = field(default_factory=lambda: str(uuid4()), init=False)
 
     def __post_init__(self):
         super().__post_init__()
@@ -114,7 +118,7 @@ class Rule(TransducerList):
                 raise ValueError("String map rules cannot have a rule sequence")
 
     def set_dependencies(
-        self, used_by: list['Rule'], rule_sequence: list['Rule'] | None = None
+        self, used_by: list["Rule"], rule_sequence: list["Rule"] | None = None
     ):
         self.used_by = used_by
         if rule_sequence is not None and self.type != "rule_sequence":
@@ -133,51 +137,107 @@ class Rule(TransducerList):
     @classmethod
     def from_config(
         cls,
-        rule_name: str,
         config: dict,
-    ) -> 'Rule':
+    ) -> "Rule":
         """
-        Builds an Rule from a config dict, inferring the type
-        from the attributes contained
+        Builds a Rule from a config dict, inferring the type
+        from the attributes contained. This method is non-destructive
+        and safely handles both raw string and already-initialized
+        Acceptor inputs.
         """
-        config["_ref"] = rule_name
-
         # infer rule type from attrs
-        # and set pattern strings to Acceptors
         if ("input_pattern" in config) and ("output_pattern" in config):
             rule_type = "simple_rule"
-            config["input_pattern"] = Acceptor(config["input_pattern"])
-            config["output_pattern"] = Acceptor(config["output_pattern"])
         elif "string_map" in config:
             rule_type = "string_map"
-            string_map = []
-            for input_str, output_str in config["string_map"]:
-                string_map.append((Acceptor(input_str), Acceptor(output_str)))
-            config["string_map"] = string_map
         elif "rule_sequence" in config:
             rule_type = "rule_sequence"
-            # no transformation done here: handled by RuleRegistry instead
         else:
             raise ValueError(f"Unrecognized rule type for rule {config}, check format")
 
-        config["type"] = rule_type
+        # Build construction kwargs explicitly to avoid mutating input dict
+        kwargs = {
+            "type": rule_type,
+            "_ref": config.get("_ref", ""),
+            "description": config.get("description"),
+            "source": config.get("source_path"),
+            "direction": config.get("direction", "ltr"),
+        }
 
-        # set secondary attrs to Acceptor (if applicable)
-        for attr_name in ("left_context", "right_context"):
-            if attr_name in config:
-                config[attr_name] = Acceptor(config[attr_name])
+        if rule_type == "simple_rule":
+            kwargs["input_pattern"] = cls._to_acceptor(config["input_pattern"])
+            kwargs["output_pattern"] = cls._to_acceptor(config["output_pattern"])
+        elif rule_type == "string_map":
+            kwargs["string_map"] = [
+                (cls._to_acceptor(inp), cls._to_acceptor(out))
+                for inp, out in config["string_map"]
+            ]
+        elif rule_type == "rule_sequence":
+            # Registry handles resolving these refs to Rule objects later
+            kwargs["rule_sequence"] = config.get("rule_sequence", [])
 
-        # cast test input, output string arrays to tuples
+        # Set secondary attrs
+        kwargs["left_context"] = cls._to_acceptor(config.get("left_context", ""))
+        kwargs["right_context"] = cls._to_acceptor(config.get("right_context", ""))
+
+        # Cast test mappings to tuples
         if "test_mappings" in config:
-            config["test_mappings"] = [
+            kwargs["test_mappings"] = [
                 tuple(mapping) for mapping in config["test_mappings"]
             ]
 
-        rule = cls(**config)
-        return rule
+        return cls(**kwargs)
+
+    @staticmethod
+    def _to_acceptor(val: str | AcceptorLike) -> AcceptorLike:
+        """Helper to safely wrap string in Acceptor or return existing Acceptor."""
+        if isinstance(val, AcceptorLike):
+            return val
+        return Acceptor(val)
 
     def __str__(self):
         return f"Rule(_ref={self._ref}, type={self.type})"
+
+    def to_dict(self) -> dict:
+        """Serialize a Rule to a YAML-serializable dict (config format)."""
+        d: dict = {"_ref": self._ref}
+
+        if self.description:
+            d["description"] = self.description
+
+        if self.type == "simple_rule":
+            d["input_pattern"] = self.input_pattern.value or ""
+            d["output_pattern"] = self.output_pattern.value or ""
+            if self.left_context.value:
+                d["left_context"] = self.left_context.value
+            if self.right_context.value:
+                d["right_context"] = self.right_context.value
+            if self.direction != "ltr":
+                d["direction"] = self.direction
+
+        elif self.type == "string_map":
+            d["string_map"] = [
+                [inp.value or "", out.value or ""] for inp, out in self.string_map
+            ]
+            if self.left_context.value:
+                d["left_context"] = self.left_context.value
+            if self.right_context.value:
+                d["right_context"] = self.right_context.value
+            if self.direction != "ltr":
+                d["direction"] = self.direction
+
+        elif self.type == "rule_sequence":
+            # self.rule_sequence can be list[Rule] (resolved) or list[str] (unresolved)
+            d["rule_sequence"] = [
+                validate_file_reference_str(r._ref if hasattr(r, "_ref") else r)
+                for r in self.rule_sequence
+            ]
+
+        if self.test_mappings:
+            d["test_mappings"] = [list(pair) for pair in self.test_mappings]
+
+        return d
+
 
 class AnonymousRule(Rule):
     """
@@ -198,11 +258,50 @@ class AnonymousRule(Rule):
         self._ref = f"anonymous_rule_{id(self)}"
         super().__post_init__()
 
+
+@runtime_checkable
+class RuleLike(Protocol):
+    """
+    Structural protocol for Rule class.
+    """
+
+    type: str
+    _ref: str
+
+    # attributes for simple rules
+    input_pattern: object
+    output_pattern: object
+
+    # attributes for string map rules
+    string_map: tuple
+
+    # attributes for chain of rules
+    rule_sequence: list
+
+    # attributes for simple and string map rules with contexts
+    left_context: object
+    right_context: object
+
+    # attributes for all rules
+    direction: Literal["ltr", "rtl", "sim"]
+
+    # references to other objects
+    used_by: list
+
+    # metadata
+    source: os.PathLike | None
+    description: str | None
+    test_mappings: list[tuple[str, str]]
+
+    uuid: str
+
+
 class RuleRegistry(Registry, ReservedSymbolMixin):
     """
     Initialized either with a `data` dict mapping rule names to `Rule` objects
     or a `config_objects` dict mapping filenames for YAML objects.
     """
+
     def __init__(
         self,
         data: dict[str, Rule] | None = None,
@@ -224,6 +323,12 @@ class RuleRegistry(Registry, ReservedSymbolMixin):
             config_items.update(config_data)
         return config_items
 
+    def to_dict(self) -> dict:
+        return {
+            "kind": self.kind,
+            "rules": [rule.to_dict() for rule in self.data.values()],
+        }
+
     def load_data_from_config(
         self,
         config: dict,
@@ -233,10 +338,7 @@ class RuleRegistry(Registry, ReservedSymbolMixin):
             logger.error("No rules found in config")
             return
 
-        rule_list = [
-            Rule.from_config(rule_name, rule_data)
-            for rule_name, rule_data in rules.items()
-        ]
+        rule_list = [Rule.from_config(rule_data) for rule_data in rules]
 
         # make dict mapping ref to item
         config_items = {item._ref: item for item in rule_list}
@@ -262,16 +364,15 @@ class RuleRegistry(Registry, ReservedSymbolMixin):
                     used_by.append(other_rule)
 
             if rule.type == "rule_sequence":
-                sub_rules = []
-                sub_rule_refs = [ref.removeprefix("$") for ref in rule.rule_sequence]
-                for sub_rule in sub_rule_refs:
-                    if sub_rule in self.data:
-                        sub_rules.append(self.data[sub_rule])
-                    else:
-                        raise KeyError(
-                            f"Rule '{sub_rule}' referenced in rule sequence for "
-                            f"'{rule._ref}' not found in registry."
-                        )
+                # rule_sequence items may be Rule objects or strings indicating rule refs
+                if not rule.rule_sequence:
+                    continue
+                elif isinstance(rule.rule_sequence[0], RuleLike):
+                    sub_rules = rule.rule_sequence
+                    sub_rule_refs = [sub_rule._ref for sub_rule in sub_rules]
+                else:
+                    sub_rules = [self.get_rule(ref) for ref in rule.rule_sequence]
+                    sub_rule_refs = rule.rule_sequence
                 rule.set_dependencies(
                     used_by=used_by,
                     rule_sequence=sub_rules,
@@ -282,6 +383,11 @@ class RuleRegistry(Registry, ReservedSymbolMixin):
 
         self.dependency_graph = dependency_graph
         rule_refs_sorted = list(TopologicalSorter(dependency_graph).static_order())
-        rules_sorted = [self.data[ref] for ref in rule_refs_sorted]
+        rules_sorted = [self.get_rule(ref) for ref in rule_refs_sorted]
         self.rules_sorted = rules_sorted
 
+    def get_rule(self, ref: str) -> Rule:
+        ref = ref.removeprefix("$")
+        if ref not in self.data:
+            raise KeyError(f"Rule '{ref}' not found in registry.")
+        return self.data[ref]
