@@ -1,8 +1,0 @@
-kind: FeatureMarkers
-feature: case
-markers:
-  nominative: null
-  accusative:
-  - type: rule
-    value: $set_acc_suffix
-    order: acc_suffix

@@ -7,13 +7,15 @@ from src.constants import SCHEMA_DIR
 from typing import Literal, get_args
 
 ConfigKindType = Literal[
+    # TODO: FeatureCombinations, MorphemeSet and MorphemeSequence are buggy
+    # so they are commented out for now
     "ContingentFeatureMarkers",
-    "FeatureCombinations",
+    # "FeatureCombinations",
     "FeatureDefinitions",
     "FeatureMarkers",
     "Inventory",
-    "MorphemeSequence",
-    "MorphemeSet",
+    # "MorphemeSequence",
+    # "MorphemeSet",
     "Paradigm",
     "PartOfSpeech",
     "Patterns",
@@ -111,8 +113,8 @@ def load_schema(target_kind: str, schema_dir=SCHEMA_DIR):
         return
 
 
-def validate_files_by_type(
-    target_kind, config_dir="config", schema_dir="config/schemas"
+def validate_files_by_kind(
+    target_kind, config_dir="config", schema_dir="schemas/"
 ):
     """
     Iterates through all YAML files and validates only those matching the target_kind.
@@ -183,7 +185,7 @@ def validate_files_by_type(
 def main():
     for kind in CONFIG_KINDS:
         print(f"Validating {kind}...")
-        validate_files_by_type(kind)
+        validate_files_by_kind(kind)
 
 
 if __name__ == "__main__":

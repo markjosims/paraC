@@ -1,0 +1,23 @@
+# This is a MorphemeSequence config file
+# Define the order in which lexical roots and morphological elements sequence in a word.
+kind: MorphemeSequence
+name: verb
+
+# Optional: features that are fixed to specific values for this sequence
+# fixed_features:
+#   aspect: perfective
+
+data:
+  # List the sequence of Lexicons, Paradigms, Patterns, Rules, or MorphemeSets.
+  # Values for Lexicon, Paradigm, Rule, and MorphemeSet must be file references (start with $).
+  # Values for Pattern can be inline or reference.
+  #
+  # Example:
+  # - kind: Lexicon
+  #   value: $verb_lexicon
+  # - kind: Paradigm
+  #   value: $verb_agreement_paradigm
+  - kind: Lexicon
+    value: $verb
+  - kind: MorphemeSet
+    value: $present_tense_suffixes

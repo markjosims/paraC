@@ -1,0 +1,53 @@
+# This is a FeatureMarkers config file
+# Define morphological formatives for a single linguistic feature.
+kind: FeatureMarkers
+# Name of the feature, e.g., person , tense, gender
+feature: feature name
+
+markers:
+
+# type mk-item to add a new feature marker!
+feature value:
+- kind: prefix/suffix/replace/suppletion/rule/principal_part
+  value: marker value
+  order: (OPTIONAL) marker order 
+  # type mk-add to add a new marker for the current feature value!
+
+
+### HELP FOR MARKERS ###
+# Here we define morphological formatives for each feature value.
+# Map each feature value to a marker, list of markers, or null (zero-marking)
+# Possible marker kinds: prefix, suffix, infix, replace, suppletion, rule, principal_part
+#
+# Examples:
+# 1sg:
+# - kind: suffix
+#   value: -ep
+#   order: outer suffix
+# 2sg:
+# - kind: suffix
+#   value: -e
+#   order: outer suffix
+# 3sg: null # Zero-marked
+# 1pl:
+# - kind: prefix
+#   value: ma-
+#   order: outer prefix
+# - kind: suffix
+#   value: -ep
+#   order: outer suffix
+# 2pl:
+# - kind: replace
+#   value: [e, i]  # Replaces 'e' with 'i' (regardless of context)
+# 3pl:
+# - kind: rule
+#   value: $palatalization # Rule reference (must start with $)
+
+
+# Optional: default order stage for markers in this file
+# global_order: suffixation
+
+# Optional: markers/rules applied to all forms in this paradigm
+# global_markers:
+#   - kind: prefix
+#     value: ge-

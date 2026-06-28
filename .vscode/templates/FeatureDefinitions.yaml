@@ -1,0 +1,22 @@
+# This is a FeatureDefinitions config file
+# Define morphological feature categories and enumerate their possible values here.
+# We don't define how features are exponed or what parts of speech they belong to
+# here, we simply list the features and their values.
+kind: FeatureDefinitions
+features:
+  # type fd-feature to add your first feature!
+
+## HELP FOR FEATUREDEFINITIONS ##
+# Here we define inflectional and (possibly) derivational or lexical features
+# for a given language.
+
+# e.g.
+# kind: FeatureDefinitions
+# features:
+#     person_numer: [1sg, 2sg, 3sg, 1pl, 2pl, 3pl]
+#     tense: [present, past, future]
+#     mood: [indicative, imperative, subjunctive]
+
+# each feature name and value should be given as a single word with no spaces
+# underscores are allowed, e.g. person_number
+# but other punctuation should be avoided (including hyphens) 

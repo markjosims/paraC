@@ -8,15 +8,15 @@ internal_links: not started
 Grammar Modules
 ===============
 
-Grammar modules are how Modopar defines the logic for constructing a morphological parser.
-Modules are grouped into the following types: **phonology**, **exponence**, **lexicon**, and **morphotactics**.
+Grammar modules are how parC defines the logic for constructing a morphological parser.
+Modules are grouped into the following kinds: **phonology**, **exponence**, **lexicon**, and **morphotactics**.
 
 
 Phonology
 ---------
 
-Phonology modules in Modopar correspond roughly to the proper meaning of phonology in linguistics.
-Modopar uses a generative rule-based framework for phonology.
+Phonology modules in parC correspond roughly to the proper meaning of phonology in linguistics.
+parC uses a generative rule-based framework for phonology.
 Namely, underlying representations are transformed into surface forms by the application of an ordered series of rules.
 The purpose of the phonology modules is to define what units underlying and surface strings may consist of, and how underlying representations are transformed into surface forms.
 There are three phonology modules: :doc:`inventory`, :doc:`rules` and :doc:`patterns`.
@@ -29,10 +29,10 @@ Here **phone** corresponds closest to the *surface alphabet* in Koskenniemi (!CI
 It may be a phone proper (i.e. an IPA character indicating a phoneme or the surface realization of a phoneme) or a grapheme, depending on the user's preference and the indended usage of the parser.
 Phones appear in both underlying and surface strings.
 A **symbol** corresponds closest to an archiphoneme or morphophoneme, also following Koskenniemi (!CITE), or to a lexical diacritic in generative phonology (!CITE).
-Symbols are restricted to underlying strings in Modopar, and are used to control the application of rules or morphological operations.
+Symbols are restricted to underlying strings in parC, and are used to control the application of rules or morphological operations.
 For example, the ``[TBU]`` symbol is used for Tira to indicate a tone-bearing unit whose tone has not yet been assigned.
 
-Phones and symbols are grouped under **classes** in Modopar, where each class is indicated with a shorthand in angle brackets.
+Phones and symbols are grouped under **classes** in parC, where each class is indicated with a shorthand in angle brackets.
 For example, we may use ``<C>`` as the shorthand referring to all consonants.
 Classes may be also be nested (!TODO: screenshot of inventory page).
 For example, ``<C>`` may have a subclass ``<R>`` containing all resonant consonants.
@@ -65,7 +65,7 @@ Here we use the term "string" though to be technically precise the input, output
 SPE provides a single-line notation for representing a context-sensitive rule, e.g. (t,d) > ɾ / V_V[-stress], parsed as "the phonemes /t,d/ are transformed into an alveolar tap [ɾ] between two vowels where the following vowel is unstressed."
 Here (t,d) is the input string, ɾ the output string, V is the left context and V[-stress] the right (!TODO verify notation vis-a-vis SPE paper).
 
-Three types of rules are supported in Modopar: simple rule, string map and rule sequence.
+Three kinds of rules are supported in parC: simple rule, string map and rule sequence.
 A simple rule maps a single input to a single output given some left and right context.
 The input, output and context strings are defined equivalently to patterns, that is a pattern symbol like ``<V_NonHigh>`` may be used in a rule definition as may operators like disjunction, negation or optionality.
 For example, the input string for the intervocalic tapping rule in English could be defined as ``t|d`` or ``{td}``.
@@ -78,7 +78,7 @@ Rule sequences do not have a left or right context to control application, but i
 Exponence
 ---------
 
-Exponence modules in Modopar define the inventory of morphological features for a language as well as the morphemes and operations that expone those features.
+Exponence modules in parC define the inventory of morphological features for a language as well as the morphemes and operations that expone those features.
 Note that, unlike the :doc:`morphotactics` modules, exponence modules do not specify anything about the which features, morphemes or operations are relevant for a given root or part of speech.
 Rather, exponence only defines the set of features, morphemes and operations that are "available" for the language, and the association to particular lexical items is handled in the :doc:`morphotactics` modules.
 

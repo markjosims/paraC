@@ -34,8 +34,8 @@ class Rule(TransducerList):
     TODO: handle PDT-based rules conditioned on flags
     """
 
-    type: Literal["simple_rule", "string_map", "rule_sequence"] = "simple_rule"
-    _ref: str = ""
+    kind: Literal["simple_rule", "string_map", "rule_sequence"] = "simple_rule"
+    name: str = ""
 
     # attributes for simple rules
     input_pattern: Acceptor = field(default_factory=Acceptor)
@@ -67,17 +67,17 @@ class Rule(TransducerList):
     def __post_init__(self):
         super().__post_init__()
 
-        # duplicate `self._ref` to value so parent functions can access
+        # duplicate `self.name` to value so parent functions can access
         # name when logging errors
-        self.value = self._ref
+        self.value = self.name
 
         self.dependencies_built = False
 
-        if not self._ref:
-            raise ValueError("_ref key must have a non-empty string.")
+        if not self.name:
+            raise ValueError("name key must have a non-empty string.")
 
-        if self._ref in ReservedSymbolMixin.reserved_symbols:
-            error = f"Rule ref '{self._ref}' cannot be a reserved symbol."
+        if self.name in ReservedSymbolMixin.reserved_symbols:
+            error = f"Rule name '{self.name}' cannot be a reserved symbol."
             logger.error(error)
             raise ValueError(error)
 
@@ -86,7 +86,7 @@ class Rule(TransducerList):
                 "used_by should not be passed on init but constructed by a RuleRegistry object."
             )
 
-        if self.type == "simple_rule":
+        if self.kind == "simple_rule":
             if (not self.input_pattern) or (not self.output_pattern):
                 raise ValueError("Simple rules must have input and output patterns")
             if self.string_map:
@@ -94,11 +94,11 @@ class Rule(TransducerList):
             if self.rule_sequence:
                 raise ValueError("Simple rules cannot have a rule sequence")
 
-        if self.type == "rule_sequence":
+        if self.kind == "rule_sequence":
             if self.rule_sequence is None:
                 raise ValueError("Rule sequence must have a rule sequence")
             elif not self.rule_sequence:
-                logger.warning(f"Found empty rule sequence: {self._ref}")
+                logger.warning(f"Found empty rule sequence: {self.name}")
 
             if self.input_pattern.value or self.output_pattern.value:
                 raise ValueError("Rule sequence cannot have input or output patterns")
@@ -107,7 +107,7 @@ class Rule(TransducerList):
             if self.left_context.value or self.right_context.value:
                 raise ValueError("Rule sequence cannot have left or right context")
 
-        if self.type == "string_map":
+        if self.kind == "string_map":
             if not self.string_map:
                 raise ValueError("String map rules must have a string map")
             if self.input_pattern.value or self.output_pattern.value:
@@ -121,15 +121,15 @@ class Rule(TransducerList):
         self, used_by: list["Rule"], rule_sequence: list["Rule"] | None = None
     ):
         self.used_by = used_by
-        if rule_sequence is not None and self.type != "rule_sequence":
+        if rule_sequence is not None and self.kind != "rule_sequence":
             raise ValueError(
-                f"if `rule_sequence` is passed expect type='rule_sequence' but got type={self.type}"
+                f"if `rule_sequence` is passed expect kind='rule_sequence' but got kind={self.kind}"
             )
         self.rule_sequence = rule_sequence
         self.dependencies_built = True
 
     def __str__(self):
-        return f"Rule(_ref='{self._ref}', type='{self.type}')"
+        return f"Rule(name='{self.name}', kind='{self.kind}')"
 
     def __repr__(self):
         return self.__str__()
@@ -147,32 +147,32 @@ class Rule(TransducerList):
         """
         # infer rule type from attrs
         if ("input_pattern" in config) and ("output_pattern" in config):
-            rule_type = "simple_rule"
+            rule_kind = "simple_rule"
         elif "string_map" in config:
-            rule_type = "string_map"
+            rule_kind = "string_map"
         elif "rule_sequence" in config:
-            rule_type = "rule_sequence"
+            rule_kind = "rule_sequence"
         else:
             raise ValueError(f"Unrecognized rule type for rule {config}, check format")
 
         # Build construction kwargs explicitly to avoid mutating input dict
         kwargs = {
-            "type": rule_type,
-            "_ref": config.get("_ref", ""),
+            "kind": rule_kind,
+            "name": config.get("name", ""),
             "description": config.get("description"),
             "source": config.get("source_path"),
             "direction": config.get("direction", "ltr"),
         }
 
-        if rule_type == "simple_rule":
+        if rule_kind == "simple_rule":
             kwargs["input_pattern"] = cls._to_acceptor(config["input_pattern"])
             kwargs["output_pattern"] = cls._to_acceptor(config["output_pattern"])
-        elif rule_type == "string_map":
+        elif rule_kind == "string_map":
             kwargs["string_map"] = [
                 (cls._to_acceptor(inp), cls._to_acceptor(out))
                 for inp, out in config["string_map"]
             ]
-        elif rule_type == "rule_sequence":
+        elif rule_kind == "rule_sequence":
             # Registry handles resolving these refs to Rule objects later
             kwargs["rule_sequence"] = config.get("rule_sequence", [])
 
@@ -196,16 +196,16 @@ class Rule(TransducerList):
         return Acceptor(val)
 
     def __str__(self):
-        return f"Rule(_ref={self._ref}, type={self.type})"
+        return f"Rule(name={self.name}, kind={self.kind})"
 
     def to_dict(self) -> dict:
         """Serialize a Rule to a YAML-serializable dict (config format)."""
-        d: dict = {"_ref": self._ref}
+        d: dict = {"name": self.name}
 
         if self.description:
             d["description"] = self.description
 
-        if self.type == "simple_rule":
+        if self.kind == "simple_rule":
             d["input_pattern"] = self.input_pattern.value or ""
             d["output_pattern"] = self.output_pattern.value or ""
             if self.left_context.value:
@@ -215,7 +215,7 @@ class Rule(TransducerList):
             if self.direction != "ltr":
                 d["direction"] = self.direction
 
-        elif self.type == "string_map":
+        elif self.kind == "string_map":
             d["string_map"] = [
                 [inp.value or "", out.value or ""] for inp, out in self.string_map
             ]
@@ -226,10 +226,10 @@ class Rule(TransducerList):
             if self.direction != "ltr":
                 d["direction"] = self.direction
 
-        elif self.type == "rule_sequence":
+        elif self.kind == "rule_sequence":
             # self.rule_sequence can be list[Rule] (resolved) or list[str] (unresolved)
             d["rule_sequence"] = [
-                validate_file_reference_str(r._ref if hasattr(r, "_ref") else r)
+                validate_file_reference_str(r.name if hasattr(r, "name") else r)
                 for r in self.rule_sequence
             ]
 
@@ -242,20 +242,20 @@ class Rule(TransducerList):
 class AnonymousRule(Rule):
     """
     A subclass of Rule to represent rules that are generated internally by the FstRegistry
-    and not specified directly by the user in a config file. These rules do not have a _ref
+    and not specified directly by the user in a config file. These rules do not have a name
     string since they are not referenced directly by the user, but instead are used as helper
     rules for implementing replace or suppletion markers.
     """
 
     def __post_init__(self):
-        if self._ref:
+        if self.name:
             raise ValueError(
-                "AnonymousRule should not have a _ref string since it is not directly referenced by the user."
+                "AnonymousRule should not have a name string since it is not directly referenced by the user."
             )
 
-        # set generic ref string to avoid ValueError
+        # set generic name string to avoid ValueError
         # on Rule __post_init__
-        self._ref = f"anonymous_rule_{id(self)}"
+        self.name = f"anonymous_rule_{id(self)}"
         super().__post_init__()
 
 
@@ -265,8 +265,8 @@ class RuleLike(Protocol):
     Structural protocol for Rule class.
     """
 
-    type: str
-    _ref: str
+    kind: str
+    name: str
 
     # attributes for simple rules
     input_pattern: object
@@ -340,8 +340,8 @@ class RuleRegistry(Registry, ReservedSymbolMixin):
 
         rule_list = [Rule.from_config(rule_data) for rule_data in rules]
 
-        # make dict mapping ref to item
-        config_items = {item._ref: item for item in rule_list}
+        # make dict mapping name to item
+        config_items = {item.name: item for item in rule_list}
         return config_items
 
     def build_dependency_graph(self):
@@ -354,40 +354,40 @@ class RuleRegistry(Registry, ReservedSymbolMixin):
         dependency_graph = {}
 
         for rule in self.data.values():
-            dependency_graph[rule._ref] = set()
+            dependency_graph[rule.name] = set()
             # get list of rules using this rule in their rule_sequence
             used_by = []
             for other_rule in self.data.values():
                 if (other_rule.rule_sequence) and (
-                    rule._ref in other_rule.rule_sequence
+                    rule.name in other_rule.rule_sequence
                 ):
                     used_by.append(other_rule)
 
-            if rule.type == "rule_sequence":
+            if rule.kind == "rule_sequence":
                 # rule_sequence items may be Rule objects or strings indicating rule refs
                 if not rule.rule_sequence:
                     continue
                 elif isinstance(rule.rule_sequence[0], RuleLike):
                     sub_rules = rule.rule_sequence
-                    sub_rule_refs = [sub_rule._ref for sub_rule in sub_rules]
+                    sub_rule_refs = [sub_rule.name for sub_rule in sub_rules]
                 else:
-                    sub_rules = [self.get_rule(ref) for ref in rule.rule_sequence]
+                    sub_rules = [self.get_rule(name) for name in rule.rule_sequence]
                     sub_rule_refs = rule.rule_sequence
                 rule.set_dependencies(
                     used_by=used_by,
                     rule_sequence=sub_rules,
                 )
-                dependency_graph[rule._ref] = set(sub_rule_refs)
+                dependency_graph[rule.name] = set(sub_rule_refs)
             else:
                 rule.set_dependencies(used_by=used_by)
 
         self.dependency_graph = dependency_graph
         rule_refs_sorted = list(TopologicalSorter(dependency_graph).static_order())
-        rules_sorted = [self.get_rule(ref) for ref in rule_refs_sorted]
+        rules_sorted = [self.get_rule(name) for name in rule_refs_sorted]
         self.rules_sorted = rules_sorted
 
-    def get_rule(self, ref: str) -> Rule:
-        ref = ref.removeprefix("$")
-        if ref not in self.data:
-            raise KeyError(f"Rule '{ref}' not found in registry.")
-        return self.data[ref]
+    def get_rule(self, name: str) -> Rule:
+        name = name.removeprefix("$")
+        if name not in self.data:
+            raise KeyError(f"Rule '{name}' not found in registry.")
+        return self.data[name]

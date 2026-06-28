@@ -54,14 +54,14 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         add flags for all feature values to `InventoryRegistry.flags` before
         compiling any FSMs.
     3. `self._build_symbol_table()`: Build a `pynini.symbol_table` object with
-        every phone and flag in the inventory, also including all reserved symbols.
+        every phone and tag in the inventory, also including all reserved symbols.
     4. `self._build_boundary_acceptors()`: Build FSAs for boundary symbols
         (viz. `-` for affix boundaries, `=` for clitic boundaries and `_` for periphrasis)
         as well as the BOW/EOW tokens
     5. `self._build_inventory_acceptors()`: Build FSAs for all inventory items, including
         classes, such that classes map to a union over all child nodes.
     6. `self._build_special_acceptors()`: Build the FSAs self.phone (accepting any phone),
-        self.flag (accepting any flag) and self.sigma (accepting any symbol), as well as
+        self.tag (accepting any tag) and self.sigma (accepting any symbol), as well as
         closures for each of these (accepting 0-inf repetitions)
     7. `self._build_token_map()`: Build a nested dictionary of tokens used internally to
         parse pattern strings.
@@ -146,7 +146,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
     def _add_feature_flags(self):
         """
         Checks if `self.feature_orchestrator` is present and, if so, adds
-        feature flags to flag inventory.
+        feature flags to tag inventory.
         """
         if self.feature_orchestrator is None:
             return
@@ -159,12 +159,12 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         for feature in self.feature_orchestrator.features.values():
             for feature_value in feature.values:
                 feature_str = f"[{feature.name}={feature_value}]"
-                flag = InventoryItem(feature_str, type="flag", source=feature.source)
-                self.flags[feature_str] = flag
+                tag = InventoryItem(feature_str, kind="tag", source=feature.source)
+                self.flags[feature_str] = tag
 
     def _build_symbol_table(self):
         """
-        Creates a symbol table with a token for each phone and flag
+        Creates a symbol table with a token for each phone and tag
         in the inventory, as well as special symbols.
         """
         symbols = pynini.SymbolTable()
@@ -240,22 +240,22 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         self._inventory_acceptors_built = False
         self._sigmas_built = False
 
-        for flag in flags:
-            self._add_flag(flag)
+        for tag in flags:
+            self._add_flag(tag)
         self._inventory_acceptors_built = True
 
         logger.info("Flags added successfully.")
 
-    def _add_flag(self, flag: InventoryItem) -> int:
-        if flag.value in self.flags:
-            error = f"{flag.value} already found in self.flags"
+    def _add_flag(self, tag: InventoryItem) -> int:
+        if tag.value in self.flags:
+            error = f"{tag.value} already found in self.flags"
             raise KeyError(error)
-        self.flags[flag.value] = flag
+        self.flags[tag.value] = tag
 
-        symbol_index: int = self.symbols.add_symbol(flag.value)
-        fsa = pynini.accep(flag.value, token_type=self.symbols)
+        symbol_index: int = self.symbols.add_symbol(tag.value)
+        fsa = pynini.accep(tag.value, token_type=self.symbols)
         fsa.optimize()
-        flag.set_acceptor(fsa)
+        tag.set_acceptor(fsa)
         return symbol_index
 
     def _build_special_acceptors(self):
@@ -274,7 +274,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         # unlike phones, an inventory may have zero flags
         # in which case the flag_fsa is just the empty language
         if self.flags:
-            flag_fsa = pynini.union(*[flag.fsa for flag in self.flags.values()])
+            flag_fsa = pynini.union(*[tag.fsa for tag in self.flags.values()])
         else:
             flag_fsa = pynini.accep("")
         flag_fsa.optimize()
@@ -336,51 +336,51 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
 
         dot_acceptor = self._token_acceptor(self.dot)
         tokens["dot"].append(
-            Token(value=self.dot, type="special_ref", acceptor=dot_acceptor)
+            Token(value=self.dot, kind="special_ref", acceptor=dot_acceptor)
         )
         for l_delimiter in self.left_delimiters:
             tokens["left_delimiter"].append(
-                Token(value=l_delimiter, type="left_delimiter")
+                Token(value=l_delimiter, kind="left_delimiter")
             )
         for r_delimiter in self.right_delimiters:
             tokens["right_delimiter"].append(
-                Token(value=r_delimiter, type="right_delimiter")
+                Token(value=r_delimiter, kind="right_delimiter")
             )
         for op in self.unary_operators:
-            tokens["unary_operator"].append(Token(value=op, type="unary_operator"))
+            tokens["unary_operator"].append(Token(value=op, kind="unary_operator"))
         for op in self.pipe_operator:
-            tokens["pipe_operator"].append(Token(value=op, type="pipe_operator"))
+            tokens["pipe_operator"].append(Token(value=op, kind="pipe_operator"))
         for op in self.caret_operator:
-            tokens["caret_operator"].append(Token(value=op, type="caret_operator"))
+            tokens["caret_operator"].append(Token(value=op, kind="caret_operator"))
         for ref in self.reserved_refs:
             acceptor = self._token_acceptor(ref)
             tokens["ref"].append(
-                Token(value=ref, type="special_ref", acceptor=acceptor)
+                Token(value=ref, kind="special_ref", acceptor=acceptor)
             )
-        for flag in self.bow_eow_flags:
-            acceptor = self._token_acceptor(flag)
-            tokens["flag"].append(Token(value=flag, type="bow_eow", acceptor=acceptor))
-        for flag in self.edit_flags:
-            acceptor = self._token_acceptor(flag)
-            tokens["flag"].append(
-                Token(value=flag, type="edit_flag", acceptor=acceptor)
+        for tag in self.bow_eow_flags:
+            acceptor = self._token_acceptor(tag)
+            tokens["tag"].append(Token(value=tag, kind="bow_eow", acceptor=acceptor))
+        for tag in self.edit_flags:
+            acceptor = self._token_acceptor(tag)
+            tokens["tag"].append(
+                Token(value=tag, kind="edit_flag", acceptor=acceptor)
             )
         for boundary in self.boundary_symbols:
             acceptor = self._token_acceptor(boundary)
             tokens["boundary"].append(
-                Token(value=boundary, type="boundary", acceptor=acceptor)
+                Token(value=boundary, kind="boundary", acceptor=acceptor)
             )
         for phone, phone_obj in self.phones.items():
-            tokens["phone"].append(Token(value=phone, type="phone", acceptor=phone_obj))
-        for flag, flag_obj in self.flags.items():
-            tokens["flag"].append(Token(value=flag, type="flag", acceptor=flag_obj))
+            tokens["phone"].append(Token(value=phone, kind="phone", acceptor=phone_obj))
+        for tag, flag_obj in self.flags.items():
+            tokens["tag"].append(Token(value=tag, kind="tag", acceptor=flag_obj))
         for class_ref, class_obj in self.classes.items():
             tokens["ref"].append(
-                Token(value=class_ref, type="class_ref", acceptor=class_obj)
+                Token(value=class_ref, kind="class_ref", acceptor=class_obj)
             )
         for pattern_ref, pattern_obj in self.patterns.items():
             tokens["ref"].append(
-                Token(value=pattern_ref, type="pattern_ref", acceptor=pattern_obj)
+                Token(value=pattern_ref, kind="pattern_ref", acceptor=pattern_obj)
             )
 
         # sort tokens by length in descending order so that longest matches
@@ -393,7 +393,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
     def _infer_token_type(self, input_str: str) -> str | None:
         """
         Token type can be inferred from the first character of the token string:
-        - '[' -> flag
+        - '[' -> tag
         - '<' -> ref
         - operators and delimiters are single characters that can be looked up in a set
         """
@@ -407,7 +407,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         if self.phones.get(starting_char):
             return "phone"
         elif starting_char == "[":
-            return "flag"
+            return "tag"
         elif starting_char == "<":
             return "ref"
         elif starting_char in self.unary_operators:
@@ -461,7 +461,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         left_context = None
         if lexical_features:
             left_context = self.lexical_feature_left_context(lexical_features)
-        if rule.type == "rule_sequence":
+        if rule.kind == "rule_sequence":
             # return list of FSTs
             # sub-rules may themselves be rule sequences, so need to flatten
             rules_flat = []
@@ -492,11 +492,11 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         return rule_fst
 
     def _parse_rule_tau(self, rule: Rule) -> pynini.Fst:
-        if rule.type == "simple_rule":
+        if rule.kind == "simple_rule":
             input_fsa = self._cast_fsalike_to_fsa(rule.input_pattern, is_word=False)
             output_fsa = self._cast_fsalike_to_fsa(rule.output_pattern, is_word=False)
             tau = pynini.cross(input_fsa, output_fsa)
-        elif rule.type == "string_map":
+        elif rule.kind == "string_map":
             transducers = []
             for input_pattern, output_pattern in rule.string_map:
                 input_fsa = self._cast_fsalike_to_fsa(input_pattern, is_word=False)
@@ -508,7 +508,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
                 transducers.append(transducer)
             tau = pynini.union(*transducers)
         else:
-            raise ValueError(f"Cannot interpret tau for rule type {rule.type}")
+            raise ValueError(f"Cannot interpret tau for rule type {rule.kind}")
 
         tau.optimize()
 
@@ -536,7 +536,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         if isinstance(pattern_input, AcceptorLike):
             if pattern_input.acceptor_built:
                 logger.info(
-                    f"Redundant call on pattern {pattern_input._ref} with existing acceptor"
+                    f"Redundant call on pattern {pattern_input.ref} with existing acceptor"
                 )
                 return pattern_input.fsa
             pattern_input = pattern_input.value
@@ -618,7 +618,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         - Expression* -> Factor Term*
         - Term* -> | Factor Expression*
         - Factor -> (Expression) | Ref | Atom
-        - Atom -> Phone | Flag | Class | Pattern
+        - Atom -> Phone | tag | Class | Pattern
         """
         logger.trace(f"Parsing tokens {tokens}")
         acceptor, current_index = self._parse_expression(tokens, initial_index=0)
@@ -646,7 +646,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         terms = [term]
         while (current_index < len(tokens)) and tokens[
             current_index
-        ].type == "pipe_operator":
+        ].kind == "pipe_operator":
             logger.trace(
                 f"Found pipe operator at index {current_index}, tokens {tokens}, parsing next term in expression..."
             )
@@ -657,8 +657,8 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
             if current_index == len(tokens):
                 break
 
-            current_type = tokens[current_index].type
-            if current_type == "right_delimiter":
+            current_kind = tokens[current_index].kind
+            if current_kind == "right_delimiter":
                 # let parent handle
                 break
 
@@ -677,15 +677,15 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         logger.trace(f"Parsing term starting at index {initial_index}, tokens {tokens}")
 
         current_index = initial_index
-        current_type = tokens[current_index].type
-        if current_type in ("right_delimiter", "pipe_operator"):
+        current_kind = tokens[current_index].kind
+        if current_kind in ("right_delimiter", "pipe_operator"):
             raise ValueError(
-                f"Got unexpected token type {current_type} at start of term, tokens {tokens} current index {current_index}"
+                f"Got unexpected token type {current_kind} at start of term, tokens {tokens} current index {current_index}"
             )
 
         factors_w_operators = []
         while (current_index < len(tokens)) and (
-            current_type not in ("right_delimiter", "pipe_operator")
+            current_kind not in ("right_delimiter", "pipe_operator")
         ):
             logger.trace(
                 f"Parsing factor sequence starting at index {current_index}, tokens {tokens}"
@@ -696,8 +696,8 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
             # check if `_parse_factor_sequence` stopped before a unary operator
             # and if so apply the operator to the last factor
             if current_index < len(tokens):
-                current_type = tokens[current_index].type
-                if current_type == "unary_operator":
+                current_kind = tokens[current_index].kind
+                if current_kind == "unary_operator":
                     logger.trace(
                         f"Found unary operator at index {current_index}, tokens {tokens}, applying to last factor in factor sequence..."
                     )
@@ -741,7 +741,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
                 f"Parsing factor starting at index {current_index}, tokens {tokens}"
             )
             token_acceptor = tokens[current_index].acceptor
-            token_type = tokens[current_index].type
+            token_type = tokens[current_index].kind
             if token_acceptor is not None and token_acceptor.acceptor_built:
                 acceptors.append(token_acceptor.fsa)
                 current_index += 1
@@ -799,7 +799,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         if left_delimiter == r"{":
             # check if group begins with caret operator, which indicates negation of the union
             is_negated = False
-            if tokens[current_index].type == "caret_operator":
+            if tokens[current_index].kind == "caret_operator":
                 is_negated = True
                 current_index += 1
             expected_right_delimiter = r"}"
@@ -968,7 +968,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
     ) -> Acceptor:
         """
         Creates an FSA accepting any left context where the features specified by `lexical_features`
-        are present preceding the [BOW] flag.
+        are present preceding the [BOW] tag.
         """
         lexical_feature_str = stringify_features(lexical_features)
 
@@ -1057,7 +1057,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
             output_acceptor = self.acceptor(output_pattern)
             string_map_acceptors.append((input_acceptor, output_acceptor))
         string_map_rule = AnonymousRule(
-            type="string_map",
+            kind="string_map",
             string_map=string_map_acceptors,
         )
         rule_fst = self.compile_rule(string_map_rule)
@@ -1074,7 +1074,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
 
         if not rule.transducer_built:
             logger.info(
-                f"Rule '{rule._ref}' has uninitialized transducer, initializing..."
+                f"Rule '{rule.name}' has uninitialized transducer, initializing..."
             )
             rule_fst = self.compile_rule(rule)
             rule.set_transducer(rule_fst)
@@ -1126,7 +1126,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
                 intersection = pynini.intersect(pattern.fsa, fsa)
                 if intersection.start() == pynini.NO_STATE_ID:
                     raise ValueError(
-                        f"Pattern '{pattern._ref}' failed includes test for string '{test_str}'. "
+                        f"Pattern '{pattern.ref}' failed includes test for string '{test_str}'. "
                         "Check that the pattern is correctly specified and that the test string is correct."
                     )
 
@@ -1141,7 +1141,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
                 intersection = pynini.intersect(pattern.fsa, fsa)
                 if intersection.start() != pynini.NO_STATE_ID:
                     raise ValueError(
-                        f"Pattern '{pattern._ref}' failed excludes test for string '{test_str}'. "
+                        f"Pattern '{pattern.ref}' failed excludes test for string '{test_str}'. "
                         "Check that the pattern is correctly specified and that the test string is correct."
                     )
 
@@ -1155,7 +1155,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         Test explicit include/exclude strings against the compiled FSA for a
         single pattern.
 
-        Returns a dict with per-string results and an overall ``all_pass`` flag::
+        Returns a dict with per-string results and an overall ``all_pass`` tag::
 
             {"ref": "<V>", "results": [...], "all_pass": True}
 
@@ -1174,7 +1174,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
             except Exception as e:
                 logger.exception(e)
                 passed = False
-            results.append({"string": test_str, "type": "include", "pass": passed})
+            results.append({"string": test_str, "test_kind": "include", "pass": passed})
             if not passed:
                 all_pass = False
 
@@ -1185,7 +1185,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
                 passed = intersection.start() == pynini.NO_STATE_ID
             except Exception:
                 passed = False
-            results.append({"string": test_str, "type": "exclude", "pass": passed})
+            results.append({"string": test_str, "test_kind": "exclude", "pass": passed})
             if not passed:
                 all_pass = False
 
@@ -1200,7 +1200,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         Test explicit input→output mappings against the compiled FST for a
         single rule.
 
-        Returns a dict with per-mapping results and an overall ``all_pass`` flag::
+        Returns a dict with per-mapping results and an overall ``all_pass`` tag::
 
             {"ref": "diphthongization", "results": [...], "all_pass": True}
 
@@ -1218,7 +1218,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
                 intersection = pynini.intersect(output_fsa, expected_output_fsa)
                 passed = intersection.start() != pynini.NO_STATE_ID
 
-                output_strs = self.fsm_strings(output_fsa)
+                output_strs = self.fsm_strings(output_fsa, strip_all_tags=True)
             except Exception as e:
                 logger.exception(e)
                 passed = False
@@ -1227,14 +1227,14 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
                     "input": input_str,
                     "output": output_strs,
                     "expected_output": expected_output_str,
-                    "type": "mapping",
+                    "test_kind": "mapping",
                     "pass": passed,
                 }
             )
             if not passed:
                 all_pass = False
 
-        rule_ref = rule if isinstance(rule, str) else rule._ref
+        rule_ref = rule if isinstance(rule, str) else rule.name
         return {"ref": rule_ref, "results": results, "all_pass": all_pass}
 
     def test_rule_mappings(self):
@@ -1244,13 +1244,13 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         """
         for rule in self.rules.values():
             for input_str, expected_output_str in rule.test_mappings:
-                output_fsa = self.apply_rule(input_str, rule._ref)
+                output_fsa = self.apply_rule(input_str, rule.name)
                 output_fsa = pynini.project(output_fsa, project_type="output")
                 expected_output_fsa = self.word_fsa(expected_output_str)
                 intersection = pynini.intersect(output_fsa, expected_output_fsa)
                 if intersection.start() == pynini.NO_STATE_ID:
                     raise ValueError(
-                        f"Rule '{rule._ref}' failed test mapping for input '{input_str}' and expected output '{expected_output_str}'. "
+                        f"Rule '{rule.name}' failed test mapping for input '{input_str}' and expected output '{expected_output_str}'. "
                         "Check that the rule is correctly specified and that the test mapping is correct."
                     )
 
@@ -1260,7 +1260,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         project: Literal["input", "output"] = "output",
         nshortest: int = None,
         strip_word_edge_symbols: bool = False,
-        strip_all_flags: bool = False,
+        strip_all_tags: bool = False,
     ) -> list[tuple[str, float]]:
 
         decoded_outputs = []
@@ -1274,7 +1274,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
             word = self._decode_labels(
                 label_iter,
                 strip_word_edge_symbols=strip_word_edge_symbols,
-                strip_all_flags=strip_all_flags,
+                strip_all_tags=strip_all_tags,
             )
             weight = float(path_iter.weight())
             if word not in decoded_outputs:
@@ -1290,7 +1290,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         project: Literal["input", "output"] = "output",
         nshortest: int = None,
         strip_word_edge_symbols: bool = False,
-        strip_all_flags: bool = False,
+        strip_all_tags: bool = False,
     ) -> list[str]:
         """
         Return all (or nshortest) strings for an input FSM.
@@ -1301,7 +1301,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
             project=project,
             nshortest=nshortest,
             strip_word_edge_symbols=strip_word_edge_symbols,
-            strip_all_flags=strip_all_flags,
+            strip_all_tags=strip_all_tags,
         )
         string_list = [string for string, _ in strs_and_weights]
         return string_list
@@ -1311,7 +1311,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         fst: pynini.Fst,
         project: Literal["input", "output"] = "output",
         strip_word_edge_symbols: bool = False,
-        strip_all_flags: bool = False,
+        strip_all_tags: bool = False,
     ) -> str:
         """
         Wraps `self.fsm_strings` with `nshortest=1` and returns
@@ -1322,7 +1322,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
             project,
             nshortest=1,
             strip_word_edge_symbols=strip_word_edge_symbols,
-            strip_all_flags=strip_all_flags,
+            strip_all_tags=strip_all_tags,
         )
         if len(string_list) != 1:
             raise ValueError(f"Expected single string, got {string_list}")
@@ -1332,7 +1332,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
         self,
         label_iter,
         strip_word_edge_symbols: bool = False,
-        strip_all_flags: bool = False,
+        strip_all_tags: bool = False,
     ) -> str:
         """
         Arguments:
@@ -1348,7 +1348,7 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
                 # epsilon, skip
                 continue
             symbol = self.symbols.find(label)
-            if strip_all_flags and symbol[0] == "[":
+            if strip_all_tags and symbol[0] == "[":
                 continue
             elif strip_word_edge_symbols and symbol in self.bow_eow_flags:
                 continue
@@ -1360,9 +1360,9 @@ class FstOrchestrator(Orchestrator, ReservedSymbolMixin):
 @dataclass
 class Token:
     value: str
-    type: Literal[
+    kind: Literal[
         "phone",
-        "flag",
+        "tag",
         "class_ref",
         "pattern_ref",
         "bow_eow",
@@ -1383,16 +1383,16 @@ class Token:
         operators and delimiters should not have acceptors,
         all other types should have them.
         """
-        if self.type.endswith("operator") or self.type.endswith("delimiter"):
+        if self.kind.endswith("operator") or self.kind.endswith("delimiter"):
             if self.acceptor is not None:
                 raise ValueError(
                     "Operators and delimiters tokens should not have Acceptor objects passed. "
-                    f"Token value: {self.value}, token type: {self.type}"
+                    f"Token value: {self.value}, token kind: {self.kind}"
                 )
         elif self.acceptor is None:
             raise ValueError(
                 "All tokens except operators and delimiters should have Acceptor objects. "
-                f"Token value: {self.value}, token type: {self.type}"
+                f"Token value: {self.value}, token kind: {self.kind}"
             )
 
     def __len__(self):

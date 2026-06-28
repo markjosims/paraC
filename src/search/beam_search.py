@@ -51,7 +51,7 @@ class WfsaCsr(NamedTuple):
 
         # store final states
         final = np.zeros(n, dtype=bool)
-        zero_weight = pynini.Weight.zero(wfsa.weight_type())
+        zero_weight = pynini.Weight.zero(wfsa.weight_kind())
 
         # first compute offsets by counting the number of arcs leaving each state
         # check for final weights in same loop

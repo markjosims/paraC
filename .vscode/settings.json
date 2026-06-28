@@ -1,0 +1,18 @@
+{
+    "yaml.schemas": {
+        "./schemas/ContingentFeatureMarkers.json": "config/contingent_feature_markers/*.yaml",
+        "./schemas/FeatureCombinations.json": "config/feature_combinations/*.yaml",
+        "./schemas/FeatureDefinitions.json": "config/feature_definitions/*.yaml",
+        "./schemas/FeatureMarkers.json": "config/feature_markers/*.yaml",
+        "./schemas/Inventory.json": "config/inventory/*.yaml",
+        "./schemas/MorphemeSequence.json": "config/morpheme_sequence/*.yaml",
+        "./schemas/MorphemeSet.json": "config/morpheme_set/*.yaml",
+        "./schemas/Paradigm.json": "config/paradigm/*.yaml",
+        "./schemas/PartOfSpeech.json": "config/part_of_speech/*.yaml",
+        "./schemas/Patterns.json": "config/patterns/*.yaml",
+        "./schemas/Rules.json": "config/rules/*.yaml",
+    },
+    "yaml.validate": true,
+    "yaml.completion": true,
+    "yaml.hover": true
+}

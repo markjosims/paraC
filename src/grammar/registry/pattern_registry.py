@@ -21,14 +21,14 @@ class Pattern(Acceptor):
 
     Attributes:
         value: The string value of the pattern (e.g. `(<V>|<R>|<N>)`).
-        _ref: The registry reference string for this pattern (e.g. `<VowelClass>`).
+        ref: The registry reference string for this pattern (e.g. `<VowelClass>`).
         source: Optional string indicating filepath pattern originates from.
         fsa: pynini.Fst accepting the pattern language.
     """
 
     name: str = ""
     value: str = ""
-    _ref: str = ""
+    ref: str = ""
     used_by: list['Pattern'] = field(default_factory=list)
     uses: list['Pattern'] = field(default_factory=list)
     source: os.PathLike | None = None
@@ -40,9 +40,9 @@ class Pattern(Acceptor):
         super().__post_init__()
 
         if (self.value in ReservedSymbolMixin.reserved_symbols) or (
-            self._ref in ReservedSymbolMixin.reserved_symbols
+            self.ref in ReservedSymbolMixin.reserved_symbols
         ):
-            error = f"Pattern value and ref cannot be reserved symbols. Got value '{self.value}' and ref '{self._ref}'."
+            error = f"Pattern value and ref cannot be reserved symbols. Got value '{self.value}' and ref '{self.ref}'."
             logger.error(error)
             raise ValueError(error)
 
@@ -75,7 +75,7 @@ class Pattern(Acceptor):
         pattern = cls(
             name=item_dict.get("name", ""),
             value=item_dict["pattern"],
-            _ref=item_dict["_ref"],
+            ref=item_dict["ref"],
             source=item_dict.get("source", None),
             test_includes=item_dict.get("test_includes", []),
             test_excludes=item_dict.get("test_excludes", []),
@@ -83,7 +83,7 @@ class Pattern(Acceptor):
         return pattern
 
     def to_dict(self) -> dict:
-        d: dict = {"_ref": self._ref, "name": self.name, "pattern": self.value}
+        d: dict = {"ref": self.ref, "name": self.name, "pattern": self.value}
         if self.test_includes:
             d["test_includes"] = self.test_includes
         if self.test_excludes:
@@ -91,13 +91,13 @@ class Pattern(Acceptor):
         return d
 
     def __str__(self):
-        return f"Pattern(_ref={self._ref}, value={self.value})"
+        return f"Pattern(ref={self.ref}, value={self.value})"
 
     def __repr__(self):
         return self.__str__()
 
     def __hash__(self):
-        return hash(self._ref)
+        return hash(self.ref)
 
     def __eq__(self, other):
         if not isinstance(other, Pattern):
@@ -146,7 +146,7 @@ class PatternRegistry(Registry):
         patterns_list = [Pattern.from_config(p) for p in patterns]
 
         # make dict mapping ref to item
-        config_items = {item._ref: item for item in patterns_list}
+        config_items = {item.ref: item for item in patterns_list}
         return config_items
 
     def build_dependency_graph(self):
@@ -162,14 +162,14 @@ class PatternRegistry(Registry):
             # get list of patterns this pattern uses
             used_by = []
             uses = []
-            dependency_graph[pattern._ref] = set()
+            dependency_graph[pattern.ref] = set()
             for other_pattern in self.data.values():
-                if pattern._ref in other_pattern.value:
+                if pattern.ref in other_pattern.value:
                     used_by.append(other_pattern)
 
-                if other_pattern._ref in pattern.value:
+                if other_pattern.ref in pattern.value:
                     uses.append(other_pattern)
-                    dependency_graph[pattern._ref].add(other_pattern._ref)
+                    dependency_graph[pattern.ref].add(other_pattern.ref)
 
             pattern.set_dependencies(used_by=used_by, uses=uses)
 

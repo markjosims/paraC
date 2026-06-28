@@ -19,7 +19,7 @@ class ReservedSymbolMixin:
 
     word_edge = "#"
     phone_ref = "<Phone>"
-    flag_ref = "<Flag>"
+    flag_ref = "<tag>"
     sigma_ref = "<Sigma>"
     dot = "."
     epsilon_ref = "<Empty>"

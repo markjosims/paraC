@@ -1,0 +1,7 @@
+[
+    {
+        "key": "ctrl+shift+r",
+        "command": "yaml.clearCache",
+        "when": "editorLangId == yaml"
+    }
+]

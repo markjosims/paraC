@@ -152,17 +152,36 @@ class Lexicon:
                 f"Part of speech '{part_of_speech}' does not have a source config file."
             )
 
-        # TODO: implement lazy loading of CSVs, should be handled by `ConfigWalker`
         part_of_speech_dir = os.path.dirname(config_source)
         config_dir = os.path.dirname(part_of_speech_dir)
         lexicon_dir = os.path.join(config_dir, "lexicon")
-        lexicon_stem = part_of_speech.name + ".csv"
-        lexicon_path = os.path.join(lexicon_dir, lexicon_stem)
-        if not os.path.exists(lexicon_path):
-            raise ValueError(
-                f"Lexicon file '{lexicon_path}' not found for part of speech '{part_of_speech.name}'."
-            )
-        entries_df = pd.read_csv(lexicon_path, keep_default_na=False)
+        
+        csv_path = os.path.join(lexicon_dir, part_of_speech.name + ".csv")
+        xlsx_path = os.path.join(lexicon_dir, part_of_speech.name + ".xlsx")
+        
+        if os.path.exists(xlsx_path):
+            lexicon_path = xlsx_path
+            entries_df = pd.read_excel(xlsx_path, keep_default_na=False)
+        elif os.path.exists(csv_path):
+            lexicon_path = csv_path
+            entries_df = pd.read_csv(csv_path, keep_default_na=False)
+        else:
+            lexicon_path = xlsx_path
+            os.makedirs(lexicon_dir, exist_ok=True)
+            
+            # Build expected columns list preserving order
+            cols = ["root", "gloss"]
+            for f in part_of_speech.lexical_features:
+                if f.name not in cols:
+                    cols.append(f.name)
+            for pp in part_of_speech.principal_parts:
+                if pp not in cols:
+                    cols.append(pp)
+                    
+            entries_df = pd.DataFrame(columns=cols)
+            entries_df.to_excel(xlsx_path, index=False)
+            logger.info(f"Created default lexicon file: {xlsx_path}")
+
         return cls(
             part_of_speech=part_of_speech,
             entries=entries_df,
@@ -170,10 +189,34 @@ class Lexicon:
             fst_orchestrator=fst_orchestrator,
         )
 
-    def get_roots(self) -> list[str]:
-        return self.entries["root"].tolist()
     
+    def _get_lexical_feature_mask(self, fixed_lexical_features: dict[str, str]) -> pd.Series:
+        """
+        Apply pattern and lexical features to lexicon (if applicable)
+        and return all remaining roots.
+        """
+        entries = self.entries
+        feature_mask = pd.Series([True] * len(entries))
+
+        for feature, feature_value in fixed_lexical_features.items():
+            if feature not in entries.columns:
+                continue
+            feature_col = entries[feature.name]
+            feature_mask &= feature_col == feature_value
+
+        return feature_mask
+
+    def get_roots(self, fixed_lexical_features: dict[str, str] | None = None) -> list[str]:
+        if fixed_lexical_features is None:
+            return self.entries["root"].tolist()
+        else:
+            feature_mask = self._get_lexical_feature_mask(fixed_lexical_features)
+            return self.entries[feature_mask]["root"].tolist()
+
     def get_features_for_root(self, root: str) -> dict[str, str]:
+        """
+        Get a dictionary of all lexical features for a given root.
+        """
         row = self.entries[self.entries["root"] == root]
         if row.empty:
             raise ValueError(f"Root '{root}' not found in lexicon entries.")

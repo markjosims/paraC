@@ -1,8 +1,0 @@
-kind: PartOfSpeech
-name: verb
-features:
-- deixis
-- tam
-lexical_features:
-- fv_class
-principal_parts: []

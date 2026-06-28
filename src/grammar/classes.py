@@ -1,6 +1,6 @@
 """
 Defines two principal classes: `Registry` and `Orchestrator`.
-`Registry` stores all the data associated with a particular type
+`Registry` stores all the data associated with a particular kind
 of YAML config. `Orchestrator` sits over `Registry` and manages
 all configs for a particular area of the grammar.
 

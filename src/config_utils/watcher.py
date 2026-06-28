@@ -1,16 +1,8 @@
 """
-Watchdog file watcher for the Streamlit app.
+Watchdog file watcher for config YAML files.
 
-Signals that YAML config files have changed on disk so the next Streamlit
-rerun can rebuild the config walker and grammar from fresh state.
-
-Design note: watchdog runs in a daemon thread; Streamlit session state is
-only accessible from the main script thread.  The watcher therefore sets a
-thread-safe threading.Event flag rather than touching st.session_state
-directly.  Call check_and_apply_invalidation() at the top of each page
-rerun to act on the flag from the main thread.
-
-BUG: `check_and_apply_invalidation` does not seem to be triggering correctly
+Sets a thread-safe threading.Event when YAML files change on disk.
+Consumers poll _config_changed (e.g. in get_grammar()) to trigger rebuild.
 """
 
 from __future__ import annotations
@@ -21,10 +13,9 @@ from pathlib import Path
 from loguru import logger
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from watchdog.observers import Observer, ObserverType
-import streamlit as st
 
 
-# Module-level flag set by the watcher thread, consumed by the main thread.
+# Module-level tag set by the watcher thread, consumed by the main thread.
 _config_changed = threading.Event()
 
 
@@ -37,25 +28,6 @@ def start_watcher(config_dir: str) -> ObserverType:
     observer.daemon = True
     observer.start()
     return observer
-
-
-def check_and_apply_invalidation(invalidate_keys: list[str]) -> bool:
-    """
-    Call from the main Streamlit thread at the top of each rerun.
-    If the watcher flagged a change, clears the given session state keys
-    and returns True (caller should st.rerun() to reload).
-    Returns False if no change was detected.
-    """
-
-    logger.info(f"Invalidation check: {invalidate_keys}")
-
-    if _config_changed.is_set():
-        _config_changed.clear()
-        for key in invalidate_keys:
-            st.session_state.pop(key, None)
-        logger.info("Config change detected — invalidated: %s", invalidate_keys)
-        return True
-    return False
 
 
 class _YamlChangeHandler(FileSystemEventHandler):

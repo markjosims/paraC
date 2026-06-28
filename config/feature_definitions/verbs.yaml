@@ -1,0 +1,20 @@
+# This is a FeatureDefinitions config file
+# Define morphological feature categories and enumerate their possible values here.
+kind: FeatureDefinitions
+features:
+
+# type fd-feature to add your first feature!
+
+  tense: [past, present, future]
+  mood: [subjunctive, indicative, imperative]
+  person_number: [1sg, 2sg, 3sg, 1pl, 2pl, 3pl]
+  conjugation_class: [a_class, e_class, i_class]
+
+
+## HELP FOR FEATUREDEFINITIONS ##
+# Here we define inflectional and (possibly) derivational or lexical features
+# for a given language.
+  # Examples:
+  # number: [sg, pl]
+  # person: [1, 2, 3]
+  # tense: [present, past, future]

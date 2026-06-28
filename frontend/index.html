@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>parC Grammar Hub</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>parC</h1>
+    <nav class="tab-nav">
+      <button class="active" data-tab="hub">Mission Hub</button>
+      <button data-tab="inflect" id="nav-inflect-btn">Inflection</button>
+      <button data-tab="tests">Patterns &amp; Rules</button>
+      <button data-tab="parse">Parse</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="tab-hub" class="tab-panel">
+      <div class="status-container">
+        <span>Grammar Status:</span>
+        <span class="status-dot checking"></span>
+        <span class="status-label">Checking…</span>
+        <button id="recompile-btn" class="recompile-btn">Recompile</button>
+      </div>
+
+      <div id="stats-section" hidden>
+        <h3>Config Stats</h3>
+        <div class="stats-grid" id="stats-grid"></div>
+      </div>
+    </section>
+
+    <section id="tab-inflect" class="tab-panel" hidden>
+      <div class="inflection-container">
+        <h2>Inflect Form</h2>
+        
+        <div class="form-group">
+          <label for="inflect-type">Type</label>
+          <select id="inflect-type">
+            <option value="paradigm">Paradigm</option>
+            <option value="sequence">Morpheme Sequence</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="inflect-target">Target</label>
+          <select id="inflect-target"></select>
+        </div>
+
+        <div class="form-group" id="stems-input-group">
+          <label>Roots</label>
+          <div id="stems-container">
+            <!-- Dynamically generated input fields -->
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Features</label>
+          <div id="features-container" class="features-form-grid">
+            <!-- Dynamically generated select fields -->
+          </div>
+        </div>
+
+        <button id="submit-inflect-btn" class="action-btn">Generate Inflected Forms</button>
+        
+        <div id="inflection-results" hidden>
+          <h3>Results</h3>
+          <div id="result-forms-list" class="results-box"></div>
+
+          <h3>Inflection Stages</h3>
+          <div class="table-wrapper">
+            <table id="stages-table">
+              <thead>
+                <!-- Populated dynamically -->
+              </thead>
+              <tbody>
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="tab-tests" class="tab-panel" hidden>
+      <div class="tests-container">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="tests-scope">Scope</label>
+            <select id="tests-scope">
+              <option value="defined">Defined pattern</option>
+              <option value="freeform">Freeform pattern</option>
+              <option value="rules">Rule</option>
+            </select>
+          </div>
+          <div class="form-group" id="tests-target-group">
+            <label for="tests-target">Select</label>
+            <select id="tests-target"></select>
+          </div>
+          <div class="form-group" id="tests-freeform-group" hidden>
+            <label for="tests-freeform-input">Pattern string</label>
+            <input id="tests-freeform-input" type="text" placeholder="e.g. <V>C*<V>" />
+          </div>
+        </div>
+
+        <div id="tests-target-info" hidden>
+          <div class="form-group">
+            <label>Pattern string</label>
+            <code id="tests-target-value" class="pattern-display"></code>
+          </div>
+        </div>
+
+        <!-- Pattern tester: arbitrary include / exclude strings -->
+        <div id="custom-pattern-test" hidden>
+          <h3>Test Pattern</h3>
+          <div class="custom-test-grid">
+            <div>
+              <label>Include (should match)</label>
+              <div id="custom-includes-list" class="string-list"></div>
+              <button class="add-row-btn" id="add-include-btn">+ Add</button>
+            </div>
+            <div>
+              <label>Exclude (should not match)</label>
+              <div id="custom-excludes-list" class="string-list"></div>
+              <button class="add-row-btn" id="add-exclude-btn">+ Add</button>
+            </div>
+          </div>
+          <button class="action-btn" id="run-pattern-test-btn">Run Test</button>
+        </div>
+
+        <!-- Rule tester: arbitrary input → expected-output pairs -->
+        <div id="custom-rule-test" hidden>
+          <h3>Test Rule</h3>
+          <div id="custom-mappings-list" class="mappings-list"></div>
+          <button class="add-row-btn" id="add-mapping-btn">+ Add mapping</button>
+          <button class="action-btn" id="run-rule-test-btn">Run Test</button>
+        </div>
+
+        <div id="custom-test-results" hidden>
+          <h3>Results <span id="custom-test-summary" class="test-summary"></span></h3>
+          <div class="table-wrapper">
+            <table id="custom-results-table">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+    <section id="tab-parse" class="tab-panel" hidden>
+      <div class="parse-container">
+        <h2>Parse Form</h2>
+
+        <div class="form-group">
+          <label for="parse-type">Type</label>
+          <select id="parse-type">
+            <option value="paradigm">Paradigm</option>
+            <option value="sequence">Morpheme Sequence</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="parse-target">Target</label>
+          <select id="parse-target"></select>
+        </div>
+
+        <div class="form-group">
+          <label for="parse-form">Surface form</label>
+          <input id="parse-form" type="text" placeholder="e.g. ʔaːtʃi" />
+        </div>
+
+        <button id="submit-parse-btn" class="action-btn">Parse</button>
+
+        <div id="parse-results" hidden>
+          <h3>Parses</h3>
+          <div id="parse-results-list" class="results-box"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+
+  <script>
+    document.querySelectorAll('.tab-nav button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-nav button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const targetTab = btn.getAttribute('data-tab');
+        document.querySelectorAll('.tab-panel').forEach(panel => {
+          if (panel.id === `tab-${targetTab}`) {
+            panel.removeAttribute('hidden');
+          } else {
+            panel.setAttribute('hidden', '');
+          }
+        });
+      });
+    });
+  </script>
+  <script type="module" src="parse.js"></script>
+  <script type="module" src="hub.js"></script>
+  <script type="module" src="inflect.js"></script>
+  <script type="module" src="tests.js"></script>
+</body>
+</html>
+

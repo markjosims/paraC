@@ -28,27 +28,29 @@ class FeatureOrchestrator(Orchestrator):
     def __init__(
         self,
         feature_configs: dict[str, dict],
-        feature_combination_configs: dict[str, dict],
+        feature_combination_configs: dict[str, dict] | None = None,
     ):
         self.feature_values_registry = FeatureValuesRegistry(
             config_objects=feature_configs
         )
-        self.feature_combinations_registry = FeatureCombinationsRegistry(
-            config_objects=feature_combination_configs,
-            feature_values_registry=self.feature_values_registry,
-        )
 
         self.features: dict[str, Feature] = self.feature_values_registry.data
         self.get_feature = self.feature_values_registry.get_feature
-        self.feature_combinations: dict[str, FeatureValueCombinations] = (
-            self.feature_combinations_registry.data
-        )
 
-    def get_feature_combinations(self, name: str) -> FeatureValueCombinations:
-        name = name.removeprefix("$")
-        if name not in self.feature_combinations:
-            raise KeyError(f"No feature-combinations config found with name '{name}'.")
-        return self.feature_combinations[name]
+        # TODO: FeatureCombinations is buggy so it is commented out for now
+        # self.feature_combinations_registry = FeatureCombinationsRegistry(
+        #     config_objects=feature_combination_configs,
+        #     feature_values_registry=self.feature_values_registry,
+        # )
+        # self.feature_combinations: dict[str, FeatureValueCombinations] = (
+        #     self.feature_combinations_registry.data
+        # )
+
+    # def get_feature_combinations(self, name: str) -> FeatureValueCombinations:
+    #     name = name.removeprefix("$")
+    #     if name not in self.feature_combinations:
+    #         raise KeyError(f"No feature-combinations config found with name '{name}'.")
+    #     return self.feature_combinations[name]
 
 
 def stringify_features(

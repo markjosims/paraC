@@ -11,10 +11,11 @@ from src.grammar.classes import Orchestrator
 from src.grammar.orchestrator.marker_orchestrator import MarkerOrchestrator
 from src.grammar.orchestrator.fst_orchestrator import FstOrchestrator
 from src.grammar.orchestrator.feature_orchestrator import FeatureOrchestrator
+from src.grammar.registry.feature_values_registry import FeatureValuesRegistry
 from src.grammar.registry.lexicon_registry import LexiconRegistry
 from src.grammar.registry.paradigm_registry import ParadigmRegistry
-from src.grammar.registry.morpheme_sequence_registry import MorphemeSequenceRegistry
-from src.grammar.registry.morpheme_set_registry import MorphemeSetRegistry
+# from src.grammar.registry.morpheme_sequence_registry import MorphemeSequenceRegistry
+# from src.grammar.registry.morpheme_set_registry import MorphemeSetRegistry
 
 
 class Grammar(Orchestrator):
@@ -31,16 +32,18 @@ class Grammar(Orchestrator):
         pattern_configs: dict[str, dict],
         rule_configs: dict[str, dict],
         feature_definition_configs: dict[str, dict],
-        feature_combination_configs: dict[str, dict],
+        # TODO: FeatureCombinations, MorphemeSet and MorphemeSequence are buggy
+        # so they are commented out for now
+        # feature_combination_configs: dict[str, dict],
         paradigm_configs: dict[str, dict],
-        morpheme_sequence_configs: dict[str, dict],
-        morpheme_set_configs: dict[str, dict],
+        # morpheme_sequence_configs: dict[str, dict],
+        # morpheme_set_configs: dict[str, dict],
     ):
         self.is_initialized = False
 
         self.feature_orchestrator = FeatureOrchestrator(
             feature_configs=feature_definition_configs,
-            feature_combination_configs=feature_combination_configs,
+            # feature_combination_configs=feature_combination_configs,
         )
         self.fst_orchestrator = FstOrchestrator(
             inventory_configs=inventory_configs,
@@ -58,24 +61,24 @@ class Grammar(Orchestrator):
             feature_marker_configs=feature_marker_configs,
             feature_orchestrator=self.feature_orchestrator,
         )
-        self.morpheme_set_registry = MorphemeSetRegistry(
-            config_objects=morpheme_set_configs,
-            feature_orchestrator=self.feature_orchestrator,
-            fst_orchestrator=self.fst_orchestrator,
-        )
+        # self.morpheme_set_registry = MorphemeSetRegistry(
+        #     config_objects=morpheme_set_configs,
+        #     feature_orchestrator=self.feature_orchestrator,
+        #     fst_orchestrator=self.fst_orchestrator,
+        # )
         self.paradigm_registry = ParadigmRegistry(
             config_objects=paradigm_configs,
             marker_orchestrator=self.marker_orchestrator,
             lexicon_registry=self.lexicon_registry,
             fst_orchestrator=self.fst_orchestrator,
         )
-        self.morpheme_sequence_registry = MorphemeSequenceRegistry(
-            config_objects=morpheme_sequence_configs or {},
-            lexicon_registry=self.lexicon_registry,
-            paradigm_registry=self.paradigm_registry,
-            fst_orchestrator=self.fst_orchestrator,
-            morpheme_set_registry=self.morpheme_set_registry,
-        )
+        # self.morpheme_sequence_registry = MorphemeSequenceRegistry(
+        #     config_objects=morpheme_sequence_configs or {},
+        #     lexicon_registry=self.lexicon_registry,
+        #     paradigm_registry=self.paradigm_registry,
+        #     fst_orchestrator=self.fst_orchestrator,
+        #     morpheme_set_registry=self.morpheme_set_registry,
+        # )
 
         self.initialize()
 
@@ -91,7 +94,7 @@ class Grammar(Orchestrator):
             ]
         ):
             # initialize morpheme sequences after all other registries are loaded
-            self.morpheme_sequence_registry.initialize_sequences()
+            # self.morpheme_sequence_registry.initialize_sequences()
             self.is_initialized = True
             logger.info("All child registries detected, Grammar loaded successfully.")
         else:

@@ -1,0 +1,56 @@
+# This is an Inventory config file
+# This is where you specify phonemes as well as special tags
+# for your language
+kind: Inventory
+data:
+  # type inv-phones, inv-tags or inv-nested to add more nodes!
+  - name: node name
+    ref: <node reference>
+    children:
+      put children here!
+
+## HELP FOR INVENTORY ##
+# The inventory is built as a nested tree
+# Each node of the tree contains either phones, tags, or other nodes
+# that themeselves may contain phones, tags, or other nodes, etc.
+# Each node must have three attributes:
+#   name: A natural description of the node
+#   ref: A shorthand to refer to the node in parC
+#     must be wrapped in <angle_brackets> and contain no spaces
+#   children OR phones OR tags
+#     children: nested nodes
+#     phones: list of phones, each phone may be a single letter or multiple,
+#       separated by commas e.g. [p, t, tʃ, k]
+#       optionally wrapped in quotes e.g. ["p", "t", "tʃ", "k"]
+#     tags: list of tags, each tag must be wrapped in both quotes and "[square_brackets]"
+#       and not contain any spaces, e.g. [ "[TBU]", "[MORA]", "[SYLLABLE]"]
+#       keep in mind the outermost square brackets indicate a list
+
+# Below `consonants` and `vowels` are nested nodes,
+# whereas `stops`, `nasals`, `high vowels` etc. are phone nodes
+# and `tone tags` is a tag node
+
+# - name: consonants
+#   ref: <C>
+#   children:
+#   - name: Stops
+#     ref: <Stp>
+#     phones: [p, t, k, b, d, g]
+#   - name: Nasals
+#     ref: <N>
+#     phones: [m, n, ŋ]
+# - name: vowels
+#   ref: <V>
+#   children:
+#   - name: high vowels
+#     ref: <V_High>
+#     phones: [i, u]
+#   - name: mid vowels
+#     ref: <V_Mid>
+#     phones: [e, o]
+#   - name: low_vowels
+#     ref: <V_Low>
+#     phones: [a, æ]
+# - name: tone slots
+#   ref: <ToneSlot>
+#   tags: ["[TBU]", "[FLOAT]"]
