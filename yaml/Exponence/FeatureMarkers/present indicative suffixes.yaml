@@ -14,7 +14,11 @@ markers:
   2sg:
   - kind: suffix
     value: -s
-  3sg: null
+  - kind: rule
+    value: $diphthongization
+  3sg:
+  - kind: rule
+    value: $diphthongization
   1pl:
   - kind: suffix
     value: -mos
