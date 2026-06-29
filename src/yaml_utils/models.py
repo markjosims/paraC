@@ -1,4 +1,4 @@
-from typing import Literal, NamedTuple
+from typing import Any, Literal, NamedTuple
 
 class InventoryItemContents(NamedTuple):
     """
@@ -131,7 +131,13 @@ class UnorderedMarker(NamedTuple):
     value: str
 
 
-Marker = SingleStringMarker | StringTupleMarker | UnorderedMarker
+class StringMapMarker(NamedTuple):
+    operation: Literal["string_map"]
+    value: tuple[tuple[str, str], ...]
+    order: str | None = None
+
+
+Marker = SingleStringMarker | StringTupleMarker | UnorderedMarker | StringMapMarker
 
 def resolve_marker(data: dict) -> Marker:
     for marker_class in (SingleStringMarker, StringTupleMarker, UnorderedMarker):
@@ -140,3 +146,16 @@ def resolve_marker(data: dict) -> Marker:
         except:
             pass
     raise ValueError(f"Could not resolve marker with data {data}")
+
+
+class Token(NamedTuple):
+    value: str
+    kind: Literal[
+        "phone", "tag", "class_ref", "pattern_ref", "bow_eow", "edit_flag",
+        "special_ref", "unary_operator", "pipe_operator", "caret_operator",
+        "boundary", "left_delimiter", "right_delimiter",
+    ]
+    fsa: Any = None  # pynini.Fst | None; Any avoids hard pynini dep here
+
+    def __len__(self) -> int:
+        return len(self.value)

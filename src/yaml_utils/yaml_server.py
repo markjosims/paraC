@@ -16,7 +16,6 @@ and for loading specific objects from YAML files, viz:
 - features (feature_definitions/*.yaml)
 """
 
-from functools import wraps
 import os
 
 from loguru import logger
@@ -42,6 +41,8 @@ from src.yaml_utils.models import (
     RuleSequence,
     Feature,
     FeatureValue,
+    UnorderedMarker,
+    StringMapMarker,
 )
 
 """
@@ -125,34 +126,35 @@ def get_inventory_items() -> Inventory:
 
     inventory_yaml_data = get_yaml_kind("Inventory")["valid"]
     inventory_items: InventoryItemMapType = {}
-    phones = []
-    tags = []
+    all_phones: list[str] = []
+    all_tags: list[str] = []
+
+    def extract_phones_and_tags(item):
+        phones = []
+        tags = []
+        if isinstance(item, dict):
+            phones.extend(item.get("phones", []))
+            tags.extend(item.get("tags", []))
+            for subitem in item.get("children", []):
+                sub_phones, sub_tags = extract_phones_and_tags(subitem)
+                phones.extend(sub_phones)
+                tags.extend(sub_tags)
+        return phones, tags
 
     for file_path, yaml_data in inventory_yaml_data:
-        # Recursively extract phone and tag information
-        def extract_phones_and_tags(item):
-            phones = []
-            tags = []
-            if isinstance(item, dict):
-                phones.extend(item.get("phones", []))
-                tags.extend(item.get("tags", []))
-                for key, value in item.items():
-                    if key not in ["phones", "tags"]:
-                        phones.extend(extract_phones_and_tags(value))
-            return phones, tags
-
-        for item_name, item_data in yaml_data.items():
-            phones, tags = extract_phones_and_tags(item_data)
-            if item_name in inventory_items:
-                logger.exception(f"Duplicate item found: {item_name} in {file_path}")
+        for item_data in yaml_data["data"]:
+            item_ref = item_data.get("ref")
+            item_phones, item_tags = extract_phones_and_tags(item_data)
+            if item_ref in inventory_items:
+                logger.exception(f"Duplicate item found: {item_ref} in {file_path}")
                 continue
-            inventory_items[item_name] = InventoryItemContents(
-                phones=tuple(phones), tags=tuple(tags)
+            inventory_items[item_ref] = InventoryItemContents(
+                phones=tuple(item_phones), tags=tuple(item_tags)
             )
-            phones.extend(phones)
-            tags.extend(tags)
+            all_phones.extend(item_phones)
+            all_tags.extend(item_tags)
 
-    return Inventory(item_map=inventory_items, phones=tuple(phones), tags=tuple(tags))
+    return Inventory(item_map=inventory_items, phones=tuple(all_phones), tags=tuple(all_tags))
 
 
 """
@@ -408,31 +410,14 @@ def _get_valid_contingent_markers(
     return None
 
 
-def get_markers_for_paradigm(
-    feature_marker_files: list[str],
-    contingent_feature_marker_files: list[str],
-    feature_values: set[tuple[str, str]],
-    paradigm_name: str,
-) -> list[Marker]:
-    """
-    Get all markers for a requested feature set for a given paradigm.
-    """
-    paradigm_data = get_yaml_data_safe("Paradigm", paradigm_name)
+def get_dir_mtime(dir_path: str) -> float:
+    return os.path.getmtime(dir_path)
 
-    feature_markers = get_markers(
-        feature_marker_files, contingent_feature_marker_files, feature_values
-    )
 
-    if "global_markers" in paradigm_data:
-        feature_markers.extend(
-            resolve_marker(marker) for marker in paradigm_data["global_markers"]
-        )
+def is_cache_valid(cache_path: str, *source_dirs: str) -> bool:
+    if not os.path.exists(cache_path):
+        return False
+    cache_mtime = os.path.getmtime(cache_path)
+    return all(get_dir_mtime(d) <= cache_mtime for d in source_dirs)
 
-    # global stage sets order for any non-ordered markers
-    if "global_stage" in paradigm_data:
-        for i, marker in enumerate(feature_markers):
-            if hasattr(marker, "stage") and marker.stage is None:
-                feature_markers[i] = marker._replace(
-                    stage=paradigm_data["global_stage"]
-                )
-    return feature_markers
+

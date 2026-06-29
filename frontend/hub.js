@@ -43,16 +43,38 @@ const CARD_GROUPS = {
   Lexicon: {
     part_of_speech: {
       title: 'Part of Sp.',
-      format: (d) => [`${d.files} files`, `${d.invalid_files} invalid files`, `${d.total} lexemes`]
+      format: (d) => [`${d.files} files`, `${d.invalid_files} invalid files`]
     },
   },
   Morphotactics: {
     paradigms: {
       title: 'Paradigms',
-      format: (d) => [`${d.files} files`, `${d.invalid_files} invalid files`, `${d.total} paradigms`]
+      format: (d) => [`${d.files} files`, `${d.invalid_files} invalid files`]
     },
   },
 };
+
+async function poll() {
+  if (isFetching) return;
+  isFetching = true;
+  try {
+    const stats = await fetchGrammarStats();
+    lastStats = stats;
+    renderStats(lastStats, false);
+    statusDot.className = 'status-dot online';
+    statusLabel.textContent = 'Online';
+  } catch (err) {
+    statusDot.className = 'status-dot offline';
+    statusLabel.textContent = 'Offline';
+    renderStats(lastStats, true);
+  } finally {
+    isFetching = false;
+  }
+}
+
+recompileBtn.addEventListener('click', poll);
+setInterval(poll, 5000);
+poll();
 
 function renderStats(stats, isStale) {
   if (!stats) {

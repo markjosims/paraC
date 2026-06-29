@@ -20,8 +20,7 @@ async function loadMeta() {
 function updateTargets() {
   if (!metaData) return;
   targetSelect.innerHTML = '';
-  const items = type === 'paradigm' ? metaData.paradigms : metaData.sequences;
-  items.forEach(t => {
+  metaData.paradigms.forEach(t => {
     const opt = document.createElement('option');
     opt.value = t.name;
     opt.textContent = t.name;
@@ -38,14 +37,15 @@ submitBtn.addEventListener('click', async () => {
   submitBtn.disabled = true;
   resultsSection.setAttribute('hidden', '');
   try {
-    const data = await parse(kind, name, form);
+    const data = await parse('paradigm', name, form);
     resultsList.innerHTML = '';
     if (!data.parses.length) {
       resultsList.textContent = '(no parses)';
     } else {
       data.parses.forEach(p => {
         const div = document.createElement('div');
-        div.textContent = p;
+        const featStr = Object.entries(p.features).map(([f, v]) => `[${f}=${v}]`).join('');
+        div.textContent = `${p.root} ${featStr}`;
         resultsList.appendChild(div);
       });
     }
