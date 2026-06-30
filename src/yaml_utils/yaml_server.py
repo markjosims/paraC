@@ -284,7 +284,7 @@ def get_inflection_stages() -> set[str]:
 
     contingent_feature_marker_yaml = get_yaml_kind("ContingentFeatureMarkers")
     for _, yaml_data in contingent_feature_marker_yaml["valid"]:
-        for _, marker_data in yaml_data["markers"]:
+        for marker_data in yaml_data["markers"]:
             if marker_data and "stage" in marker_data:
                 infleciton_stages.add(marker_data["stage"])
 
@@ -362,7 +362,7 @@ def validate_requested_marker_files(
                 logger.exception(
                     f"Found contingent marker file for feature {feature} outside of requested features."
                 )
-            return False
+                return False
 
     return True
 

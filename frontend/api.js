@@ -64,19 +64,6 @@ export async function testRule(rule, testMappings) {
   return res.json();
 }
 
-export async function runYamlTests(kind = "all") {
-  const res = await fetch("/run-yaml-tests", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ kind }),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? `YAML tests failed: ${res.status}`);
-  }
-  return res.json();
-}
-
 export async function parse(kind, name, form) {
   const res = await fetch("/parse", {
     method: "POST",

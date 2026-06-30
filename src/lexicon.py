@@ -19,16 +19,19 @@ def load_lexicon_df(lexicon_basename: str) -> pd.DataFrame:
     elif os.path.exists(csv_path):
         return pd.read_csv(csv_path, keep_default_na=False)
     else:
-        return init_lexicon(xlsx_path)
+        init_lexicon(lexicon_basename, xlsx_path)
+        return pd.read_excel(xlsx_path, keep_default_na=False)
 
 
-def init_lexicon(lexicon_path: str) -> pd.DataFrame:
-    part_of_speech = get_yaml_data_safe(yaml_basename=lexicon_path, kind="PartOfSpeech")
+def init_lexicon(lexicon_basename: str, lexicon_path: str) -> None:
+    part_of_speech = get_yaml_data_safe(
+        yaml_basename=lexicon_basename, kind="PartOfSpeech"
+    )
     lexical_features = part_of_speech.get("lexical_features", [])
     principal_parts = part_of_speech.get("principal_parts", [])
     df = pd.DataFrame(columns=["root", "gloss"] + lexical_features + principal_parts)
+    os.makedirs(os.path.dirname(lexicon_path), exist_ok=True)
     df.to_excel(lexicon_path, index=False)
-    return lexicon_path
 
 
 def get_roots(lexicon_basename: str) -> list[str]:

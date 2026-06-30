@@ -17,7 +17,7 @@ def _is_valid(path: str, *source_dirs: str) -> bool:
     if not os.path.exists(path):
         return False
     mtime = os.path.getmtime(path)
-    return all(os.path.getmtime(d) >= mtime for d in source_dirs)
+    return all(mtime >= os.path.getmtime(d) for d in source_dirs)
 
 
 def is_syms_cache_valid(*source_dirs: str) -> bool:

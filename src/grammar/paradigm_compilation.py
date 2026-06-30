@@ -263,9 +263,11 @@ def _warm_cache() -> None:
         try:
             inflect = build_inflect_graph(name)
             parse = build_parse_graph(inflect)
-            search = build_search_lexicon_and_leftfactor(inflect)
-            _save_paradigm(name, inflect, parse, search)
-            _store(name, inflect, parse, search)
+            search_lexicon, search_left_factor = build_search_lexicon_and_leftfactor(
+                inflect
+            )
+            _save_paradigm(name, inflect, parse, search_lexicon, search_left_factor)
+            _store(name, inflect, parse, search_lexicon, search_left_factor)
         except Exception as e:
             logger.warning(f"Failed to build graphs for paradigm '{name}': {e}")
 
@@ -435,16 +437,17 @@ def inflect_stages(
 
     # prepare feature sets for printing
     for i, stage in enumerate(stages):
-        stage_features = stage.feature_values
-        if isinstance(stage_features, set):
-            feature_string = stringify_features(stage_features)
+        if isinstance(stage.feature_values, set):
+            feature_string = stringify_features(stage.feature_values)
             feature_string = feature_string.lstrip("[").rstrip("]")
             feature_string = feature_string.replace("][", ", ")
-            stages[i] = stage._replace(feature_values=feature_string)
+            stage = stage._replace(feature_values=feature_string)
 
         if isinstance(stage.marker_value, tuple):
             marker_value_str = " > ".join(stage.marker_value)
-            stages[i] = stage._replace(marker_value=marker_value_str)
+            stage = stage._replace(marker_value=marker_value_str)
+
+        stages[i] = stage
     return stages
 
 
