@@ -1,0 +1,4 @@
+kind: FeatureDefinitions
+features:
+  gender: [masculine, feminine]
+  number: [sg, pl]

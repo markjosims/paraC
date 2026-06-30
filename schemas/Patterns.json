@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Patterns",
+  "description": "Configuration defining Finite State Acceptors (FSAs) describing languages of strings for use in morphological rules.",
+  "type": "object",
+  "required": [
+    "kind",
+    "patterns"
+  ],
+  "properties": {
+    "source_path": {
+      "type": "string",
+      "description": "The file path from which this config was loaded."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "Patterns"
+      ]
+    },
+    "patterns": {
+      "type": "array",
+      "description": "A list of pattern definitions, where each entry is a mapping of the pattern name to its configuration.",
+      "items": {
+        "type": "object",
+        "required": [
+          "pattern",
+          "ref"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "A descriptive name for the pattern"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "A regular expression string that can be interpreted as an FSA."
+          },
+          "ref": {
+            "type": "string",
+            "pattern": "^<.+>$",
+            "description": "A unique string surrounded by angle braces used to refer to this pattern in other rules or patterns."
+          },
+          "test_includes": {
+            "type": "array",
+            "description": "List of strings the pattern should accept.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "test_excludes": {
+            "type": "array",
+            "description": "List of strings the pattern should not accept.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

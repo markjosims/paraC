@@ -1,0 +1,35 @@
+# This is a ContingentFeatureMarkers config file
+# Define morphological realizations contingent on multiple features.
+kind: ContingentFeatureMarkers
+features:
+  # List of features this set expones, e.g.:
+- first feature
+- second feature
+- third feature...
+
+markers:
+  # Array of realizations, each marking a set of feature values.
+- features:
+    first feature: first value
+    second feature: second value
+    third feature: third value
+  realization:
+  - kind: prefix/suffix/replace/suppletion/rule/principal_part
+    value: marker value
+    stage: (OPTIONAL) marker order
+
+# Optional: default order stage for markers
+# global_stage: suffixation
+
+# Optional: markers applied to all forms in this paradigm
+# global_markers:
+#   - kind: suffix
+#     value: -a
+
+### HELP FOR CONTINGENT FEATURE MARKERS ###
+# In this file we define morphological formatives where each
+# formative marks a bundle of features rather than a single one.
+# Otherwise, the usage is the same as for regular feature markers
+# (i.e. the kind/value/order for a marker is written the same way,
+# just be careful to add extra indentation so that the marker is
+# scoped under the "realization" key)

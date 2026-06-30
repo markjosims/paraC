@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 load_dotenv() 
 
 # Configure logging level from environment variable
-# Set TIRA_LOG_LEVEL=DEBUG to see debug messages, otherwise defaults to INFO
-_log_level = os.environ.get("TIRA_LOG_LEVEL", "INFO").upper()
+# Set PARC_LOG_LEVEL=DEBUG to see debug messages, otherwise defaults to INFO
+_log_level = os.environ.get("PARC_LOG_LEVEL", "INFO").upper()
 _log_output = os.environ.get("TIRA_LOG_OUTPUT", "stdout")
 
 if _log_output == "stderr":

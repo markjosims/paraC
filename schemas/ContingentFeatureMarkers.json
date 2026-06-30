@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ContingentFeatureMarkers",
+  "description": "Schema for morphological realizations contingent on multiple features.",
+  "type": "object",
+  "required": [
+    "kind",
+    "features",
+    "markers"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "source_path": {
+      "type": "string",
+      "description": "The file path from which this config was loaded."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "ContingentFeatureMarkers"
+      ]
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of inflectional features this set expones."
+    },
+    "global_stage": {
+      "type": "string",
+      "description": "Allows specifying a default value for the 'stage' attribute."
+    },
+    "global_markers": {
+      "type": "array",
+      "items": {
+        "$ref": "./FeatureMarkers.json#/definitions/marker"
+      },
+      "description": "A marker or list of markers applied to all forms in this paradigm."
+    },
+    "markers": {
+      "type": "array",
+      "description": "An array over feature vectors and their realizations.",
+      "items": {
+        "type": "object",
+        "required": [
+          "features",
+          "realization"
+        ],
+        "properties": {
+          "features": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "The feature value vector specified for this marker group."
+          },
+          "realization": {
+            "type": "array",
+            "items": {
+              "$ref": "./FeatureMarkers.json#/definitions/marker"
+            }
+          }
+        }
+      }
+    }
+  }
+}

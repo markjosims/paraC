@@ -1,0 +1,192 @@
+{
+  "Marker: item": {
+    "scope": "yaml",
+    "prefix": "mk-item",
+    "body": [
+      "  ${1:feature value}:",
+      "  - kind: prefix/suffix/replace/suppletion/rule/principal_part",
+      "    value: ${2:marker value}",
+      "    stage: ${3:(OPTIONAL) marker order}"
+    ]
+  },
+  "Marker: additional marker": {
+    "scope": "yaml",
+    "prefix": "mk-add",
+    "body": [
+      "  - kind: prefix/suffix/replace/suppletion/rule/principal_part",
+      "    value: ${1:marker value}",
+      "    stage: ${2:(OPTIONAL) marker order}"
+    ]
+  },
+  "Contingent Feature Markers: item": {
+    "scope": "yaml",
+    "prefix": "cfm-item",
+    "body": [
+      "- features:",
+      "    ${1:first feature}: ${2:first value}",
+      "    ${3:second feature}: ${4:second value}",
+      "    ${5:third feature}: ${6:third value}",
+      "  realization:",
+      "  - kind: prefix/suffix/replace/suppletion/rule/principal_part",
+      "    value: ${7:marker value}",
+      "    stage: ${8:(OPTIONAL) marker order}"
+    ]
+  },
+  "Contingent Feature Markers: additional marker": {
+    "scope": "yaml",
+    "prefix": "cfm-add",
+    "body": [
+      "  - kind: prefix/suffix/replace/suppletion/rule/principal_part",
+      "    value: ${1:marker value}",
+      "    stage: ${2:(OPTIONAL) marker order}"
+    ]
+  },
+  "Inventory node: phones": {
+    "scope": "yaml",
+    "prefix": "inv-phones",
+    "body": [
+      "- name: ${1:node name}",
+      "  ref: <${2:node reference}>",
+      "  phones: [${3:phone1}, ${4:phone2}]"
+    ]
+  },
+  "Inventory node: tags": {
+    "scope": "yaml",
+    "prefix": "inv-tags",
+    "body": [
+      "- name: ${1:node name}",
+      "  ref: <${2:node reference}>",
+      "  tags: [${3:tag1}, ${4:tag2}]"
+    ]
+  },
+  "Inventory node: nested": {
+    "scope": "yaml",
+    "prefix": "inv-nested",
+    "body": [
+      "- name: ${1:node name}",
+      "  ref: <${2:node reference}>",
+      "  children:",
+      "    ${3:put children here!}"
+    ]
+  },
+  "FeatureDefinitions: feature": {
+    "scope": "yaml",
+    "prefix": " fd-feature",
+    "body": [
+      "  ${1:feature name}:",
+      "    - ${2:feature value}"
+    ]
+  },
+  "Patterns: pattern": {
+    "scope": "yaml",
+    "prefix": "pat-item",
+    "body": [
+      "- name: ${1:pattern name}",
+      "  pattern: \"${2:regular expression}\"",
+      "  ref: <${3:pattern reference}>"
+    ]
+  },
+  "Rules: simple": {
+    "scope": "yaml",
+    "prefix": "rule-simple",
+    "body": [
+      "- name: ${1:rule name}",
+      "  description: >",
+      "    ${2:rule description}",
+      "  input_pattern: ${3:input pattern}",
+      "  output_pattern: ${4:output pattern}",
+      "  left_context: ${5:left context}",
+      "  right_context: ${6:right context}"
+    ]
+  },
+  "Rules: map": {
+    "scope": "yaml",
+    "prefix": "rule-map",
+    "body": [
+      "- name: ${1:rule name}",
+      "  description: >",
+      "    ${2:rule description}",
+      "  string_map:",
+      "    - [${3:input}, ${4:output}]",
+      "    - [${6:input}, ${7:output}]",
+      "  left_context: ${7:left context}",
+      "  right_context: ${8:right context}"
+    ]
+  },
+  "Rules: sequence": {
+    "scope": "yaml",
+    "prefix": "rule-seq",
+    "body": [
+      "- name: ${1:rule name}",
+      "  description: >",
+      "    ${2:rule description}",
+      "  rule_sequence:",
+      "    - \\$${3:rule reference}"
+    ]
+  },
+  "Paradigm: feature marker": {
+    "scope": "yaml",
+    "prefix": "para-fm",
+    "body": [
+      "$1: \\$$2"
+    ]
+  },
+  "Paradigm: filter": {
+    "scope": "yaml",
+    "prefix": "para-flt",
+    "body": [
+      "filter: ",
+      "  lexical_features: ",
+      "   ${1:feature}: ${2:value}",
+      "  pattern: \"${3:pattern}\""
+    ]
+  },
+  "Paradigm: contingent markers": {
+    "scope": "yaml",
+    "prefix": "para-ctgt",
+    "body": [
+      "contingent_markers: ",
+      "- \\$$1"
+    ]
+  },
+  "Paradigm: order": {
+    "scope": "yaml",
+    "prefix": "para-ord",
+    "body": [
+      "stage: ",
+      "- $1"
+    ]
+  },
+  "Paradigm: global markers": {
+    "scope": "yaml",
+    "prefix": "para-glob",
+    "body": [
+      "global_markers: ",
+      "- kind: ${1:marker kind}",
+      "  value: ${2:marker value}"
+    ]
+  },
+  "Paradigm: feature value combinations": {
+    "scope": "yaml",
+    "prefix": "para-comb",
+    "body": [
+      "feature_value_combinations: ${1:file reference}"
+    ]
+  },
+  "PartOfSpeech: principal part": {
+    "scope": "yaml",
+    "prefix": "pos-pp",
+    "body": [
+      "principal_parts: ",
+      "- ${1}"
+    ]
+  },
+  "PartOfSpeech: lexical feature": {
+    "scope": "yaml",
+    "prefix": "pos-lexical_feature",
+    "body": [
+      "lexical_features: ",
+      "- $1"
+    ]
+  }
+}

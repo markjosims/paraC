@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Paradigm",
+  "description": "Configuration defining an inflectional paradigm or sub-paradigm.",
+  "type": "object",
+  "required": [
+    "kind",
+    "part_of_speech",
+    "feature_markers"
+  ],
+  "properties": {
+    "source_path": {
+      "type": "string",
+      "description": "The file path from which this config was loaded."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "Paradigm"
+      ]
+    },
+    "part_of_speech": {
+      "type": "string",
+      "pattern": "^\\$.*",
+      "description": "The category of the root (e.g., verb, noun)."
+    },
+    "filter": {
+      "type": "object",
+      "description": "Logic to select specific lexical roots from the lexicon.",
+      "properties": {
+        "lexical_features": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "pattern": {
+          "type": "string"
+        }
+      }
+    },
+    "additionalProperties": false
+  },
+  "stage_order": {
+    "type": "array",
+    "items": {
+      "type": "string"
+    },
+    "description": "The ordered stages of morphological application."
+  },
+  "global_markers": {
+    "type": "array",
+    "items": {
+      "$ref": "./FeatureMarkers.json#/definitions/marker"
+    },
+    "description": "Markers or rules applied to every form in the paradigm."
+  },
+  "feature_markers": {
+    "type": "object",
+    "description": "Mapping of features to single feature values or marker files to import, or null if only ContingentFeatureMarkers are used.",
+    "additionalProperties": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Feature value or file reference (starts with $)."
+        },
+        {
+          "type": "null",
+          "description": "Indicates that no FeatureMarkers class is loaded, and that marking is instead handled by ContingentFeatureMarkers"
+        }
+      ]
+    }
+  },
+  "feature_value_combinations": {
+    "type": "string",
+    "pattern": "^\\$.*",
+    "description": "Imported defining valid feature cross-products. If blank, all combinations of features are generated."
+  },
+  "contingent_markers": {
+    "type": "array",
+    "items": {
+      "type": "string",
+      "pattern": "^\\$.*",
+      "description": "Filepath to import ContingentFeatureMarkers from."
+    }
+  }
+}

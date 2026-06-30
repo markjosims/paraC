@@ -1,0 +1,86 @@
+# This is a MorphemeSet config file
+# Define a set of morphemes (e.g., clitics, affixes, or particles) exponing inflectional features.
+kind: MorphemeSet
+features:
+  # List inflectional features this set expones, e.g.:
+  # - gender
+  # - number
+  - conjugation_class
+  - person_number
+data:
+  # Array of morphemes and their associated feature values.
+  # Example:
+  # - features:
+  #     gender: masculine
+  #     number: sg
+  #   morpheme: el
+
+  # same across classes
+  - features:
+      person_number: "1sg"
+    morpheme: "-o"
+
+  # a class suffixes
+  - features:
+      person_number: "2sg"
+      conjugation_class: "a_class"
+    morpheme: "-as"
+  - features:
+      person_number: "3sg"
+      conjugation_class: "a_class"
+    morpheme: "-a"
+  - features:
+      person_number: "1pl"
+      conjugation_class: "a_class"
+    morpheme: "-amos"
+  - features:
+      person_number: "2pl"
+      conjugation_class: "a_class"
+    morpheme: "-áis"
+  - features:
+      person_number: "3pl"
+      conjugation_class: "a_class"
+    morpheme: "-an"
+
+  # e class suffixes
+  - features:
+      person_number: "2sg"
+      conjugation_class: "e_class"
+    morpheme: "-es"
+  - features:
+      person_number: "3sg"
+      conjugation_class: "e_class"
+    morpheme: "-e"
+  - features:
+      person_number: "1pl"
+      conjugation_class: "e_class"
+    morpheme: "-emos"
+  - features:
+      person_number: "2pl"
+      conjugation_class: "e_class"
+    morpheme: "-éis"
+  - features:
+      person_number: "3pl"
+      conjugation_class: "e_class"
+    morpheme: "-en"
+  # i class suffixes
+  - features:
+      person_number: "2sg"
+      conjugation_class: "i_class"
+    morpheme: "-es"
+  - features:
+      person_number: "3sg"
+      conjugation_class: "i_class"
+    morpheme: "-e"
+  - features:
+      person_number: "1pl"
+      conjugation_class: "i_class"
+    morpheme: "-imos"
+  - features:
+      person_number: "2pl"
+      conjugation_class: "i_class"
+    morpheme: "-ís"
+  - features:
+      person_number: "3pl"
+      conjugation_class: "i_class"
+    morpheme: "-en"

@@ -1,0 +1,49 @@
+# This is a Paradigm config file
+# Define an inflectional paradigm or sub-paradigm for a specific part of speech.
+kind: Paradigm
+part_of_speech: $part of speech file # Part of speech reference, e.g., $verb
+
+feature_markers:
+  # add feature markers here! See below for examples.
+  feature_name: $marker file
+  # Map features to marker file references (start with $)
+  # to indicate which markers expone that feature.
+  # If the paradigm is for a fixed feature value (e.g.
+  # the a paradigm of present tense verbs) then indicate
+  # the feature value (no $ prefix) rather than a marker file reference.
+  # If features are exponed by contingent markers only, set the value
+  # for that feature to null.
+
+  # Example:
+  # person: $person_markers
+  # tense: present
+  # mood: indicative
+
+# Optional: ordered stages of morphological rule/marker application
+# stage_order:
+#   - stem_change
+#   - suffixation
+# type para-ord to add order stages!
+
+# Optional: filter to select specific roots from the lexicon
+# filter:
+#   lexical_features:
+#     - [conjugation, first]
+#   pattern: "<C>+<V>+"  # Phonological filter pattern reference or shape
+# type para-flt to add filter!
+
+
+# Optional: markers or rules applied to every form in this paradigm
+# global_markers:
+#   - kind: principal_part
+#     value: present_stem
+# type para-glob to add global markers!
+
+# Optional: imported file defining valid feature cross-products
+# feature_value_combinations: $valid_combinations
+# type para-comb to add feature value combinations!
+
+# Optional: array of filepaths to import contingent markers from
+# contingent_markers:
+#   - $contingent_person_tense_markers
+# type para-ctgt to add contingent markers!
