@@ -90,11 +90,24 @@ export async function parse(kind, name, form) {
   return res.json();
 }
 
-export async function runInflection(name, stem, features) {
+export async function search(kind, name, form) {
+  const res = await fetch("/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ kind, name, form }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? `Search failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function runInflection(name, root, features) {
   const res = await fetch("/inflect", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, stem, features })
+    body: JSON.stringify({ name, root, features })
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

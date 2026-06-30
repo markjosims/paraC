@@ -21,12 +21,15 @@ from src.grammar.acceptor_compilation import (
     fsm_strings,
     get_symbol_table,
 )
-from src.grammar.paradigm_compilation import parse
-from src.grammar.paradigm_compilation import inflect
-from src.grammar.paradigm_compilation import search
+from src.grammar.paradigm_compilation import (
+    inflect_stages,
+    parse,
+    inflect,
+    search,
+    get_roots_for_paradigm,
+)
 from src.grammar.transducer_compilation import get_rule_fst
 from src.yaml_utils.yaml_server import (
-    get_feature_array,
     get_yaml_kind,
     get_inventory_items,
     get_feature_map,
@@ -37,7 +40,6 @@ from src.yaml_utils.yaml_server import (
 )
 from src.lexicon import (
     get_roots,
-    get_roots_with_lexical_features,
     get_features_for_root,
 )
 
@@ -175,9 +177,7 @@ def get_roots_route(kind: str, name: str):
     Get the roots of a paradigm or lexicon.
     """
     if kind == "Paradigm":
-        paradigm = get_yaml_data_safe(kind="Paradigm", yaml_basename=name)
-        part_of_speech_name = paradigm.get("part_of_speech")
-        return get_roots(part_of_speech_name)
+        return get_roots_for_paradigm(name)
     elif kind == "Lexicon":
         return get_roots(name)
     else:
@@ -305,18 +305,23 @@ class SearchRequest(BaseModel):
     kind: str = "Paradigm"
     name: str
     form: str
-    nshortest: int = 5
+    nshortest: int = 10
 
 
 @app.post("/inflect")
 def api_inflect(req: InflectRequest):
     try:
-        forms = inflect(req)
+        stages = inflect_stages(
+            root=req.root, feature_values=req.features, name=req.name
+        )
+        forms = stages[-1].surface_forms
+        stages = [stage._asdict() for stage in stages]
     except Exception as e:
         logger.exception(f"Error during inflection: {e}")
         raise HTTPException(status_code=400, detail=str(e))
-    # TODO: edit frontend so it expects list of strings
-    return {"results": forms}
+    result = {"forms": forms, "stages": stages}
+    logger.info(f"Inflect JSON: {result}")
+    return result
 
 
 @app.post("/parse")
@@ -332,11 +337,17 @@ def api_parse(req: ParseRequest):
 @app.post("/search")
 def api_search(req: SearchRequest):
     try:
-        hits = search(name=req.name, form=req.form, nshortest=req.nshortest)
+        parsed_hits = search(
+            name=req.name,
+            form=req.form,
+            nshortest=req.nshortest,
+            do_parse=True,
+            kind=req.kind,
+        )
     except Exception as e:
         logger.exception(f"Error during search: {e}")
         raise HTTPException(status_code=400, detail=str(e))
-    return {"hits": [{"form": s, "cost": w} for s, w in hits]}
+    return {"parses": parsed_hits}
 
 
 app.mount("/", StaticFiles(directory="frontend", html=True), name="static")

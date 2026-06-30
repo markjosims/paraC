@@ -49,9 +49,9 @@
           <select id="inflect-target"></select>
         </div>
 
-        <div class="form-group" id="stems-input-group">
+        <div class="form-group" id="roots-input-group">
           <label>Roots</label>
-          <div id="stems-container">
+          <div id="root-container">
             <!-- Dynamically generated input fields -->
           </div>
         </div>
@@ -173,11 +173,21 @@
           <input id="parse-form" type="text" placeholder="e.g. ʔaːtʃi" />
         </div>
 
-        <button id="submit-parse-btn" class="action-btn">Parse</button>
+        <div class="parse-actions">
+          <button id="submit-parse-btn" class="action-btn">Parse</button>
+          <label class="toggle-label">
+            <input type="checkbox" id="fuzzy-toggle-btn"> Fuzzy search
+          </label>
+        </div>
 
         <div id="parse-results" hidden>
           <h3>Parses</h3>
-          <div id="parse-results-list" class="results-box"></div>
+          <div class="table-wrapper">
+            <table id="parse-results-table">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>

@@ -109,7 +109,7 @@ class SingleStringMarker(NamedTuple):
 
     kind: OperationTypeSingleString
     value: str
-    order: str | None = None
+    stage: str | None = None
 
 
 class StringTupleMarker(NamedTuple):
@@ -119,7 +119,7 @@ class StringTupleMarker(NamedTuple):
 
     kind: OperationTypeStringTuple
     value: tuple[str, str]
-    order: str | None = None
+    stage: str | None = None
 
 
 class UnorderedMarker(NamedTuple):
@@ -134,7 +134,7 @@ class UnorderedMarker(NamedTuple):
 class StringMapMarker(NamedTuple):
     kind: Literal["string_map"]
     value: tuple[tuple[str, str], ...]
-    order: str | None = None
+    stage: str | None = None
 
 
 Marker = SingleStringMarker | StringTupleMarker | UnorderedMarker | StringMapMarker

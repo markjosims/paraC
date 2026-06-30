@@ -6,6 +6,8 @@ part_of_speech: $verb # Part of speech reference, e.g., $verb
 feature_markers:
   # add feature markers here! See below for examples.
   person_number: $a_stem_present_indicative
+  tense: present
+  mood: indicative
   # Map features to marker file references (start with $)
   # to indicate which markers expone that feature.
   # If the paradigm is for a fixed feature value (e.g.

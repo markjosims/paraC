@@ -7,6 +7,8 @@ Separated from yaml_server to avoid a circular import:
 
 from __future__ import annotations
 
+from loguru import logger
+
 from src.lexicon import get_roots, get_principle_part_for_all_roots
 from src.yaml_utils.models import (
     Marker,
@@ -14,49 +16,172 @@ from src.yaml_utils.models import (
     StringMapMarker,
     resolve_marker,
 )
-from src.yaml_utils.yaml_server import get_markers, get_yaml_data_safe
+from src.yaml_utils.yaml_server import get_markers, get_yaml_data_safe, get_feature_map
+import itertools
+
+FeatureComboType = set[tuple[str, str]]
 
 
 def get_markers_for_paradigm(
-    feature_values: set[tuple[str, str]] | dict[str, str],
+    feature_values: FeatureComboType | dict[str, str],
     paradigm_name: str,
-) -> list[Marker]:
+    include_features: bool = False,
+) -> list[Marker] | list[tuple[Marker, FeatureComboType | str]]:
     """
     Get all markers for a requested feature set for a given paradigm.
     Resolves principal_part markers into StringMapMarker using the paradigm's lexicon.
     """
     if isinstance(feature_values, dict):
-        feature_values = set(feature_values.items())
+        feature_values: FeatureComboType = set(feature_values.items())
+    # avoid side effects
+    feature_values = feature_values.copy()
 
     paradigm_data = get_yaml_data_safe("Paradigm", paradigm_name)
-    part_of_speech = paradigm_data["part_of_speech"]
 
-    feature_marker_files = paradigm_data["feature_markers"].values()
-    contingent_feature_marker_files = paradigm_data.get("contingent_markers", [])
-
-    feature_markers = get_markers(
-        feature_marker_files, contingent_feature_marker_files, feature_values
+    # ignore fixed features
+    fixed_features = get_fixed_features_for_paradigm(
+        name=paradigm_name, kind="Paradigm"
     )
+    feature_values -= fixed_features
 
-    if "global_markers" in paradigm_data:
-        feature_markers.extend(
-            resolve_marker(marker) for marker in paradigm_data["global_markers"]
+    combos, marker_files, contingent_files = get_feature_combos_for_paradigm(
+        name=paradigm_name, kind="Paradigm"
+    )
+    combos = [combo - fixed_features for combo in combos]
+
+    if not any([feature_values == combo for combo in combos]):
+        raise ValueError(
+            f"Feature values {feature_values} not valid for paradigm {paradigm_name}"
         )
 
+    markers = get_markers(
+        feature_marker_files=marker_files,
+        contingent_feature_marker_files=contingent_files,
+        feature_values=feature_values,
+    )
+
+    # any global markers defined in the paradigm should be applied to all feature combinations
+    if "global_markers" in paradigm_data:
+        markers.extend(
+            (resolve_marker(marker), "global")
+            for marker in paradigm_data["global_markers"]
+        )
+
+    # global stage applies to any unstaged marker, but does not override
+    # staged markers
     if "global_stage" in paradigm_data:
-        for i, marker in enumerate(feature_markers):
+        for i, marker_tuple in enumerate(markers):
+            marker, feature_set = marker_tuple
             if hasattr(marker, "stage") and marker.stage is None:
-                feature_markers[i] = marker._replace(
-                    stage=paradigm_data["global_stage"]
+                markers[i] = (
+                    marker._replace(stage=paradigm_data["global_stage"]),
+                    feature_set,
                 )
 
-    for i, marker in enumerate(feature_markers):
+    # principle part markers need access to the lexicon to resolve into a StringMapMarker
+    part_of_speech = paradigm_data["part_of_speech"]
+    for i, marker_tuple in enumerate(markers):
+        marker, feature_set = marker_tuple
         if isinstance(marker, UnorderedMarker) and marker.kind == "principal_part":
             roots = get_roots(part_of_speech)
             pps = get_principle_part_for_all_roots(part_of_speech, marker.value)
-            feature_markers[i] = StringMapMarker(
-                kind="string_map",
-                value=tuple(zip(roots, pps)),
+            markers[i] = (
+                StringMapMarker(
+                    kind="string_map",
+                    value=tuple(zip(roots, pps)),
+                ),
+                feature_set,
             )
 
-    return feature_markers
+    # order of application specified by paradigm's stage_order, if present
+    stage_order: list[str] | None = paradigm_data.get("stage_order", None)
+    if stage_order is not None:
+        markers.sort(
+            key=lambda m: (
+                stage_order.index(m[0].stage) if m[0].stage in stage_order else -1
+            )
+        )
+
+    if not include_features:
+        markers = [marker for marker, _ in markers]
+
+    return markers
+
+
+def get_fixed_features_for_paradigm(
+    name: str, kind: str = "Paradigm"
+) -> FeatureComboType:
+    paradigm_data = get_yaml_data_safe(kind=kind, yaml_basename=name)
+    fixed_features = set()
+    for feature, value in paradigm_data["feature_markers"].items():
+        if isinstance(value, str):
+            fixed_features.add((feature, value))
+
+    return fixed_features
+
+
+def get_feature_combos_for_paradigm(
+    name: str,
+    feature_map: dict | None = None,
+    kind: str = "Paradigm",
+) -> tuple[list[FeatureComboType], list[str], list[str]]:
+    """
+    Return valid feature combos for a paradigm.
+    Each combo is a set of (feature, value) pairs covering all free features
+    plus any fixed feature values.
+    """
+
+    if feature_map is None:
+        feature_map = get_feature_map()
+
+    paradigm_data = get_yaml_data_safe(kind=kind, yaml_basename=name)
+    part_of_speech = paradigm_data["part_of_speech"]
+    part_of_speech_data = get_yaml_data_safe(
+        yaml_basename=part_of_speech, kind="PartOfSpeech"
+    )
+
+    fixed: dict[str, str] = {}
+    marker_files: list[str] = []
+    # assume all inflectional features are free unless explicitly fixed in the paradigm
+    free_feature_names: list[str] = part_of_speech_data.get("features", [])
+
+    for feature_name, ref in paradigm_data.get("feature_markers", {}).items():
+        if ref is None:
+            # feature is only exponed via contingent markers
+            # or is unexponed
+            continue
+        if isinstance(ref, str) and ref.startswith("$"):
+            marker_files.append(ref)
+        else:
+            fixed[feature_name] = ref
+            free_feature_names.remove(feature_name)
+
+    contingent_files = list(paradigm_data.get("contingent_markers", []))
+
+    free_value_lists = []
+    for fname in free_feature_names:
+        if fname not in feature_map:
+            logger.warning(f"Feature '{fname}' not in feature map — skipping.")
+            continue
+        free_value_lists.append([(fname, v) for v in feature_map[fname]])
+
+    if not free_value_lists:
+        combos = [set(fixed.items())]
+    else:
+        combos = [
+            set(fixed.items()) | set(combo_tuples)
+            for combo_tuples in itertools.product(*free_value_lists)
+        ]
+    return combos, marker_files, contingent_files
+
+
+def get_features_for_paradigm(name: str) -> set[str]:
+    """
+    Get the set of inflectional features for a given paradigm.
+    """
+    paradigm_data = get_yaml_data_safe("Paradigm", name)
+    part_of_speech = paradigm_data["part_of_speech"]
+    features = get_yaml_data_safe(
+        yaml_basename=part_of_speech, kind="PartOfSpeech"
+    ).get("features", [])
+    return set(features)

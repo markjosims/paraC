@@ -3,7 +3,7 @@ import { fetchInflectionMeta, fetchRoots, fetchLexicalFeatures, runInflection } 
 let metaData = null;
 
 const targetSelect = document.getElementById('inflect-target');
-const stemContainer = document.getElementById('stem-container');
+const rootContainer = document.getElementById('root-container');
 const featuresContainer = document.getElementById('features-container');
 const submitBtn = document.getElementById('submit-inflect-btn');
 const resultsSection = document.getElementById('inflection-results');
@@ -40,7 +40,7 @@ async function updateFields() {
   if (!metaData) return;
   const targetName = targetSelect.value;
 
-  stemContainer.innerHTML = '';
+  rootContainer.innerHTML = '';
   featuresContainer.innerHTML = '';
   resultsSection.setAttribute('hidden', '');
 
@@ -50,23 +50,26 @@ async function updateFields() {
   if (!p) return;
 
   const select = buildRootSelect(`Select a root…`);
+  select.addEventListener('change', () => onRootChange("Paradigm", targetName, select.value));
+  rootContainer.appendChild(select);
+
+  // const allFeatures = [...new Set([...p.features, ...p.lexical_features])];
+  // TODO: when MorphemeSequence is implemented, we'll need to account for lexcical features as input
+  // For the Paradigm class, we only need to worry about inflection features
+  renderFeatureSelectors(p.features);
+
   try {
-    const roots = await fetchRoots('paradigm', targetName);
+    const roots = await fetchRoots("Paradigm", targetName);
     populateRootSelect(select, roots);
   } catch (err) {
     console.warn('Failed to load roots:', err);
   }
-  select.addEventListener('change', () => onRootChange('paradigm', targetName, select.value));
-  stemContainer.appendChild(select);
-
-  const allFeatures = [...new Set([...p.features, ...p.lexical_features])];
-  renderFeatureSelectors(allFeatures);
 
 }
 
 function buildRootSelect(placeholder) {
   const select = document.createElement('select');
-  select.className = 'stem-input root-select';
+  select.className = 'root-input root-select';
   const blank = document.createElement('option');
   blank.value = '';
   blank.textContent = placeholder;
@@ -146,11 +149,11 @@ submitBtn.addEventListener('click', async () => {
   if (!metaData) return;
   const name = targetSelect.value;
 
-  const stemInputs = stemContainer.querySelector('.stem-input');
-  const stem = stemInputs.value.trim();
+  const rootInputs = rootContainer.querySelector('.root-input');
+  const root = rootInputs.value.trim();
 
-  if (stem.length === 0) {
-    alert('Please enter a stem / root.');
+  if (root.length === 0) {
+    alert('Please enter a root / root.');
     return;
   }
 
@@ -164,7 +167,7 @@ submitBtn.addEventListener('click', async () => {
   submitBtn.textContent = 'Generating...';
 
   try {
-    const res = await runInflection(name, stem, features);
+    const res = await runInflection(name, root, features);
     displayResults(res);
   } catch (err) {
     alert(err.message);
@@ -204,11 +207,11 @@ function displayResults(data) {
   data.stages.forEach(s => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-        <td>${s.order ?? ''}</td>
+        <td>${s.stage ?? ''}</td>
         <td>${s.marker_kind ?? ''}</td>
         <td>${s.marker_value ?? ''}</td>
-        <td>${s.feature_value ?? ''}</td>
-        <td>${s.form ?? ''}</td>
+        <td>${s.feature_values ?? ''}</td>
+        <td>${s.surface_forms ?? ''}</td>
       `;
     stagesTableBody.appendChild(tr);
   });

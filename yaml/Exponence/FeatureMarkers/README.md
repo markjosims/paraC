@@ -139,10 +139,10 @@ markers:
   # e.g. ked > ket-te
   - kind: suffix
     value: -te
-    order: suffixation
+    stage: suffixation
   - kind: replace
     value: [dt, tt]
-    order: stem_assimilation
+    stage: stem_assimilation
 ```
 Since stages are identified by their name rather than a numeric value, a stage order needs to be specified which determines the sequence of processes.
 This is done in the `Paradigm` config, see the [documentation](config/paradigms/README.md) for more details.
@@ -211,7 +211,7 @@ Rather than write the 'order' attribute for each marker, we can specify it under
 ```yaml
 kind: FeatureMarkers
 feature: tense
-global_order: inner suffixation
+global_stage: inner suffixation
 markers:
   present: null
   past:
@@ -225,7 +225,7 @@ markers:
 ```yaml
 kind: FeatureMarkers
 feature: person
-global_order: outer suffixation
+global_stage: outer suffixation
 markers:
   1sg:
     kind: rule
@@ -241,18 +241,18 @@ If an individual marker specifies the same attribute as a global attribute, the 
 ```yaml
 kind: FeatureMarkers
 feature: person
-global_order: outer suffixation
+global_stage: outer suffixation
 markers:
   1sg:
     kind: rule
     value: $palatalization
-    order: stem_mutation
+    stage: stem_mutation
   2sg:
     kind: suffix
-    order: -ek
+    stage: -ek
   3sg:
     kind: suffix
-    order: -ut
+    stage: -ut
 ```
 Rather than assgining a single attribute for all markers in the config, we may wish to apply an entire marker to all forms, and then let each feature value add it's own marker if needed.
 For example, let's create a paradigm for the Spanish verb *estar* where we insert a suffix *-uv* to the past tense stem before the person marker:
@@ -261,21 +261,21 @@ kind: FeatureMarkers
 feature: person
 global_markers:
 - kind: suffix
-  order: -uv
-  order: "Inner suffix"
+  stage: -uv
+  stage: "Inner suffix"
 markers:
   1sg:
     kind: suffix
-    order: "-e"
-    order: "Outer suffix"
+    stage: "-e"
+    stage: "Outer suffix"
   2sg:
     kind: suffix
-    order: "-iste"
-    order: "Outer suffix"
+    stage: "-iste"
+    stage: "Outer suffix"
   3sg:
     kind: suffix
-    order: "-o"
-    order: "Outer suffix"
+    stage: "-o"
+    stage: "Outer suffix"
 ```
 While in this case the added effort of specifying the suffix order here outweighs the effort of simply writing out "-uv-e", "-uv-iste", "-uv-o", we present this case as a demonstration of how 'global_markers' may be applied.
 

@@ -233,7 +233,7 @@ def get_feature_map() -> dict[str, tuple[str, ...]]:
                     f"Duplicate feature found: {feature_name} in {file_path}"
                 )
                 continue
-            features[feature_name] = tuple(feature_data)
+            features[feature_name] = tuple(feature_data) + ("unmarked",)
 
     return features
 
@@ -252,7 +252,9 @@ def get_feature_array() -> tuple[Feature]:
 
     for _, yaml_data in features_yaml_data:
         for feature_name, feature_data in yaml_data["features"].items():
-            features.append(Feature(name=feature_name, values=tuple(feature_data)))
+            features.append(
+                Feature(name=feature_name, values=tuple(feature_data) + ("unmarked",))
+            )
 
     return tuple(features)
 
@@ -365,11 +367,14 @@ def validate_requested_marker_files(
     return True
 
 
+FeatureComboType = set[tuple[str, str]]
+
+
 def get_markers(
     feature_marker_files: list[str],
     contingent_feature_marker_files: list[str],
-    feature_values: set[tuple[str, str]],
-) -> list[Marker]:
+    feature_values: set[tuple[str, str]] | dict[str, str],
+) -> list[tuple[Marker, FeatureComboType]]:
     """
     Query all specified files for markers exponing the requested feature set.
     Selects contingent feature markers first, then regular feature markers
@@ -381,6 +386,9 @@ def get_markers(
     contingent marker sets and regular marker sets, or between different regular marker sets.
     """
 
+    if isinstance(feature_values, dict):
+        feature_values: FeatureComboType = set(feature_values.items())
+
     if not feature_values:
         return []
 
@@ -390,26 +398,45 @@ def get_markers(
     # iterate through contingent feature markers and attempt
     # to match any valid markers within
     # since contingent markers can overlap, order of iteration does not matter
-    for marker_file in contingent_feature_marker_files:
-        data = get_yaml_data_safe("ContingentFeatureMarkers", marker_file)
+    for contingent_file in contingent_feature_marker_files:
+        data = get_yaml_data_safe("ContingentFeatureMarkers", contingent_file)
         markers_for_file = _get_valid_contingent_markers(data, feature_values)
         if markers_for_file:
-            unexponed_features -= {feature for feature, _ in feature_values}
-            markers.extend(markers_for_file)
+            contingent_feature_names = data["features"]
+            contingent_feature_values = {
+                value
+                for feature, value in feature_values
+                if feature in contingent_feature_names
+            }
+            unexponed_features -= set(contingent_feature_names)
+            markers.extend(
+                (marker, contingent_feature_values) for marker in markers_for_file
+            )
 
     # attempt to match any remaining features with regular feature markers
     for marker_file in feature_marker_files:
         data = get_yaml_data_safe("FeatureMarkers", marker_file)
-        if data["feature"] in unexponed_features:
+        marker_feature = data["feature"]
+        if marker_feature in unexponed_features:
             requested_feature_value = [
-                value for feature, value in feature_values if feature == data["feature"]
+                value for feature, value in feature_values if feature == marker_feature
             ]
-            markers_for_file = data["markers"].get(requested_feature_value[0], None)
-            if markers_for_file:
+            if not requested_feature_value:
+                continue
+            requested_feature_value = requested_feature_value[0]
+            if markers_for_file := data["markers"].get(requested_feature_value, None):
+                marker_feature_set: FeatureComboType = {
+                    (marker_feature, requested_feature_value)
+                }
                 unexponed_features -= {data["feature"]}
-                markers.extend(markers_for_file)
+                markers.extend(
+                    (marker, marker_feature_set) for marker in markers_for_file
+                )
 
-    markers = [resolve_marker(marker) for marker in markers]
+    if unexponed_features:
+        raise ValueError("Provided marker sets do not support requested feature set")
+
+    markers = [(resolve_marker(marker), feature_set) for marker, feature_set in markers]
     return markers
 
 

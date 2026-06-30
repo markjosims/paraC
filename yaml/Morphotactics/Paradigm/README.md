@@ -1,6 +1,6 @@
 # paradigms
 Configs defining inflectional paradigms.
-The name 'paradigm' here is agnostic to *exhaustive* or *sub-*paradigms.
+The name "Paradigm" here is agnostic to *exhaustive* or *sub-*paradigms.
 For example, a `Paradigm` config may correspond to all possible inflected verb forms for an entire language (not recommended), or a sub-paradigm for a specific TAM value for a particular conjugation class (recommended).
 An inflectional paradigm must have at minimum the attributes 'part_of_speech' and 'feature_markers'.
 ```yaml
@@ -47,7 +47,7 @@ The 'order' attribute allows specifying the order of application of markers, e.g
 ```yaml
 kind: Paradigm
 part_of_speech: verb
-order: [person_suffix, stress_assignment, diphthongization]
+stage: [person_suffix, stress_assignment, diphthongization]
 feature_markers:
   person: $person_suffixes
   tense: $tense_stem

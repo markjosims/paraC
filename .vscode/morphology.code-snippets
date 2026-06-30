@@ -6,7 +6,7 @@
       "  ${1:feature value}:",
       "  - kind: prefix/suffix/replace/suppletion/rule/principal_part",
       "    value: ${2:marker value}",
-      "    order: ${3:(OPTIONAL) marker order}"
+      "    stage: ${3:(OPTIONAL) marker order}"
     ]
   },
   "Marker: additional marker": {
@@ -15,7 +15,7 @@
     "body": [
       "  - kind: prefix/suffix/replace/suppletion/rule/principal_part",
       "    value: ${1:marker value}",
-      "    order: ${2:(OPTIONAL) marker order}"
+      "    stage: ${2:(OPTIONAL) marker order}"
     ]
   },
   "Contingent Feature Markers: item": {
@@ -29,7 +29,7 @@
       "  realization:",
       "  - kind: prefix/suffix/replace/suppletion/rule/principal_part",
       "    value: ${7:marker value}",
-      "    order: ${8:(OPTIONAL) marker order}"
+      "    stage: ${8:(OPTIONAL) marker order}"
     ]
   },
   "Contingent Feature Markers: additional marker": {
@@ -38,7 +38,7 @@
     "body": [
       "  - kind: prefix/suffix/replace/suppletion/rule/principal_part",
       "    value: ${1:marker value}",
-      "    order: ${2:(OPTIONAL) marker order}"
+      "    stage: ${2:(OPTIONAL) marker order}"
     ]
   },
   "Inventory node: phones": {
@@ -153,7 +153,7 @@
     "scope": "yaml",
     "prefix": "para-ord",
     "body": [
-      "order: ",
+      "stage: ",
       "- $1"
     ]
   },

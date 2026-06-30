@@ -37,8 +37,10 @@ def get_roots(lexicon_basename: str) -> list[str]:
 
 
 def get_roots_with_lexical_features(
-    lexicon_basename: str, lexical_features: list[tuple[str, str]]
+    lexicon_basename: str, lexical_features: set[tuple[str, str]] | dict[str,str]
 ) -> list[str]:
+    if isinstance(lexical_features, dict):
+        lexical_features = set(lexical_features.items())
     df = load_lexicon_df(lexicon_basename)
     filter = pd.Series([True] * len(df), index=df.index)
     for feature, value in lexical_features:

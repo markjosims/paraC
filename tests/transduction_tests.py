@@ -88,7 +88,9 @@ def test_2sg_a_class():
     fst = compile_marker(marker)
     assert isinstance(fst, pynini.Fst)
 
-    part_of_speech = get_yaml_data_safe("Paradigm", "$verb_a_stem")["part_of_speech"]
+    part_of_speech = get_yaml_data_safe(kind="Paradigm", yaml_basename="$verb_a_stem")[
+        "part_of_speech"
+    ]
     roots = get_roots_with_gloss(lexicon_basename=part_of_speech, gloss="speak")
     assert roots == ["habl"]
 
@@ -97,7 +99,8 @@ def test_2sg_a_class():
     result = pynini.compose(root_fsa, fst)
     assert result.num_states() > 0
     result_strings = fsm_strings(result, strip_all_tags=True)
-    assert "habl-as" in result_strings
+    expected_form = "habl-as"
+    assert expected_form in result_strings
 
     # test inflection graph
 
@@ -109,3 +112,22 @@ def test_2sg_a_class():
         root=root, feature_values=feature_values, name="verb_a_stem"
     )
     assert inflect_result == result_strings
+
+    _get_or_build(graph_type="parse", paradigm_name="verb_a_stem", force_rebuild=True)
+
+    parse_result = parse(expected_form, kind="Paradigm", name="verb_a_stem")
+    expected_parse = {
+        "root": "habl",
+        "gloss": "speak",
+        "features": {"mood": "indicative", "tense": "present", "person_number": "2sg"},
+    }
+    assert len(parse_result) == 1
+    assert parse_result[0] == expected_parse
+
+    search_query = "habl-os"
+    search_result = search(
+        form=search_query, name="verb_a_stem", kind="Paradigm", nshortest=5
+    )
+    form_hits = [hit["form"] for hit in search_result]
+    assert "habl-as" in form_hits
+    assert "habl-o" in form_hits

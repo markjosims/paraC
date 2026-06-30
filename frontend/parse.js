@@ -1,12 +1,13 @@
-import { fetchInflectionMeta, parse } from './api.js';
+import { fetchInflectionMeta, parse, search } from './api.js';
 
 let metaData = null;
 
 const targetSelect = document.getElementById('parse-target');
 const formInput = document.getElementById('parse-form');
 const submitBtn = document.getElementById('submit-parse-btn');
+const fuzzyToggle = document.getElementById('fuzzy-toggle-btn');
 const resultsSection = document.getElementById('parse-results');
-const resultsList = document.getElementById('parse-results-list');
+const resultsTable = document.getElementById('parse-results-table');
 
 async function loadMeta() {
   try {
@@ -28,7 +29,6 @@ function updateTargets() {
   });
 }
 
-
 submitBtn.addEventListener('click', async () => {
   const name = targetSelect.value;
   const form = formInput.value.trim();
@@ -37,16 +37,40 @@ submitBtn.addEventListener('click', async () => {
   submitBtn.disabled = true;
   resultsSection.setAttribute('hidden', '');
   try {
-    const data = await parse('paradigm', name, form);
-    resultsList.innerHTML = '';
+    const data = fuzzyToggle.checked
+      ? await search("Paradigm", name, form)
+      : await parse("Paradigm", name, form);
+    const thead = resultsTable.tHead;
+    const tbody = resultsTable.tBodies[0];
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
     if (!data.parses.length) {
-      resultsList.textContent = '(no parses)';
+      const row = tbody.insertRow();
+      const cell = row.insertCell();
+      cell.textContent = '(no parses)';
+      cell.colSpan = 99;
     } else {
+      const fuzzy = fuzzyToggle.checked;
+      const featKeys = [...new Set(data.parses.flatMap(p => Object.keys(p.features)))];
+      const headers = [
+        ...(fuzzy ? ['Form'] : []),
+        'Root', 'Gloss',
+        ...featKeys,
+        ...(fuzzy ? ['Edit distance'] : []),
+      ];
+      const hRow = thead.insertRow();
+      headers.forEach(h => { const th = document.createElement('th'); th.textContent = h; hRow.appendChild(th); });
+
       data.parses.forEach(p => {
-        const div = document.createElement('div');
-        const featStr = Object.entries(p.features).map(([f, v]) => `[${f}=${v}]`).join('');
-        div.textContent = `${p.root} ${featStr}`;
-        resultsList.appendChild(div);
+        const row = tbody.insertRow();
+        const cells = [
+          ...(fuzzy ? [p.form ?? ''] : []),
+          `√${p.root}`, p.gloss,
+          ...featKeys.map(k => p.features[k] ?? ''),
+          ...(fuzzy ? [p.edit_distance ?? ''] : []),
+        ];
+        cells.forEach(val => { const td = row.insertCell(); td.textContent = val; });
       });
     }
     resultsSection.removeAttribute('hidden');
