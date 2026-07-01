@@ -28,4 +28,8 @@
         }
     },
     "terminal.integrated.hideOnStartup": "always"
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 3f616c2 (hacky cache fix for colang)

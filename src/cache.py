@@ -14,6 +14,9 @@ def _fst_path(kind: str, name: str, fst_kind: str) -> str:
 
 
 def _is_valid(path: str, *source_dirs: str) -> bool:
+    # BUG: fix caching invalidation
+    # just recompute everything for now
+    return False
     if not os.path.exists(path):
         return False
     mtime = os.path.getmtime(path)
