@@ -1,9 +1,12 @@
 {
     "name": "parC Demo",
     "image": "mcr.microsoft.com/devcontainers/python:3.10",
-    "postCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && uv sync && uvicorn src.api:app",
+    "postCreateCommand": "uv sync && parC",
     "containerEnv": {
         "YAML_DIR": "./yaml"
+    },
+    "features": {
+        "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
     },
     "customizations": {
         "vscode": {
@@ -14,5 +17,7 @@
             ]
         }
     },
-    "forwardPorts": [8000]
+    "forwardPorts": [
+        8000
+    ]
 }

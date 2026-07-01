@@ -14,6 +14,7 @@ from loguru import logger
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pynini.lib import rewrite
+import uvicorn
 
 from src.grammar.acceptor_compilation import (
     fsa,
@@ -44,6 +45,9 @@ from src.lexicon import (
 )
 
 app = FastAPI()
+
+def run_app():
+    uvicorn.run("src.api:app", host="127.0.0.1", port=8000, reload=True)
 
 
 @app.get("/grammar-stats")
