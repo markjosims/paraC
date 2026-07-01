@@ -1,0 +1,18 @@
+{
+    "name": "parC Demo",
+    "image": "mcr.microsoft.com/devcontainers/python:3.10",
+    "postCreateCommand": "pip install -e . && python src/launcher.py",
+    "containerEnv": {
+        "YAML_DIR": "./yaml"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "redhat.vscode-yaml",
+                "rioj7.vscode-file-template",
+                "sleistner.vscode-fileutils"
+            ]
+        }
+    },
+    "forwardPorts": [8000]
+}
