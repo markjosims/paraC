@@ -143,6 +143,7 @@ def get_inventory_items() -> Inventory:
         for item_data in yaml_data["data"]:
             item_ref = item_data.get("ref")
             item_phones, item_tags = extract_phones_and_tags(item_data)
+            # BUG: not adding refs recursively
             if item_ref in inventory_items:
                 logger.exception(f"Duplicate item found: {item_ref} in {file_path}")
                 continue
