@@ -6,6 +6,7 @@ from loguru import logger
 from src.constants import get_yaml_dir
 from functools import lru_cache, wraps
 from glob import glob
+from frozendict import frozendict
 
 CACHE_DIR = os.path.join(get_yaml_dir(), ".cache")
 _SYMS_PATH = os.path.join(CACHE_DIR, "symbol_table.syms")
@@ -69,6 +70,42 @@ def max_directory_mtime(directory: str):
     return max(os.path.getmtime(f) for f in yaml_glob + csv_glob + [directory])
 
 
+def get_hashable_args_and_kwargs(args, kwargs):
+    hashable_args = []
+    for arg in args:
+        hashable_arg = arg
+        if type(arg) is list:
+            hashable_arg = tuple(arg)
+        elif type(arg) is dict:
+            hashable_arg = frozendict(arg)
+        try:
+            hash(hashable_arg)
+        except Exception as e:
+            raise ValueError(
+                f"Could not hash kwarg {value} with key {key}: {e}"
+            )
+
+        hashable_args.append(hashable_arg)
+
+    hashable_kwargs = {}
+    for key, value in kwargs.items():
+        hashable_value = value
+        if type(value) is list:
+            hashable_value = tuple(value)
+        elif type(value) is dict:
+            hashable_value = frozendict(value)
+        try:
+            hash(hashable_value)
+        except Exception as e:
+            raise ValueError(
+                f"Could not hash kwarg {value} with key {key}: {e}"
+            )
+
+        hashable_kwargs[key] = hashable_value
+
+    return hashable_args, hashable_kwargs
+
+
 def observed_cache(directories: list[str]):
     """
     Decorator to invalidate an entire function cache when file
@@ -84,6 +121,14 @@ def observed_cache(directories: list[str]):
 
         @wraps(func)
         def wrapper(*args, **kwargs):
+
+            try:
+                args, kwargs = get_hashable_args_and_kwargs(args, kwargs)
+            except Exception as e:
+                logger.exception(
+                    f"Error hashing args, building function output without caching. {e}"
+                )
+                return func(*args, **kwargs)
 
             clear_cache = False
             for directory, mtime in directory_mtimes.items():

@@ -12,7 +12,7 @@ dependencies = [
   "pandas",
   "tqdm",
   "openpyxl",
-#  "pynini==2.1.6", # commenting out for now to prevent errors on Windows and Mac
+  #  "pynini==2.1.6", # commenting out for now to prevent errors on Windows and Mac
   "graphviz",
   "pydot",
   "pyyaml",
@@ -23,6 +23,7 @@ dependencies = [
   "dotenv>=0.9.9",
   "fastapi>=0.124.4",
   "uvicorn>=0.33.0",
+  "frozendict>=2.4.7",
 ]
 
 [project.optional-dependencies]

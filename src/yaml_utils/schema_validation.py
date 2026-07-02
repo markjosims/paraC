@@ -8,6 +8,7 @@ from jsonschema import validate, ValidationError
 from pathlib import Path
 from src.constants import SCHEMA_DIR
 from typing import Literal, get_args
+from frozendict import frozendict
 
 ConfigKindType = Literal[
     # TODO: FeatureCombinations, MorphemeSet and MorphemeSequence are buggy
@@ -52,7 +53,7 @@ def fix_refs_safe(schema: dict, SCHEMA_DIR: Path) -> dict:
 
     while node_stack:
         current_node = node_stack.pop()
-        if isinstance(current_node, dict):
+        if isinstance(current_node, (dict, frozendict)):
             node_stack.extend(current_node.values())
 
             if "$ref" in current_node:

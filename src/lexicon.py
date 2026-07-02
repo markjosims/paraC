@@ -5,6 +5,7 @@ from src.yaml_utils.yaml_server import get_yaml_data_safe
 import pandas as pd
 import os
 import numpy as np
+from frozendict import frozendict
 
 
 def load_lexicon_df(lexicon_basename: str) -> pd.DataFrame:
@@ -29,7 +30,8 @@ def init_lexicon(lexicon_basename: str, lexicon_path: str) -> None:
     )
     lexical_features = part_of_speech.get("lexical_features", [])
     principal_parts = part_of_speech.get("principal_parts", [])
-    df = pd.DataFrame(columns=["root", "gloss"] + lexical_features + principal_parts)
+    df = pd.DataFrame(columns=["root", "gloss"] +
+                      lexical_features + principal_parts)
     os.makedirs(os.path.dirname(lexicon_path), exist_ok=True)
     df.to_csv(lexicon_path, index=False)
 
@@ -42,7 +44,7 @@ def get_roots(lexicon_basename: str) -> list[str]:
 def get_roots_with_lexical_features(
     lexicon_basename: str, lexical_features: set[tuple[str, str]] | dict[str, str]
 ) -> list[str]:
-    if isinstance(lexical_features, dict):
+    if isinstance(lexical_features, (dict, frozendict)):
         lexical_features = set(lexical_features.items())
     df = load_lexicon_df(lexicon_basename)
     filter = pd.Series([True] * len(df), index=df.index)

@@ -42,7 +42,8 @@ RULES_DIR = kind_dir("Rules")
 
 def _compile_simple_rule(rule: SimpleRule) -> pynini.Fst:
     sigma_star = get_sigma_star()
-    tau = pynini.cross(fsa(rule.input_pattern), fsa(rule.output_pattern)).optimize()
+    tau = pynini.cross(fsa(rule.input_pattern),
+                       fsa(rule.output_pattern)).optimize()
     l = fsa(rule.left_context) if rule.left_context else ""
     r = fsa(rule.right_context) if rule.right_context else ""
     return pynini.cdrewrite(tau, l, r, sigma_star)
@@ -180,4 +181,4 @@ def get_rule_fst(rule_name: str) -> pynini.Fst | list[pynini.Fst]:
     ]
 )
 def get_marker_fst(marker: Marker) -> pynini.Fst:
-    return _compile_suffix(marker)
+    return compile_marker(marker)

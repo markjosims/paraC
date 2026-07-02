@@ -1,7 +1,7 @@
 import pynini
 from dataclasses import dataclass, field
 from loguru import logger
-from typing import Protocol, runtime_checkable
+from frozendict import frozendict
 
 
 class ReservedSymbolMixin:
@@ -46,7 +46,8 @@ class ReservedSymbolMixin:
     unary_operators = (star, plus, optional)
     pipe_operator = union  # (for now) pipe operator is only binary operator
     caret_operator = caret  # for negation in braced expressions
-    reserved_refs = (phone_ref, flag_ref, epsilon_ref, dot, sigma_ref, boundary_ref)
+    reserved_refs = (phone_ref, flag_ref, epsilon_ref,
+                     dot, sigma_ref, boundary_ref)
     bow_eow_tags = (bow, eow)
     edit_tags = (insert, substitute, delete)
     boundary_symbols = (affix_boundary, clitic_boundary, periphrasis_break)
@@ -70,7 +71,7 @@ def is_acceptor(fsa: pynini.Fst) -> bool:
     return fsa.properties(pynini.ACCEPTOR, True)
 
 
-def stringify_features(feature_values: set[tuple[str, str]] | dict[str,str]) -> str:
-    if isinstance(feature_values, dict):
+def stringify_features(feature_values: set[tuple[str, str]] | dict[str, str]) -> str:
+    if isinstance(feature_values, (dict, frozendict)):
         feature_values = list(feature_values.items())
     return "".join(f"[{f}={v}]" for f, v in sorted(feature_values))

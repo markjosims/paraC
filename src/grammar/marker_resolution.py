@@ -18,6 +18,7 @@ from src.yaml_utils.models import (
 )
 from src.yaml_utils.yaml_server import get_markers, get_yaml_data_safe, get_feature_map
 import itertools
+from frozendict import frozendict
 
 FeatureComboType = set[tuple[str, str]]
 
@@ -31,7 +32,7 @@ def get_markers_for_paradigm(
     Get all markers for a requested feature set for a given paradigm.
     Resolves principal_part markers into StringMapMarker using the paradigm's lexicon.
     """
-    if isinstance(feature_values, dict):
+    if isinstance(feature_values, (dict, frozendict)):
         feature_values: FeatureComboType = set(feature_values.items())
     # avoid side effects
     feature_values = feature_values.copy()
@@ -62,7 +63,8 @@ def get_markers_for_paradigm(
 
     # any global markers defined in the paradigm should be applied to all feature combinations
     # check if current feature set has a principal part, if so we don't override
-    has_principal_part = any(marker.kind == "principal_part" for marker, _ in markers)
+    has_principal_part = any(
+        marker.kind == "principal_part" for marker, _ in markers)
     if "global_markers" in paradigm_data:
         markers.extend(
             (resolve_marker(marker), "global")
@@ -87,7 +89,8 @@ def get_markers_for_paradigm(
         marker, feature_set = marker_tuple
         if marker.kind == "principal_part":
             roots = get_roots(part_of_speech)
-            pps = get_principal_part_for_all_roots(part_of_speech, marker.value)
+            pps = get_principal_part_for_all_roots(
+                part_of_speech, marker.value)
             markers[i] = (
                 PrincipalPartMarker(
                     kind="string_map",
@@ -106,7 +109,8 @@ def get_markers_for_paradigm(
     stage_order.insert(0, "principal_part")
     markers.sort(
         key=lambda m: (
-            stage_order.index(m[0].stage) if m[0].stage in stage_order else float('inf')
+            stage_order.index(
+                m[0].stage) if m[0].stage in stage_order else float('inf')
         )
     )
 
@@ -127,6 +131,7 @@ def get_fixed_features_for_paradigm(
 
     return fixed_features
 
+
 def get_free_features_for_paradigm(
     name: str, kind: str = "Paradigm"
 ) -> list[str]:
@@ -137,7 +142,6 @@ def get_free_features_for_paradigm(
             free_features.append(feature)
 
     return free_features
-    
 
 
 def get_feature_combos_for_paradigm(

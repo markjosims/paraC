@@ -20,6 +20,7 @@ import os
 
 from loguru import logger
 import yaml
+from frozendict import frozendict
 
 from src.yaml_utils.schema_validation import (
     validate_yaml,
@@ -137,7 +138,7 @@ def get_inventory_items() -> Inventory:
     def extract_phones_and_tags(item):
         phones = []
         tags = []
-        if isinstance(item, dict):
+        if isinstance(item, (dict, frozendict)):
             phones.extend(item.get("phones", []))
             tags.extend(item.get("tags", []))
             for subitem in item.get("children", []):
@@ -401,7 +402,7 @@ def get_markers(
     contingent marker sets and regular marker sets, or between different regular marker sets.
     """
 
-    if isinstance(feature_values, dict):
+    if isinstance(feature_values, (dict, frozendict)):
         feature_values: FeatureComboType = set(feature_values.items())
 
     if not feature_values:
