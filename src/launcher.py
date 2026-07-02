@@ -17,7 +17,6 @@ if not os.environ.get("get_yaml_dir()"):
             f.write(f"get_yaml_dir()={folder_selected}")
 
     pick_directory()
-    dotenv.load_dotenv("parC.env")
 
 if not get_yaml_dir():
     sys.exit("No config directory selected.")
