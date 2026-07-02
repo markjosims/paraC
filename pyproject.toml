@@ -12,7 +12,7 @@ dependencies = [
   "pandas",
   "tqdm",
   "openpyxl",
-#  "pynini==2.1.6", # commenting out for now to prevent errors on 
+#  "pynini==2.1.6", # commenting out for now to prevent errors on Windows and Mac
   "graphviz",
   "pydot",
   "pyyaml",
