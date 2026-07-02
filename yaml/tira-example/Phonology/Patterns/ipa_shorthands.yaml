@@ -1,0 +1,45 @@
+# This is a Patterns config file
+# Define reusable regular expressions to reference common sequences
+# or natural classes relevant for your language.
+kind: Patterns
+patterns:
+  # type pat-item to add more patterns!
+  - name: Voiced palatal stop
+    pattern: ɟ
+    ref: <J>
+  - name: Voiced dental fricative
+    pattern: ð
+    ref: <D>
+  - name: Palatal nasal
+    pattern: ɲ
+    ref: <Ny>
+  - name: Velar nasal
+    pattern: ŋ
+    ref: <Ng>
+
+## HELP FOR PATTERNS ##
+# List of pattern definitions.
+# - ref: Unique identifier enclosed in angle braces.
+# - pattern: String or list of strings defining the regex-like shape.
+
+# Example:
+# - name: High Vowels
+#   pattern: "{iuɪʊ}"
+#   ref: "<V_High>"
+#   test_includes: [i, u]
+#   test_excludes: [a, e, o]
+
+# parC regular expression reference
+# - {curly braces}:     Union over a group, i.e. matches any symbol inside the braces
+#                       Equivalent to [square brackets] in traditional regular expressions
+# - (parentheses):      Grouping, i.e. treats the enclosed expression as a single unit
+#                       e.g. {ae}t matches "at" or "et"
+#                       e.g. {aeiou} matches any of "a", "e", "i", "o" or "u"
+# - | (pipe):           Union between two expressions, e.g. a|e matches "a" or "e"
+#                       foo|bar matches "foo" or "bar"
+#                       and bugs?|fl(y|ies) matches "bug", "bugs", "fly", or "flies"
+# - * (asterisk):       Zero or more of the preceding element, e.g. a* matches "a", "aa", "aaa", etc.
+# - ? (question mark):  Zero or one of the preceding element, e.g. a? matches "a" or ""
+# - + (plus):           One or more of the preceding element, e.g. a+ matches "a", "aa", "aaa", etc.
+# - {^...} (caret):     Negation, i.e. matches any symbol except those inside the braces
+#                       e.g. {^aeiou} matches any symbol except "a", "e", "i", "o" or "u"

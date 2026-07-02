@@ -122,14 +122,6 @@ def observed_cache(directories: list[str]):
         @wraps(func)
         def wrapper(*args, **kwargs):
 
-            try:
-                args, kwargs = get_hashable_args_and_kwargs(args, kwargs)
-            except Exception as e:
-                logger.exception(
-                    f"Error hashing args, building function output without caching. {e}"
-                )
-                return func(*args, **kwargs)
-
             clear_cache = False
             for directory, mtime in directory_mtimes.items():
                 new_mtime = max_directory_mtime(directory)
@@ -141,6 +133,14 @@ def observed_cache(directories: list[str]):
                     f"Invalidated cache for {func.__name__}, rebuilding output..."
                 )
                 cached_func.cache_clear()
+
+            try:
+                args, kwargs = get_hashable_args_and_kwargs(args, kwargs)
+            except Exception as e:
+                logger.exception(
+                    f"Error hashing args, building function output without caching. {e}"
+                )
+                return func(*args, **kwargs)
 
             return cached_func(*args, **kwargs)
 

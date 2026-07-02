@@ -76,7 +76,8 @@ def build_symbol_table(
 )
 def get_symbol_table() -> pynini.SymbolTable:
     if is_syms_cache_valid(
-        kind_dir("Inventory"), kind_dir("Patterns"), kind_dir("FeatureDefinitions")
+        kind_dir("Inventory"), kind_dir(
+            "Patterns"), kind_dir("FeatureDefinitions")
     ):
         loaded = load_symbol_table()
         if loaded is not None:
@@ -100,7 +101,8 @@ def _build_special_fsas(
 ) -> dict[str, pynini.Fst]:
     phones = list(dict.fromkeys(inventory.phones))
     if not phones:
-        raise ValueError("Cannot build sigma FSAs without any phones in inventory.")
+        raise ValueError(
+            "Cannot build sigma FSAs without any phones in inventory.")
     phone_fsa = pynini.union(
         *[pynini.accep(p, token_type=syms) for p in phones]
     ).optimize()
@@ -110,7 +112,8 @@ def _build_special_fsas(
         for val in feat.values:
             all_tags.append(f"[{feat.name}={val}]")
     flag_fsa = (
-        pynini.union(*[pynini.accep(t, token_type=syms) for t in all_tags]).optimize()
+        pynini.union(*[pynini.accep(t, token_type=syms)
+                     for t in all_tags]).optimize()
         if all_tags
         else pynini.accep("", token_type=syms)
     )
@@ -124,7 +127,8 @@ def _build_special_fsas(
     eow_fsa = pynini.accep(R.eow, token_type=syms)
     word_edge_fsa = pynini.union(bow_fsa, eow_fsa)
 
-    sigma = pynini.union(phone_fsa, flag_fsa, boundary_fsa, word_edge_fsa).optimize()
+    sigma = pynini.union(phone_fsa, flag_fsa, boundary_fsa,
+                         word_edge_fsa).optimize()
     sigma_star = sigma.star.optimize()
 
     return {
@@ -249,7 +253,8 @@ def _build_class_fsts(
     for name, contents in inventory.item_map.items():
         if name in phone_set or name in tag_set:
             continue
-        child_fsas = [pynini.accep(p, token_type=syms) for p in contents.phones]
+        child_fsas = [pynini.accep(p, token_type=syms)
+                      for p in contents.phones]
         child_fsas += [pynini.accep(t, token_type=syms) for t in contents.tags]
         if not child_fsas:
             continue
@@ -381,7 +386,8 @@ def _parse_factor_sequence(
             )
             fsas.append(f)
         else:
-            fsas.append(_atom_to_fst(tok, compiled_patterns, syms, special_fsas))
+            fsas.append(_atom_to_fst(
+                tok, compiled_patterns, syms, special_fsas))
             i += 1
     return fsas, i
 
@@ -428,7 +434,8 @@ def _parse_term(
     sigma: pynini.Fst,
 ) -> tuple[pynini.Fst, int]:
     if tokens[i].kind in ("right_delimiter", "pipe_operator"):
-        raise ValueError(f"Unexpected {tokens[i].kind!r} token at start of term")
+        raise ValueError(
+            f"Unexpected {tokens[i].kind!r} token at start of term")
     fsas: list[pynini.Fst] = []
     while i < len(tokens) and tokens[i].kind not in (
         "right_delimiter",
@@ -461,11 +468,13 @@ def _parse_expression(
     special_fsas: dict[str, pynini.Fst],
     sigma: pynini.Fst,
 ) -> tuple[pynini.Fst, int]:
-    term, i = _parse_term(tokens, i, compiled_patterns, syms, special_fsas, sigma)
+    term, i = _parse_term(tokens, i, compiled_patterns,
+                          syms, special_fsas, sigma)
     terms = [term]
     while i < len(tokens) and tokens[i].kind == "pipe_operator":
         i += 1
-        t, i = _parse_term(tokens, i, compiled_patterns, syms, special_fsas, sigma)
+        t, i = _parse_term(tokens, i, compiled_patterns,
+                           syms, special_fsas, sigma)
         terms.append(t)
         if i >= len(tokens) or tokens[i].kind == "right_delimiter":
             break
@@ -684,7 +693,8 @@ def fsm_strings_and_weights(
     syms = get_symbol_table()
     projected = pynini.project(fst, project_type=project)
     if nshortest is not None:
-        projected = rewrite.lattice_to_nshortest(projected, nshortest=nshortest)
+        projected = rewrite.lattice_to_nshortest(
+            projected, nshortest=nshortest)
     seen: set[str] = set()
     decoded: list[tuple[str, float]] = []
     path_iter = projected.paths()
@@ -724,7 +734,8 @@ def fsm_string(
     strip_word_edge_symbols: bool = False,
     strip_all_tags: bool = False,
 ) -> str:
-    strings = fsm_strings(fst, project, 1, strip_word_edge_symbols, strip_all_tags)
+    strings = fsm_strings(
+        fst, project, 1, strip_word_edge_symbols, strip_all_tags)
     if len(strings) != 1:
         raise ValueError(f"Expected single string, got {strings}")
     return strings[0]
