@@ -3,9 +3,11 @@ import os
 import pynini
 from loguru import logger
 
-from src.launcher import YAML_DIR
+from src.constants import get_yaml_dir
+from functools import lru_cache, wraps
+from glob import glob
 
-CACHE_DIR = os.path.join(YAML_DIR, ".cache")
+CACHE_DIR = os.path.join(get_yaml_dir(), ".cache")
 _SYMS_PATH = os.path.join(CACHE_DIR, "symbol_table.syms")
 
 
@@ -14,9 +16,7 @@ def _fst_path(kind: str, name: str, fst_kind: str) -> str:
 
 
 def _is_valid(path: str, *source_dirs: str) -> bool:
-    # BUG: fix caching invalidation
-    # just recompute everything for now
-    return False
+
     if not os.path.exists(path):
         return False
     mtime = os.path.getmtime(path)
@@ -61,3 +61,47 @@ def load_fst(kind: str, name: str, fst_kind: str) -> pynini.Fst | None:
     except Exception:
         logger.warning(f"Failed to load FST from {path}")
         return None
+
+
+def max_directory_mtime(directory: str):
+    yaml_glob = glob(os.path.join(directory, "*.yaml"))
+    csv_glob = glob(os.path.join(directory, "*.csv"))
+    return max(os.path.getmtime(f) for f in yaml_glob + csv_glob + [directory])
+
+
+def observed_cache(directories: list[str]):
+    """
+    Decorator to invalidate an entire function cache when file
+    inside the specified directories changes.
+    """
+
+    directory_mtimes = {
+        directory: max_directory_mtime(directory) for directory in directories
+    }
+
+    def decorator(func):
+        cached_func = lru_cache(maxsize=128)(func)
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+
+            clear_cache = False
+            for directory, mtime in directory_mtimes.items():
+                new_mtime = max_directory_mtime(directory)
+                if new_mtime > mtime:
+                    directory_mtimes[directory] = new_mtime
+                    clear_cache = True
+            if clear_cache:
+                logger.info(
+                    f"Invalidated cache for {func.__name__}, rebuilding output..."
+                )
+                cached_func.cache_clear()
+
+            return cached_func(*args, **kwargs)
+
+        # Expose cache operations upstream (allows manual clearing if needed)
+        wrapper.cache_clear = cached_func.cache_clear
+        wrapper.cache_info = cached_func.cache_info
+        return wrapper
+
+    return decorator

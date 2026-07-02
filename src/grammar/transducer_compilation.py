@@ -8,15 +8,9 @@ Caches:
 
 from __future__ import annotations
 
-import hashlib
-
 import pynini
-from loguru import logger
-
-import os
 
 from src.fst_utils import ReservedSymbolMixin as R
-from src.launcher import YAML_DIR
 from src.yaml_utils.models import (
     Marker,
     Rule,
@@ -28,51 +22,18 @@ from src.yaml_utils.models import (
     UnorderedMarker,
     PrincipalPartMarker,
 )
-from src.yaml_utils.schema_validation import CONFIG_KIND_TO_PARDIR
-from src.yaml_utils.yaml_server import get_rules
-from src.grammar.acceptor_compilation import fsa, word_fsa, get_sigma_star, get_symbol_table
+from src.yaml_utils.yaml_server import get_rules, kind_dir
+from src.grammar.acceptor_compilation import (
+    fsa,
+    word_fsa,
+    get_sigma_star,
+    get_symbol_table,
+)
+from src.yaml_utils.cache import observed_cache
 
-def _kind_dir(kind: str) -> str:
-    return os.path.join(YAML_DIR, CONFIG_KIND_TO_PARDIR[kind], kind)
-
-
-INVENTORY_DIR = _kind_dir("Inventory")
-FEATURES_DIR = _kind_dir("FeatureDefinitions")
-RULES_DIR = _kind_dir("Rules")
-
-"""
-## Module-level cache state
-"""
-
-_rule_fsts: dict[str, pynini.Fst] | None = None
-_marker_fsts: dict[str, pynini.Fst] | None = None
-
-"""
-## Cache invalidation
-"""
-
-
-def invalidate_rule_fsts() -> None:
-    global _rule_fsts
-    _rule_fsts = None
-
-
-def invalidate_marker_fsts() -> None:
-    global _marker_fsts
-    _marker_fsts = None
-
-
-def invalidate_all() -> None:
-    invalidate_rule_fsts()
-    invalidate_marker_fsts()
-
-"""
-## Helpers
-"""
-
-
-def _cache_key(obj) -> str:
-    return hashlib.sha256(repr(obj).encode()).hexdigest()[:16]
+INVENTORY_DIR = kind_dir("Inventory")
+FEATURES_DIR = kind_dir("FeatureDefinitions")
+RULES_DIR = kind_dir("Rules")
 
 """
 ## Rule compilation
@@ -113,6 +74,7 @@ def compile_rule(rule: Rule) -> pynini.Fst | list[pynini.Fst]:
                 result.append(sub_fst)
         return result
     raise ValueError(f"Unknown rule type: {type(rule)!r}")
+
 
 """
 ## Marker compilation
@@ -156,7 +118,9 @@ def compile_marker(marker: Marker) -> pynini.Fst:
             rules = get_rules()
             rule_name = marker.value.removeprefix("$")
             if rule_name not in rules:
-                raise KeyError(f"Rule '{marker.value}' not found in set of rules {list(rules.keys())}")
+                raise KeyError(
+                    f"Rule '{marker.value}' not found in set of rules {list(rules.keys())}"
+                )
             result = compile_rule(rules[rule_name])
             if isinstance(result, list):
                 composed = result[0]
@@ -177,50 +141,43 @@ def compile_marker(marker: Marker) -> pynini.Fst:
         )
     raise ValueError(f"Unknown marker: {marker!r}")
 
+
 """
-## Caching entry points
+Public API
 """
 
 
-def _warm_rule_cache() -> None:
-    global _rule_fsts
-    rules = get_rules()
-    _rule_fsts = {}
-    for name, rule in rules.items():
-        if isinstance(rule, RuleSequence):
-            continue  # assembled at runtime
-        key = _cache_key(rule)
-        try:
-            _rule_fsts[key] = compile_rule(rule)
-        except Exception as e:
-            logger.warning(f"Failed to compile rule '{name}': {e}")
-
-
+@observed_cache(
+    [
+        kind_dir("Rules"),
+        kind_dir("Patterns"),
+        kind_dir("Inventory"),
+        kind_dir("FeatureDefinitions"),
+    ]
+)
 def get_rule_fst(rule_name: str) -> pynini.Fst | list[pynini.Fst]:
     rule_name = rule_name.removeprefix("$")
-    global _rule_fsts
     rules = get_rules()
     if rule_name not in rules:
-        raise KeyError(f"Rule '{rule_name}' not found in set of rules {list(rules.keys())}")
+        raise KeyError(
+            f"Rule '{rule_name}' not found in set of rules {list(rules.keys())}"
+        )
     rule = rules[rule_name]
 
     if isinstance(rule, RuleSequence):
         return [get_rule_fst(name) for name in rule.rules]
 
-    if _rule_fsts is None:
-        _warm_rule_cache()
-
-    key = _cache_key(rule)
-    if key not in _rule_fsts:
-        _rule_fsts[key] = compile_rule(rule)
-    return _rule_fsts[key]
+    return compile_rule(rule)
 
 
+@observed_cache(
+    [
+        kind_dir("Rules"),
+        kind_dir("Patterns"),
+        kind_dir("Inventory"),
+        kind_dir("FeatureDefinitions"),
+        kind_dir("FeatureMarkers"),
+    ]
+)
 def get_marker_fst(marker: Marker) -> pynini.Fst:
-    global _marker_fsts
-    if _marker_fsts is None:
-        _marker_fsts = {}
-    key = _cache_key(marker)
-    if key not in _marker_fsts:
-        _marker_fsts[key] = compile_marker(marker)
-    return _marker_fsts[key]
+    return _compile_suffix(marker)

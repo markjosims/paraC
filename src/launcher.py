@@ -2,10 +2,11 @@ import os
 import sys
 import dotenv
 import uvicorn
+from constants import get_yaml_dir
 
 dotenv.load_dotenv("parC.env")
 
-if not os.environ.get("YAML_DIR"):
+if not os.environ.get("get_yaml_dir()"):
     from tkinter import filedialog, Tk
 
     def pick_directory():
@@ -13,15 +14,13 @@ if not os.environ.get("YAML_DIR"):
         root.withdraw()
         folder_selected = filedialog.askdirectory()
         with open(".env", "w") as f:
-            f.write(f"YAML_DIR={folder_selected}")
+            f.write(f"get_yaml_dir()={folder_selected}")
 
     pick_directory()
     dotenv.load_dotenv("parC.env")
 
-if not os.environ.get("YAML_DIR"):
+if not get_yaml_dir():
     sys.exit("No config directory selected.")
-
-YAML_DIR = os.environ.get("YAML_DIR")
 
 if __name__ == "__main__":
     uvicorn.run("src.api:app", host="127.0.0.1", port=8000, reload=True)

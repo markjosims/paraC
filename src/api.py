@@ -44,9 +44,10 @@ from src.lexicon import (
     get_roots,
     get_features_for_root,
 )
-from src.constants import YAML_DIR
+from src.constants import get_yaml_dir
 
 app = FastAPI()
+
 
 def run_app():
     uvicorn.run("src.api:app", host="127.0.0.1", port=8000, reload=True)
@@ -175,7 +176,7 @@ def inflection_meta():
             ParadigmInfo(
                 name=os.path.splitext(basename)[0],
                 features=get_free_features_for_paradigm(basename, "Paradigm"),
-                lexical_features=part_of_speech["lexical_features"],
+                lexical_features=part_of_speech.get("lexical_features", []),
             )
         )
 

@@ -7,43 +7,42 @@ data:
   - name: Consonants
     ref: <C>
     children:
-    - name: Stops
-      ref: <Stp>
-      children:
-      - name: Voiced stops
-        ref: <B>
-        phones: [b, d, g]
-      - name: Voiceless stops
-        ref: <P>
-        phones: [p, t, c, q]
-    - name: Fricatives
-      ref: <Frc>
-      phones: [f, v, s, z, x, h, j]
-    - name: Sonorants
-      ref: <Son>
-      phones: [r, l, y, ü]
-    - name: Nasals
-      ref: <N>
-      phones: [m, n, ñ]
+      - name: Stops
+        ref: <Stp>
+        children:
+          - name: Voiced stops
+            ref: <B>
+            phones: [b, d, g]
+          - name: Voiceless stops
+            ref: <P>
+            phones: [p, t, c, q]
+      - name: Fricatives
+        ref: <Frc>
+        phones: [f, v, s, z, x, h, j]
+      - name: Sonorants
+        ref: <Son>
+        phones: [r, l, y, ü]
+      - name: Nasals
+        ref: <N>
+        phones: [m, n, ñ]
   - name: Vowels
     ref: <V>
     children:
-    - name: High vowels
-      ref: <V_High>
-      phones: [i, u]
-    - name: Mid vowels
-      ref: <V_Mid>
-      phones: [e, o]
-    - name: Low vowels
-      ref: <V_Low>
-      phones: [a]
+      - name: High vowels
+        ref: <V_High>
+        phones: [i, u]
+      - name: Mid vowels
+        ref: <V_Mid>
+        phones: [e, o]
+      - name: Low vowels
+        ref: <V_Low>
+        phones: [a]
   - name: Stress marker
     ref: <Stress>
     phones: ["́"]
   - name: Phonology tags
     ref: <PhonologyTags>
     tags: ["[BlockVowelAlternation]"]
-  
 
 ## HELP FOR INVENTORY ##
 # The inventory is built as a nested tree

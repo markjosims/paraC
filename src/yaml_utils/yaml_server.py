@@ -26,7 +26,7 @@ from src.yaml_utils.schema_validation import (
     CONFIG_KINDS,
     CONFIG_KIND_TO_PARDIR,
 )
-from src.constants import YAML_DIR
+from src.constants import get_yaml_dir
 from src.yaml_utils.models import (
     Inventory,
     InventoryItemMapType,
@@ -60,23 +60,30 @@ def get_yaml_data_safe(kind: str, yaml_basename: str) -> dict:
         logger.error(f"Invalid config kind: {kind}")
         return None
 
-    # normalize the YAML basename
-    yaml_basename = yaml_basename.removeprefix("$")
-    if not yaml_basename.endswith(".yaml"):
-        yaml_basename += ".yaml"
+    yaml_file_path = get_yaml_path(kind, yaml_basename)
 
-    yaml_file_path = os.path.join(
-        YAML_DIR, CONFIG_KIND_TO_PARDIR[kind], kind, yaml_basename
-    )
     with open(yaml_file_path, "r", encoding="utf-8") as f:
         yaml_data = yaml.safe_load(f)
 
     yaml_data = validate_yaml(target_kind=kind, data=yaml_data)
     if yaml_data is None:
-        logger.error(f"Failed to validate YAML data from path: {yaml_file_path}")
+        logger.error(
+            f"Failed to validate YAML data from path: {yaml_file_path}")
         return None
 
     return yaml_data
+
+
+def get_yaml_path(kind, yaml_basename):
+    yaml_basename = yaml_basename.removeprefix("$")
+    if not yaml_basename.endswith(".yaml"):
+        yaml_basename += ".yaml"
+
+    yaml_file_path = os.path.join(
+        get_yaml_dir(), CONFIG_KIND_TO_PARDIR[kind], kind, yaml_basename
+    )
+
+    return yaml_file_path
 
 
 def get_yaml_kind(kind: str) -> dict[str, list[tuple[str, dict] | str]]:
@@ -91,7 +98,8 @@ def get_yaml_kind(kind: str) -> dict[str, list[tuple[str, dict] | str]]:
     if kind not in CONFIG_KINDS:
         logger.error(f"Invalid config kind: {kind}")
         return None
-    yaml_pardir = os.path.join(YAML_DIR, CONFIG_KIND_TO_PARDIR[kind], kind)
+    yaml_pardir = os.path.join(
+        get_yaml_dir(), CONFIG_KIND_TO_PARDIR[kind], kind)
     yaml_files = [f for f in os.listdir(yaml_pardir) if f.endswith(".yaml")]
     result = {"valid": [], "invalid": []}
     for yaml_file in yaml_files:
@@ -106,7 +114,6 @@ def get_yaml_kind(kind: str) -> dict[str, list[tuple[str, dict] | str]]:
 """
 ## Inner data fetching functions
 """
-
 """
 ### Inventory
 """
@@ -135,6 +142,9 @@ def get_inventory_items() -> Inventory:
             tags.extend(item.get("tags", []))
             for subitem in item.get("children", []):
                 sub_phones, sub_tags = extract_phones_and_tags(subitem)
+                inventory_items[subitem["ref"]] = InventoryItemContents(
+                    phones=tuple(sub_phones), tags=tuple(sub_tags)
+                )
                 phones.extend(sub_phones)
                 tags.extend(sub_tags)
         return phones, tags
@@ -145,7 +155,8 @@ def get_inventory_items() -> Inventory:
             item_phones, item_tags = extract_phones_and_tags(item_data)
             # BUG: not adding refs recursively
             if item_ref in inventory_items:
-                logger.exception(f"Duplicate item found: {item_ref} in {file_path}")
+                logger.exception(
+                    f"Duplicate item found: {item_ref} in {file_path}")
                 continue
             inventory_items[item_ref] = InventoryItemContents(
                 phones=tuple(item_phones), tags=tuple(item_tags)
@@ -206,7 +217,8 @@ def get_rules() -> dict[str, Rule]:
         for rule in yaml_data["rules"]:
             rule_name = rule.pop("name")
             if rule_name in rules:
-                logger.exception(f"Duplicate rule found: {rule_name} in {file_path}")
+                logger.exception(
+                    f"Duplicate rule found: {rule_name} in {file_path}")
                 continue
             rules[rule_name] = resolve_rule(rule)
 
@@ -254,7 +266,8 @@ def get_feature_array() -> tuple[Feature]:
     for _, yaml_data in features_yaml_data:
         for feature_name, feature_data in yaml_data["features"].items():
             features.append(
-                Feature(name=feature_name, values=tuple(feature_data) + ("unmarked",))
+                Feature(name=feature_name, values=tuple(
+                    feature_data) + ("unmarked",))
             )
 
     return tuple(features)
@@ -332,7 +345,8 @@ def validate_requested_marker_files(
         data = resolved_yaml[0]
         feature = data["feature"]
         if feature in covered_features:
-            logger.exception(f"Found duplicate marker files for feature {feature}.")
+            logger.exception(
+                f"Found duplicate marker files for feature {feature}.")
             return False
         if feature not in requested_features:
             logger.exception(
@@ -435,9 +449,11 @@ def get_markers(
                 )
 
     if unexponed_features:
-        raise ValueError("Provided marker sets do not support requested feature set")
+        raise ValueError(
+            "Provided marker sets do not support requested feature set")
 
-    markers = [(resolve_marker(marker), feature_set) for marker, feature_set in markers]
+    markers = [(resolve_marker(marker), feature_set)
+               for marker, feature_set in markers]
     return markers
 
 
@@ -453,3 +469,7 @@ def _get_valid_contingent_markers(
         if marker_features.issubset(feature_values):
             return marker["realization"], marker_features
     return None
+
+
+def kind_dir(kind: str) -> str:
+    return os.path.join(get_yaml_dir(), CONFIG_KIND_TO_PARDIR[kind], kind)

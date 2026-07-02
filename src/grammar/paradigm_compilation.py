@@ -2,7 +2,7 @@
 Paradigm inflect / parse / fuzzy-search graph compilation.
 
 Caches:
-  inflect + parse + search FSTs → YAML_DIR/.cache/Paradigm/{name}.{kind}.fst
+  inflect + parse + search FSTs → get_yaml_dir()/.cache/Paradigm/{name}.{kind}.fst
   Invalidated when any of Paradigm, FeatureMarkers, ContingentFeatureMarkers,
   Inventory, FeatureDefinitions, or Rules dirs change.
 """
@@ -17,16 +17,17 @@ from loguru import logger
 from pynini.lib import pynutil
 from typing import NamedTuple
 
-from src.cache import is_fst_cache_valid, save_fst, load_fst
+from src.yaml_utils.cache import is_fst_cache_valid, save_fst, load_fst, observed_cache
 from src.fst_utils import ReservedSymbolMixin as R
 from src.fst_utils import stringify_features
-from src.launcher import YAML_DIR
+from src.constants import get_yaml_dir
 from src.lexicon import get_gloss_for_root, get_roots, get_roots_with_lexical_features
 from src.yaml_utils.schema_validation import CONFIG_KIND_TO_PARDIR
 from src.yaml_utils.yaml_server import (
     get_feature_map,
     get_yaml_kind,
     get_yaml_data_safe,
+    kind_dir,
 )
 from src.grammar.acceptor_compilation import (
     fsa,
@@ -50,33 +51,6 @@ EDIT_BOUND = 5
 EDIT_COST = 1.0
 
 
-def _kind_dir(kind: str) -> str:
-    return os.path.join(YAML_DIR, CONFIG_KIND_TO_PARDIR[kind], kind)
-
-
-_SOURCE_DIRS = (
-    _kind_dir("Paradigm"),
-    _kind_dir("FeatureMarkers"),
-    _kind_dir("ContingentFeatureMarkers"),
-    _kind_dir("Inventory"),
-    _kind_dir("FeatureDefinitions"),
-    _kind_dir("Rules"),
-    _kind_dir("PartOfSpeech"),
-    _kind_dir("Wordlists"),
-)
-
-"""
-## Module-level cache state
-"""
-
-_paradigm_fsts: dict[str, pynini.Fst] | None = None
-
-
-def invalidate_paradigm_fsts() -> None:
-    global _paradigm_fsts
-    _paradigm_fsts = None
-
-
 """
 ## Helpers
 """
@@ -89,6 +63,7 @@ def _apply_markers(stem_fst: pynini.Fst, markers: list) -> pynini.Fst:
     return current
 
 
+@observed_cache([get_yaml_dir()])
 def get_roots_for_paradigm(paradigm_name: str) -> list[str]:
     """
     Get the roots associated with a given paradigm.
@@ -140,8 +115,7 @@ def build_inflect_graph(paradigm_name: str) -> pynini.Fst:
         root_fsa = word_fsa(root)
         for feature_values in combos:
             try:
-                markers = get_markers_for_paradigm(
-                    feature_values, paradigm_name)
+                markers = get_markers_for_paradigm(feature_values, paradigm_name)
                 inflected_output = pynini.project(
                     _apply_markers(root_fsa, markers), project_type="output"
                 )
@@ -153,8 +127,7 @@ def build_inflect_graph(paradigm_name: str) -> pynini.Fst:
 
             feature_str = stringify_features(feature_values)
             inflect_input = (
-                pynini.concat(root_fsa, fsa(feature_str)
-                              ) if feature_str else root_fsa
+                pynini.concat(root_fsa, fsa(feature_str)) if feature_str else root_fsa
             )
             inflect_fsts.append(
                 pynini.cross(inflect_input, inflected_output).optimize()
@@ -218,7 +191,7 @@ _FST_KINDS = ("inflect", "parse", "search_lexicon", "search_left_factor")
 
 def _paradigm_cache_valid(name: str) -> bool:
     return all(
-        is_fst_cache_valid("Paradigm", name, k, *_SOURCE_DIRS) for k in _FST_KINDS
+        is_fst_cache_valid("Paradigm", name, k, get_yaml_dir()) for k in _FST_KINDS
     )
 
 
@@ -242,56 +215,16 @@ def _save_paradigm(
     save_fst("Paradigm", name, "search_left_factor", search_left_factor)
 
 
-def _store(
-    name: str,
-    inflect: pynini.Fst,
-    parse: pynini.Fst,
-    search_lexicon: tuple[pynini.Fst, pynini.Fst],
-    search_left_factor: tuple[pynini.Fst, pynini.Fst],
-) -> None:
-    _paradigm_fsts[f"{name}:inflect"] = inflect
-    _paradigm_fsts[f"{name}:parse"] = parse
-    _paradigm_fsts[f"{name}:search_lexicon"] = search_lexicon
-    _paradigm_fsts[f"{name}:search_left_factor"] = search_left_factor
-
-
-def _warm_cache() -> None:
-    global _paradigm_fsts
-    _paradigm_fsts = {}
-    for basename, _ in get_yaml_kind("Paradigm")["valid"]:
-        name = basename.removesuffix(".yaml")
-        if _paradigm_cache_valid(name):
-            loaded = _load_paradigm(name)
-            if loaded is not None:
-                _store(name, *loaded)
-                continue
-        try:
-            inflect = build_inflect_graph(name)
-            parse = build_parse_graph(inflect)
-            search_lexicon, search_left_factor = build_search_lexicon_and_leftfactor(
-                inflect
-            )
-            _save_paradigm(name, inflect, parse,
-                           search_lexicon, search_left_factor)
-            _store(name, inflect, parse, search_lexicon, search_left_factor)
-        except Exception as e:
-            logger.warning(
-                f"Failed to build graphs for paradigm '{name}': {e}")
-
-
+@observed_cache([get_yaml_dir()])
 def _get_or_build(
     paradigm_name: str, graph_type: str, force_rebuild: bool = False
 ) -> pynini.Fst:
-    global _paradigm_fsts
-    if _paradigm_fsts is None:
-        _warm_cache()
-    key = f"{paradigm_name}:{graph_type}"
-    if force_rebuild or key not in _paradigm_fsts or not _paradigm_cache_valid(paradigm_name):
+    graph_index = _FST_KINDS.index(graph_type)
+    if force_rebuild or not _paradigm_cache_valid(paradigm_name):
         if not force_rebuild and _paradigm_cache_valid(paradigm_name):
             loaded = _load_paradigm(paradigm_name)
             if loaded is not None:
-                _store(paradigm_name, *loaded)
-                return _paradigm_fsts[key]
+                return loaded[graph_index]
         inflect = build_inflect_graph(paradigm_name)
         parse = build_parse_graph(inflect)
         search_lexicon, search_left_factor = build_search_lexicon_and_leftfactor(
@@ -300,9 +233,9 @@ def _get_or_build(
         _save_paradigm(
             paradigm_name, inflect, parse, search_lexicon, search_left_factor
         )
-        _store(paradigm_name, inflect, parse,
-               search_lexicon, search_left_factor)
-    return _paradigm_fsts[key]
+
+    graph_tuple = (inflect, parse, search_lexicon, search_left_factor)
+    return graph_tuple[graph_index]
 
 
 def get_inflect_graph(paradigm_name: str) -> pynini.Fst:
@@ -325,6 +258,7 @@ Public API
 """
 
 
+@observed_cache([get_yaml_dir()])
 def parse(form: str, kind: str = "Paradigm", name: str = "") -> list[dict]:
     form_fsa = word_fsa(form)
     parse_graph = get_parse_graph(name)
@@ -338,12 +272,12 @@ def parse(form: str, kind: str = "Paradigm", name: str = "") -> list[dict]:
         feat_matches = re.findall(r"\[([^=\]]+)=([^\]]+)\]", s)
         root = re.sub(r"\[[^\]]+\]", "", s).strip()
         gloss = get_gloss_for_root(lexicon_basename, root)
-        parses.append({"root": root, "features": dict(
-            feat_matches), "gloss": gloss})
+        parses.append({"root": root, "features": dict(feat_matches), "gloss": gloss})
 
     return parses
 
 
+@observed_cache([get_yaml_dir()])
 def inflect(
     root: str,
     feature_values: set[tuple[str, str]] | dict[str, str],
@@ -353,8 +287,7 @@ def inflect(
     if isinstance(feature_values, dict):
         feature_values = set(feature_values.items())
 
-    fixed_features = get_fixed_features_for_paradigm(
-        name=name, kind="Paradigm")
+    fixed_features = get_fixed_features_for_paradigm(name=name, kind="Paradigm")
     feature_values |= fixed_features
     features = set(feature for feature, _ in feature_values)
     expected_features = get_features_for_paradigm(name)
@@ -386,6 +319,7 @@ class InflectStage(NamedTuple):
     marker_value: str = ""
 
 
+@observed_cache([get_yaml_dir()])
 def inflect_stages(
     root: str,
     feature_values: tuple[tuple[str, str]],
@@ -406,8 +340,7 @@ def inflect_stages(
     if isinstance(feature_values, dict):
         feature_values = set(feature_values.items())
 
-    fixed_features = get_fixed_features_for_paradigm(
-        name=name, kind="Paradigm")
+    fixed_features = get_fixed_features_for_paradigm(name=name, kind="Paradigm")
     feature_values |= fixed_features
     features = set(feature for feature, _ in feature_values)
     expected_features = get_features_for_paradigm(name)
@@ -432,8 +365,9 @@ def inflect_stages(
         surface_forms = fsm_strings(
             current_fst, nshortest=5, strip_word_edge_symbols=True
         )
-        marker_value = marker.display_value if hasattr(
-            marker, "display_value") else marker.value
+        marker_value = (
+            marker.display_value if hasattr(marker, "display_value") else marker.value
+        )
         current_stage = InflectStage(
             root=root,
             feature_values=marker_features,
@@ -468,6 +402,7 @@ def inflect_stages(
     return stages
 
 
+@observed_cache([get_yaml_dir()])
 def search(
     kind: str, name: str, form: str, nshortest: int, do_parse: bool = True
 ) -> list[tuple[str, float]] | list[dict]:
@@ -475,15 +410,13 @@ def search(
     form_fsa = word_fsa(form)
     left_factor_lattice = pynini.compose(form_fsa, left_factor).optimize()
     edit_graph = pynini.compose(left_factor_lattice, search_lexicon)
-    hits = fsm_strings_and_weights(
-        edit_graph, strip_all_tags=True, nshortest=nshortest)
+    hits = fsm_strings_and_weights(edit_graph, strip_all_tags=True, nshortest=nshortest)
 
     if do_parse:
         parses = []
         for hit, weight in hits:
             current_parse = parse(hit, kind=kind, name=name)
-            [parse_item.update(edit_distance=weight)
-             for parse_item in current_parse]
+            [parse_item.update(edit_distance=weight) for parse_item in current_parse]
             [parse_item.update(form=hit) for parse_item in current_parse]
             parses.extend(current_parse)
         return parses

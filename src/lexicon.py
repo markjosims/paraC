@@ -1,6 +1,6 @@
 from loguru import logger
 
-from src.launcher import YAML_DIR
+from src.constants import get_yaml_dir
 from src.yaml_utils.yaml_server import get_yaml_data_safe
 import pandas as pd
 import os
@@ -8,7 +8,7 @@ import numpy as np
 
 
 def load_lexicon_df(lexicon_basename: str) -> pd.DataFrame:
-    lexicon_dir = os.path.join(YAML_DIR, "Lexicon", "Wordlists")
+    lexicon_dir = os.path.join(get_yaml_dir(), "Lexicon", "Wordlists")
     lexicon_stem = os.path.splitext(lexicon_basename.removeprefix("$"))[0]
 
     csv_path = os.path.join(lexicon_dir, lexicon_stem + ".csv")
@@ -40,7 +40,7 @@ def get_roots(lexicon_basename: str) -> list[str]:
 
 
 def get_roots_with_lexical_features(
-    lexicon_basename: str, lexical_features: set[tuple[str, str]] | dict[str,str]
+    lexicon_basename: str, lexical_features: set[tuple[str, str]] | dict[str, str]
 ) -> list[str]:
     if isinstance(lexical_features, dict):
         lexical_features = set(lexical_features.items())
@@ -57,7 +57,9 @@ def get_features_for_root(
     lexicon_basename: str, root: str
 ) -> tuple[tuple[str, str], ...]:
     df = load_lexicon_df(lexicon_basename)
-    part_of_speech = get_yaml_data_safe(yaml_basename=lexicon_basename, kind="PartOfSpeech")
+    part_of_speech = get_yaml_data_safe(
+        yaml_basename=lexicon_basename, kind="PartOfSpeech"
+    )
     lexical_features = part_of_speech.get("lexical_features", [])
     row = df[df["root"] == root]
     if not row.empty:
@@ -87,13 +89,9 @@ def get_principal_part_for_all_roots(
 ) -> list[str]:
     df = load_lexicon_df(lexicon_basename)
     if fallback_to_root:
-        return (
-            df[principal_part]
-            .replace("", np.nan)
-            .fillna(df["root"])
-            .tolist()
-        )
+        return df[principal_part].replace("", np.nan).fillna(df["root"]).tolist()
     return df[principal_part].tolist()
+
 
 def get_gloss_for_root(lexicon_basename: str, root: str) -> str | None:
     df = load_lexicon_df(lexicon_basename)
@@ -101,6 +99,7 @@ def get_gloss_for_root(lexicon_basename: str, root: str) -> str | None:
     if not row.empty:
         return row.iloc[0]["gloss"]
     return None
+
 
 def get_roots_with_gloss(lexicon_basename: str, gloss: str) -> list[str]:
     df = load_lexicon_df(lexicon_basename)

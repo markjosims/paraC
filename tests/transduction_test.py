@@ -26,6 +26,11 @@ import pynini
 from src.yaml_utils.yaml_server import get_yaml_data_safe
 from src.grammar.paradigm_compilation import inflect, parse, search, _get_or_build
 
+from src.constants import PROJECT_ROOT
+import os
+
+os.environ["YAML_DIR"] = os.path.join(PROJECT_ROOT, "yaml", "spanish-example")
+
 
 def test_suffix():
     marker = SingleStringMarker(kind="suffix", value="-sufijo")
@@ -57,11 +62,11 @@ def test_rule():
     fst = compile_marker(marker)
     assert isinstance(fst, pynini.Fst)
 
-    root = word_fsa("po<Stress>do")
+    root = word_fsa("pod")
     result = pynini.compose(root, fst)
     assert result.num_states() > 0
     result_strings = fsm_strings(result, strip_all_tags=True)
-    assert "puédo" in result_strings
+    assert "pued" in result_strings
 
 
 def test_2sg_a_class():

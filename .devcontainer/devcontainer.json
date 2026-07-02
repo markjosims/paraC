@@ -3,7 +3,10 @@
     "image": "mcr.microsoft.com/devcontainers/python:3.10",
     "postCreateCommand": "uv sync && source .venv/bin/activate && parC",
     "features": {
-        "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
+        "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {},
+        "ghcr.io/devcontainers/features/sshd:1": {
+            "version": "latest"
+        }
     },
     "customizations": {
         "vscode": {
