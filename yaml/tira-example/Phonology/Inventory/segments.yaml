@@ -10,12 +10,12 @@ data:
       - name: stops
         ref: <stop>
         children:
-        - name: voiced palatal stop
-          ref: <J>
-          phones: [ɟ]
-        - name: other stops
-          ref: <OtherStops>
-          phones: [p, t, c, k, b, d, g]
+          - name: voiced palatal stop
+            ref: <J>
+            phones: [ɟ]
+          - name: voiced stops
+            ref: <VoicedStop>
+            phones: [p, t, c, k, b, d, g]
 
 ## HELP FOR INVENTORY ##
 # The inventory is built as a nested tree
